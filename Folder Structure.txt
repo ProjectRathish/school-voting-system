@@ -1,0 +1,11 @@
+backend
+│
+├── config
+├── routes
+├── controllers
+├── services
+├── middleware
+├── utils
+│
+├── server.js
+└── .env
