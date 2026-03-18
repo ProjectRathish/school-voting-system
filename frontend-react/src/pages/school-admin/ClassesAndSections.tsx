@@ -5,7 +5,7 @@ import {
   DialogActions, TextField, Alert, CircularProgress, IconButton,
   FormControl, InputLabel, Select, MenuItem, Tabs, Tab
 } from '@mui/material';
-import { Plus, Trash2, Edit, Settings, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Edit, Settings, Sparkles, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useElectionStore } from '../../store/electionStore';
@@ -13,7 +13,8 @@ import { NavLink } from 'react-router-dom';
 
 const ClassesAndSections = () => {
   const [tab, setTab] = useState(0);
-  const { selectedElectionId, selectedElectionName } = useElectionStore();
+  const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
+  const isConfiguring = selectedElectionStatus === 'DRAFT' || selectedElectionStatus === 'CONFIGURING';
   const [openSection, setOpenSection] = useState(false);
   const [openClass, setOpenClass] = useState(false);
   const [sectionName, setSectionName] = useState('');
@@ -22,6 +23,8 @@ const ClassesAndSections = () => {
   const [editingClass, setEditingClass] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [searchSection, setSearchSection] = useState('');
+  const [searchClass, setSearchClass] = useState('');
   const queryClient = useQueryClient();
 
   // No local election query needed
@@ -95,6 +98,12 @@ const ClassesAndSections = () => {
 
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
 
+      {!isConfiguring && selectedElectionId && (
+        <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
+           <strong>Configuration Locked:</strong> Adding, editing, or deleting classes and sections is strictly disabled because this election is no longer in Configuration Mode.
+        </Alert>
+      )}
+
       <Box sx={{ 
         mb: 4, 
         display: 'flex'
@@ -166,10 +175,21 @@ const ClassesAndSections = () => {
           {/* Sections Tab */}
           {tab === 0 && (
             <Box sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenSection(true); }}>
-                  Add Section
-                </Button>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, mb: 2 }}>
+                <TextField
+                  size="small"
+                  placeholder="Search sections..."
+                  value={searchSection}
+                  onChange={(e) => setSearchSection(e.target.value)}
+                  InputProps={{
+                    startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />
+                  }}
+                />
+                {isConfiguring && (
+                  <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenSection(true); }}>
+                    Add Section
+                  </Button>
+                )}
               </Box>
               <TableContainer>
                 <Table>
@@ -177,26 +197,30 @@ const ClassesAndSections = () => {
                     <TableRow>
                       <TableCell>Section Name</TableCell>
                       <TableCell>Created At</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      {isConfiguring && <TableCell align="right">Actions</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {sectionsLoading ? (
-                      <TableRow><TableCell colSpan={3} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-                    ) : sections?.length === 0 ? (
-                      <TableRow><TableCell colSpan={3} align="center" sx={{ color: 'text.secondary' }}>No sections yet</TableCell></TableRow>
-                    ) : sections?.map((s: any) => (
+                      <TableRow><TableCell colSpan={isConfiguring ? 3 : 2} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+                    ) : (sections?.filter((s: any) => s.name.toLowerCase().includes(searchSection.toLowerCase())) || []).length === 0 ? (
+                      <TableRow><TableCell colSpan={isConfiguring ? 3 : 2} align="center" sx={{ color: 'text.secondary' }}>
+                        {searchSection ? 'No sections match your search' : 'No sections yet'}
+                      </TableCell></TableRow>
+                    ) : (sections?.filter((s: any) => s.name.toLowerCase().includes(searchSection.toLowerCase())) || []).map((s: any) => (
                       <TableRow key={s.id}>
                         <TableCell sx={{ fontWeight: 600 }}>{s.name}</TableCell>
                         <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell align="right">
-                          <IconButton onClick={() => { setError(null); setEditingSection(s); setSectionName(s.name); setOpenSection(true); }} color="primary">
-                            <Edit size={18} />
-                          </IconButton>
-                          <IconButton onClick={() => deleteSectionMutation.mutate(s.id)} color="error">
-                            <Trash2 size={18} />
-                          </IconButton>
-                        </TableCell>
+                        {isConfiguring && (
+                          <TableCell align="right">
+                            <IconButton onClick={() => { setError(null); setEditingSection(s); setSectionName(s.name); setOpenSection(true); }} color="primary">
+                              <Edit size={18} />
+                            </IconButton>
+                            <IconButton onClick={() => deleteSectionMutation.mutate(s.id)} color="error">
+                              <Trash2 size={18} />
+                            </IconButton>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -208,10 +232,21 @@ const ClassesAndSections = () => {
           {/* Classes Tab */}
           {tab === 1 && (
             <Box sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-                <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenClass(true); }}>
-                  Add Class
-                </Button>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, mb: 2 }}>
+                <TextField
+                  size="small"
+                  placeholder="Search classes..."
+                  value={searchClass}
+                  onChange={(e) => setSearchClass(e.target.value)}
+                  InputProps={{
+                    startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />
+                  }}
+                />
+                {isConfiguring && (
+                  <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenClass(true); }}>
+                    Add Class
+                  </Button>
+                )}
               </Box>
               <TableContainer>
                 <Table>
@@ -220,33 +255,36 @@ const ClassesAndSections = () => {
                       <TableCell>Class Name</TableCell>
                       <TableCell>Section</TableCell>
                       <TableCell>Created At</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      {isConfiguring && <TableCell align="right">Actions</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {classesLoading ? (
-                      <TableRow><TableCell colSpan={4} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-                    ) : classes?.length === 0 ? (
-                      <TableRow><TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>No classes yet</TableCell></TableRow>
-                    ) : classes?.map((c: any) => (
+                      <TableRow><TableCell colSpan={isConfiguring ? 4 : 3} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+                    ) : (classes?.filter((c: any) => c.name.toLowerCase().includes(searchClass.toLowerCase()) || (c.section_name && c.section_name.toLowerCase().includes(searchClass.toLowerCase()))) || []).length === 0 ? (
+                      <TableRow><TableCell colSpan={isConfiguring ? 4 : 3} align="center" sx={{ color: 'text.secondary' }}>
+                        {searchClass ? 'No classes match your search' : 'No classes yet'}
+                      </TableCell></TableRow>
+                    ) : (classes?.filter((c: any) => c.name.toLowerCase().includes(searchClass.toLowerCase()) || (c.section_name && c.section_name.toLowerCase().includes(searchClass.toLowerCase()))) || []).map((c: any) => (
                       <TableRow key={c.id}>
                         <TableCell sx={{ fontWeight: 600 }}>{c.name}</TableCell>
                         <TableCell>{c.section_name || c.section_id}</TableCell>
                         <TableCell>{new Date(c.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell align="right">
-                          <IconButton onClick={() => { 
-                            setError(null);
-                            setEditingClass(c); 
-                            // Find section id from name if needed, but classes response usually has it
-                            setClassForm({ name: c.name, section_id: c.section_id || '' }); 
-                            setOpenClass(true); 
-                          }} color="primary">
-                            <Edit size={18} />
-                          </IconButton>
-                          <IconButton onClick={() => deleteClassMutation.mutate(c.id)} color="error">
-                            <Trash2 size={18} />
-                          </IconButton>
-                        </TableCell>
+                        {isConfiguring && (
+                          <TableCell align="right">
+                            <IconButton onClick={() => { 
+                              setError(null);
+                              setEditingClass(c); 
+                              setClassForm({ name: c.name, section_id: c.section_id || '' }); 
+                              setOpenClass(true); 
+                            }} color="primary">
+                              <Edit size={18} />
+                            </IconButton>
+                            <IconButton onClick={() => deleteClassMutation.mutate(c.id)} color="error">
+                              <Trash2 size={18} />
+                            </IconButton>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>

@@ -14,7 +14,8 @@ import { NavLink } from 'react-router-dom';
 
 const Voters = () => {
   const [currentTab, setCurrentTab] = useState(0);
-  const { selectedElectionId, selectedElectionName } = useElectionStore();
+  const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
+  const isConfiguring = selectedElectionStatus === 'DRAFT' || selectedElectionStatus === 'CONFIGURING';
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [openAdd, setOpenAdd] = useState(false);
@@ -115,76 +116,94 @@ const Voters = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700 }}>Voter Management</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button variant="outlined" startIcon={<Upload size={20} />} onClick={() => setOpenUpload(true)} disabled={!selectedElectionId}>
-            Bulk Upload
-          </Button>
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => setOpenAdd(true)} disabled={!selectedElectionId}>
-            Add Voter
-          </Button>
+          {isConfiguring && (
+            <Button variant="outlined" startIcon={<Upload size={20} />} onClick={() => { setError(null); setOpenUpload(true); }} disabled={!selectedElectionId}>
+              Bulk Upload
+            </Button>
+          )}
+          {selectedElectionStatus !== 'CLOSED' && (
+            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenAdd(true); }} disabled={!selectedElectionId}>
+              Add Voter
+            </Button>
+          )}
         </Box>
       </Box>
 
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {error && !openAdd && !openUpload && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+      {!isConfiguring && selectedElectionId && selectedElectionStatus !== 'CLOSED' && (
+        <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
+          <strong>Configuration Locked:</strong> This election is active or ready. To ensure data integrity, bulk uploading, editing, and deleting voters is restricted. However, you are cleanly permitted to add missing voters individually.
+        </Alert>
+      )}
+
+      {/* Moved Banner Outside */}
+      <Box sx={{ 
+        mb: 4, 
+        display: 'flex'
+      }}>
+        <Box sx={{ 
+          p: '1.5px', 
+          borderRadius: '24px', 
+          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
+          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
+          position: 'relative'
+        }}>
+          <Box sx={{ 
+            px: 3, 
+            py: 2, 
+            borderRadius: '23px', 
+            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2.5
+          }}>
+            <Box sx={{ 
+              width: 45, 
+              height: 45, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
+            }}>
+              <Sparkles size={22} />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ 
+                color: 'text.secondary', 
+                fontWeight: 800, 
+                textTransform: 'uppercase', 
+                letterSpacing: 1.5,
+                fontSize: '0.65rem',
+                display: 'block',
+                mb: 0.5
+              }}>
+                Active Configuration
+              </Typography>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 900, 
+                color: 'text.primary', 
+                lineHeight: 1.1,
+                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '1.25rem'
+              }}>
+                {selectedElectionName || 'None Selected'}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
 
       <Paper sx={{ mb: 3, borderRadius: 3 }}>
         <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid size={{ xs: 12, md: 5 }}>
-               <Box sx={{ 
-                 p: '1.5px', // Slightly thicker for crisp border
-                 borderRadius: '20px', 
-                 background: 'linear-gradient(45deg, #6366f1, #a855f7)',
-                 boxShadow: '0 4px 15px -5px rgba(99, 102, 241, 0.3)',
-                 display: 'flex'
-               }}>
-                 <Box sx={{ 
-                   px: 2, 
-                   py: 1.2, 
-                   borderRadius: '18.5px', // Matched to outer radius
-                   background: theme => theme.palette.mode === 'dark' ? '#1a1a24' : '#fff',
-                   display: 'flex', 
-                   alignItems: 'center', 
-                   gap: 2,
-                   width: '100%'
-                 }}>
-                    <Box sx={{ 
-                      width: 38, 
-                      height: 38, 
-                      borderRadius: '10px', 
-                      background: 'linear-gradient(135deg, #6366f1, #4338ca)',
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      color: 'white'
-                    }}>
-                      <Sparkles size={18} />
-                    </Box>
-                    <Box>
-                       <Typography variant="caption" sx={{ 
-                         color: 'text.secondary', 
-                         fontWeight: 800, 
-                         textTransform: 'uppercase', 
-                         fontSize: '0.6rem', 
-                         letterSpacing: 1, 
-                         display: 'block' 
-                       }}>
-                          Active Configuration
-                       </Typography>
-                       <Typography variant="subtitle1" sx={{ 
-                         fontWeight: 800, 
-                         lineHeight: 1.1, 
-                         background: 'linear-gradient(45deg, #6366f1, #a855f7)', 
-                         WebkitBackgroundClip: 'text', 
-                         WebkitTextFillColor: 'transparent' 
-                       }}>
-                         {selectedElectionName || 'None Selected'}
-                       </Typography>
-                    </Box>
-                 </Box>
-               </Box>
-            </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
+            <Grid size={{ xs: 12, md: 8 }}>
               <TextField
                 fullWidth
                 placeholder="Search name or admission number..."
@@ -195,8 +214,8 @@ const Voters = () => {
                 }}
               />
             </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <Button fullWidth variant="outlined" startIcon={<Download size={18} />} onClick={handleExport} disabled={!filteredVoters?.length}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Button fullWidth variant="outlined" startIcon={<Download size={18} />} onClick={handleExport} disabled={!filteredVoters?.length} sx={{ height: '56px' }}>
                 Export List
               </Button>
             </Grid>
@@ -231,14 +250,14 @@ const Voters = () => {
                 <TableCell sx={{ fontWeight: 700 }}>Class</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Gender</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                {isConfiguring && <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 8 }}><CircularProgress size={32} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={isConfiguring ? 6 : 5} align="center" sx={{ py: 8 }}><CircularProgress size={32} /></TableCell></TableRow>
               ) : filteredVoters?.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>No voters found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isConfiguring ? 6 : 5} align="center" sx={{ py: 8, color: 'text.secondary' }}>No voters found</TableCell></TableRow>
               ) : filteredVoters?.map((v: any) => (
                 <TableRow key={v.id} hover>
                   <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>{v.admission_no}</TableCell>
@@ -252,11 +271,13 @@ const Voters = () => {
                     <Chip label={v.has_voted ? 'Voted' : 'Ready'} size="small"
                       color={v.has_voted ? 'success' : 'default'} />
                   </TableCell>
-                  <TableCell align="right">
-                    <IconButton onClick={() => deleteVoterMutation.mutate(v.id)} color="error" size="small">
-                      <Trash2 size={16} />
-                    </IconButton>
-                  </TableCell>
+                  {isConfiguring && (
+                    <TableCell align="right">
+                      <IconButton onClick={() => deleteVoterMutation.mutate(v.id)} color="error" size="small">
+                        <Trash2 size={16} />
+                      </IconButton>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -276,9 +297,10 @@ const Voters = () => {
       )}
 
       {/* Add Voter Dialog */}
-      <Dialog open={openAdd} onClose={() => setOpenAdd(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openAdd} onClose={() => { setError(null); setOpenAdd(false); }} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Add Individual Voter</DialogTitle>
         <DialogContent>
+          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>{error}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             <TextField label="Admission Number" fullWidth required
               value={voterForm.admission_no} onChange={e => setVoterForm(p => ({ ...p, admission_no: e.target.value.toUpperCase() }))} />
@@ -302,7 +324,7 @@ const Voters = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenAdd(false)}>Cancel</Button>
+          <Button onClick={() => { setError(null); setOpenAdd(false); }}>Cancel</Button>
           <Button variant="contained" onClick={() => addVoterMutation.mutate(voterForm)}
             disabled={addVoterMutation.isPending}>
             {addVoterMutation.isPending ? <CircularProgress size={20} /> : 'Save Voter'}
@@ -311,9 +333,10 @@ const Voters = () => {
       </Dialog>
 
       {/* Bulk Upload Dialog */}
-      <Dialog open={openUpload} onClose={() => setOpenUpload(false)} maxWidth="sm" fullWidth>
+      <Dialog open={openUpload} onClose={() => { setError(null); setOpenUpload(false); }} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Import Voters via Excel</DialogTitle>
         <DialogContent>
+          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>{error}</Alert>}
           <Alert severity="info" sx={{ mt: 1, mb: 3 }}>
             Download the template or ensure your .xlsx file has these columns: <b>admission_no, name, class, sex</b>
           </Alert>
@@ -341,7 +364,7 @@ const Voters = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenUpload(false)}>Cancel</Button>
+          <Button onClick={() => { setError(null); setOpenUpload(false); }}>Cancel</Button>
           <Button variant="contained" onClick={() => uploadMutation.mutate()}
             disabled={!uploadFile || uploadMutation.isPending}>
             {uploadMutation.isPending ? <CircularProgress size={20} /> : 'Confirm Import'}

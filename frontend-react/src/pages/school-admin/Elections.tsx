@@ -16,14 +16,19 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField
+  TextField,
+  Tooltip
 } from '@mui/material';
-import { Plus, Edit, Trash2, Play, Save, Settings } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { Alert, CircularProgress } from '@mui/material';
 import { useElectionStore } from '../../store/electionStore';
 import { useEffect } from 'react';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
+import dayjs from 'dayjs';
 
 const Elections = () => {
   const [open, setOpen] = useState(false);
@@ -36,9 +41,10 @@ const Elections = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const queryClient = useQueryClient();
-  const { setSelectedElection, selectedElectionId } = useElectionStore();
+  const { setSelectedElection, selectedElectionId, selectedElectionStatus } = useElectionStore();
 
   const { data: elections, isLoading } = useQuery({
     queryKey: ['elections'],
@@ -48,19 +54,21 @@ const Elections = () => {
     }
   });
 
-  // Auto-sync global store with the election currently in CONFIGURING status
+  // Auto-sync global store natively but allow manual override
   useEffect(() => {
     if (elections && Array.isArray(elections)) {
       const configElection = elections.find((e: any) => e.status === 'CONFIGURING');
-      if (configElection) {
-        setSelectedElection(String(configElection.id), configElection.name);
-      } else if (!configElection && selectedElectionId) {
-         // If no election is CONFIGURING but we have one in store, check if it still exists
-         const exists = elections.find((e: any) => String(e.id) === selectedElectionId);
-         if (!exists) setSelectedElection(null, null);
+      
+      if (configElection && !selectedElectionId) {
+        setSelectedElection(String(configElection.id), configElection.name, configElection.status);
+      } else if (selectedElectionId) {
+        const synced = elections.find((e: any) => String(e.id) === selectedElectionId);
+        if (synced && synced.status !== selectedElectionStatus) {
+          setSelectedElection(String(synced.id), synced.name, synced.status);
+        }
       }
     }
-  }, [elections, setSelectedElection, selectedElectionId]);
+  }, [elections, selectedElectionId, selectedElectionStatus, setSelectedElection]);
 
   const upsertElectionMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -134,18 +142,15 @@ const Elections = () => {
     setOpen(true);
   };
 
-  const handlePlayClick = (election: any) => {
-    const nextStatus = election.status === 'READY' || election.status === 'PAUSED' ? 'ACTIVE' : 'READY';
-    updateStatusMutation.mutate({ id: election.id, status: nextStatus });
+  const changeStatus = (id: number, status: string) => {
+    updateStatusMutation.mutate({ id, status });
   };
 
   const handleConfigure = (election: any) => {
     if (election.status === 'CONFIGURING') {
-      // If already configuring, maybe toggle it off? No, usually keep it.
-      // But let's allow setting it back to DRAFT if they want to stop configuring
-      updateStatusMutation.mutate({ id: election.id, status: 'DRAFT' });
+      changeStatus(election.id, 'DRAFT'); // Toggle off config mode
     } else {
-      updateStatusMutation.mutate({ id: election.id, status: 'CONFIGURING' });
+      changeStatus(election.id, 'CONFIGURING');
     }
   };
 
@@ -162,15 +167,30 @@ const Elections = () => {
     }
   };
 
+  const filteredElections = elections?.filter((e: any) => 
+    e.name.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700 }}>
           Elections
         </Typography>
-        <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpen(true); }}>
-          Create Election
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <TextField
+            size="small"
+            placeholder="Search elections..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />
+            }}
+          />
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpen(true); }}>
+            Create Election
+          </Button>
+        </Box>
       </Box>
 
       {success && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>{success}</Alert>}
@@ -188,8 +208,16 @@ const Elections = () => {
           </TableHead>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} align="center">Loading...</TableCell></TableRow>
-            ) : elections?.map((election: any) => (
+              <TableRow>
+                <TableCell colSpan={5} align="center"><CircularProgress size={24} /></TableCell>
+              </TableRow>
+            ) : filteredElections.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
+                  {searchQuery ? 'No elections match your search' : 'No elections found. Create one to get started.'}
+                </TableCell>
+              </TableRow>
+            ) : filteredElections.map((election: any) => (
               <TableRow key={election.id}>
                 <TableCell sx={{ fontWeight: 600 }}>{election.name}</TableCell>
                 <TableCell>{new Date(election.start_time).toLocaleString()}</TableCell>
@@ -202,27 +230,88 @@ const Elections = () => {
                   />
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton 
-                    color={election.status === 'CONFIGURING' ? 'primary' : 'default'} 
-                    onClick={() => handleConfigure(election)}
-                    disabled={updateStatusMutation.isPending}
-                    title={election.status === 'CONFIGURING' ? "Active Configuration" : "Set to Configuration Mode"}
-                  >
-                    <Settings size={18} fill={election.status === 'CONFIGURING' ? "currentColor" : "none"} />
-                  </IconButton>
-                  <IconButton color="primary" onClick={() => handleEditClick(election)}>
-                    <Edit size={18} />
-                  </IconButton>
-                  <IconButton 
-                    color={election.status === 'ACTIVE' ? 'warning' : 'success'} 
-                    onClick={() => handlePlayClick(election)}
-                    disabled={updateStatusMutation.isPending || election.status === 'CONFIGURING'}
-                  >
-                    {election.status === 'ACTIVE' ? <Chip label="Pause" size="small" variant="outlined" sx={{ cursor: 'pointer' }} /> : <Play size={18} />}
-                  </IconButton>
-                  <IconButton color="error" onClick={() => setDeleteId(election.id)}>
-                    <Trash2 size={18} />
-                  </IconButton>
+                  {/* View/Manage Election Data (Available in all states) */}
+                  <Tooltip title="View Election Context (Voters, Classes)">
+                    <IconButton color="secondary" onClick={() => setSelectedElection(String(election.id), election.name, election.status)} disabled={updateStatusMutation.isPending}>
+                       <Eye size={18} />
+                    </IconButton>
+                  </Tooltip>
+
+                  {/* Configuration Toggle (Available in DRAFT or CONFIGURING) */}
+                  {(election.status === 'DRAFT' || election.status === 'CONFIGURING') && (
+                    <Tooltip title={election.status === 'CONFIGURING' ? "Active Configuration" : "Set to Configuration Mode"}>
+                      <IconButton 
+                        color={election.status === 'CONFIGURING' ? 'primary' : 'default'} 
+                        onClick={() => handleConfigure(election)}
+                        disabled={updateStatusMutation.isPending}
+                      >
+                        <Settings size={18} fill={election.status === 'CONFIGURING' ? "currentColor" : "none"} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {/* Ready Toggle (Available in CONFIGURING) */}
+                  {election.status === 'CONFIGURING' && (
+                    <Tooltip title="Mark Configuration as Ready">
+                      <IconButton color="info" onClick={() => changeStatus(election.id, 'READY')} disabled={updateStatusMutation.isPending}>
+                        <CheckSquare size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {/* Back to Draft (Available in READY) */}
+                  {election.status === 'READY' && (
+                    <Tooltip title="Unlock Configuration (Back to Draft)">
+                      <IconButton color="default" onClick={() => changeStatus(election.id, 'CONFIGURING')} disabled={updateStatusMutation.isPending}>
+                        <Settings size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {/* Start Election (Available in READY or PAUSED) */}
+                  {(election.status === 'READY' || election.status === 'PAUSED') && (
+                    <Tooltip title="Start Election">
+                      <IconButton color="success" onClick={() => changeStatus(election.id, 'ACTIVE')} disabled={updateStatusMutation.isPending}>
+                        <Play size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {/* Pause Election (Available in ACTIVE) */}
+                  {election.status === 'ACTIVE' && (
+                    <Tooltip title="Pause Election">
+                      <IconButton color="warning" onClick={() => changeStatus(election.id, 'PAUSED')} disabled={updateStatusMutation.isPending}>
+                        <Pause size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {/* End Election (Available in ACTIVE or PAUSED) */}
+                  {(election.status === 'ACTIVE' || election.status === 'PAUSED') && (
+                    <Tooltip title="End Election Permanently">
+                      <IconButton color="error" onClick={() => changeStatus(election.id, 'CLOSED')} disabled={updateStatusMutation.isPending}>
+                        <Square size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {/* Edit Election Specs (Draft, Config, Ready) */}
+                  {(election.status === 'DRAFT' || election.status === 'CONFIGURING' || election.status === 'READY') && (
+                    <Tooltip title="Edit Details">
+                      <IconButton color="primary" onClick={() => handleEditClick(election)} disabled={updateStatusMutation.isPending}>
+                        <Edit size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
+                  {/* Delete Election (Not allowed once active/completed) */}
+                  {(election.status !== 'ACTIVE' && election.status !== 'CLOSED' && election.status !== 'PAUSED') && (
+                    <Tooltip title="Delete Election">
+                      <IconButton color="error" onClick={() => setDeleteId(election.id)} disabled={updateStatusMutation.isPending}>
+                        <Trash2 size={18} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -243,31 +332,21 @@ const Elections = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
-            <Box sx={{ 
-              display: 'flex', 
-              gap: 2,
-              '& input::-webkit-calendar-picker-indicator': {
-                filter: theme => theme.palette.mode === 'dark' ? 'invert(1)' : 'brightness(0) opacity(0.6)',
-                cursor: 'pointer',
-                '&:hover': { opacity: 1 }
-              }
-            }}>
-              <TextField 
-                label="Start Time" 
-                type="datetime-local" 
-                fullWidth 
-                InputLabelProps={{ shrink: true }}
-                value={formData.start_time}
-                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-              />
-              <TextField 
-                label="End Time" 
-                type="datetime-local" 
-                fullWidth 
-                InputLabelProps={{ shrink: true }}
-                value={formData.end_time}
-                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-              />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DateTimePicker 
+                  label="Start Time" 
+                  value={formData.start_time ? dayjs(formData.start_time) : null}
+                  onChange={(newValue) => setFormData({ ...formData, start_time: newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '' })}
+                  sx={{ width: '100%' }}
+                />
+                <DateTimePicker 
+                  label="End Time" 
+                  value={formData.end_time ? dayjs(formData.end_time) : null}
+                  onChange={(newValue) => setFormData({ ...formData, end_time: newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '' })}
+                  sx={{ width: '100%' }}
+                />
+              </LocalizationProvider>
             </Box>
 
 

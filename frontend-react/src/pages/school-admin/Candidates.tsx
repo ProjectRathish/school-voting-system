@@ -45,6 +45,9 @@ const Candidates = () => {
     }
   });
 
+  const selectedElectionObj = elections?.find((e: any) => String(e.id) === String(selectedElection));
+  const isConfiguring = selectedElectionObj && (selectedElectionObj.status === 'CONFIGURING' || selectedElectionObj.status === 'DRAFT');
+
   const addCandidateMutation = useMutation({
     mutationFn: (data: any) => axiosInstance.post('/candidates/register', { ...data, election_id: selectedElection }),
     onSuccess: () => {
@@ -68,13 +71,21 @@ const Candidates = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700 }}>Candidate Management</Typography>
-        <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => setOpen(true)} disabled={!selectedElection}>
-          Register Candidate
-        </Button>
+        {isConfiguring && (
+          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpen(true); }} disabled={!selectedElection}>
+            Register Candidate
+          </Button>
+        )}
       </Box>
 
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+
+      {!isConfiguring && selectedElection && (
+        <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
+           <strong>Configuration Locked:</strong> Adding or removing candidates is completely disabled because this election is no longer in Configuration Mode.
+        </Alert>
+      )}
 
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -132,9 +143,11 @@ const Candidates = () => {
                       color={c.sex === 'M' ? 'info' : 'secondary'} />
                   </TableCell>
                   <TableCell align="right">
-                    <IconButton onClick={() => deleteCandidateMutation.mutate(c.id)} color="error" size="small">
-                      <Trash2 size={16} />
-                    </IconButton>
+                    {isConfiguring && (
+                      <IconButton onClick={() => deleteCandidateMutation.mutate(c.id)} color="error" size="small">
+                        <Trash2 size={16} />
+                      </IconButton>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
