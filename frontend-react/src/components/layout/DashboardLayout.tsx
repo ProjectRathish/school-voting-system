@@ -63,6 +63,7 @@ const navItems: NavItem[] = [
   { text: 'Posts', icon: <Award size={22} />, path: '/school-admin/posts', roles: ['SCHOOL_ADMIN'] },
   { text: 'Voters', icon: <Users size={22} />, path: '/school-admin/voters', roles: ['SCHOOL_ADMIN'] },
   { text: 'Candidates', icon: <UserSquare2 size={22} />, path: '/school-admin/candidates', roles: ['SCHOOL_ADMIN'] },
+  { text: 'Booth Officers', icon: <UserSquare2 size={22} />, path: '/school-admin/staff', roles: ['SCHOOL_ADMIN'] },
   { text: 'Infrastructure', icon: <Monitor size={22} />, path: '/school-admin/infrastructure', roles: ['SCHOOL_ADMIN'] },
   { text: 'Results', icon: <BarChart3 size={22} />, path: '/school-admin/results', roles: ['SCHOOL_ADMIN'] },
   { text: 'Profile', icon: <School size={22} />, path: '/school-admin/profile', roles: ['SCHOOL_ADMIN'] },
@@ -74,8 +75,9 @@ const navItems: NavItem[] = [
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [open, setOpen] = useState(!isMobile);
   const { user, logout } = useAuthStore();
+  const isBoothOfficer = user?.role === 'BOOTH_OFFICER';
+  const [open, setOpen] = useState(!isMobile && !isBoothOfficer);
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -215,7 +217,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
           backdropFilter: 'blur(12px)',
           color: theme.palette.text.primary,
           borderBottom: `1px solid ${theme.palette.divider}`,
-          width: { md: `calc(100% - ${open ? drawerWidth : 0}px)` },
+          width: { md: isBoothOfficer ? '100%' : `calc(100% - ${open ? drawerWidth : 0}px)` },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
@@ -228,7 +230,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               color="inherit"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { md: open ? 'none' : 'flex' } }}
+              sx={{ mr: 2, display: { xs: isBoothOfficer ? 'none' : 'flex', md: open || isBoothOfficer ? 'none' : 'flex' } }}
             >
               <MenuIcon />
             </IconButton>
@@ -278,22 +280,24 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         </Toolbar>
       </AppBar>
 
-      <Drawer
-        variant={isMobile ? 'temporary' : 'persistent'}
-        open={open}
-        onClose={handleDrawerToggle}
-        sx={{
-          width: drawerWidth,
-          '& .MuiDrawer-paper': {
+      {!isBoothOfficer && (
+        <Drawer
+          variant={isMobile ? 'temporary' : 'persistent'}
+          open={open}
+          onClose={handleDrawerToggle}
+          sx={{
             width: drawerWidth,
-            boxSizing: 'border-box',
-            backgroundColor: theme.palette.background.paper,
-            borderRight: `1px solid ${theme.palette.divider}`,
-          },
-        }}
-      >
-        {drawer}
-      </Drawer>
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              backgroundColor: theme.palette.background.paper,
+              borderRight: `1px solid ${theme.palette.divider}`,
+            },
+          }}
+        >
+          {drawer}
+        </Drawer>
+      )}
 
       <Box
         component="main"

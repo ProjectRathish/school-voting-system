@@ -351,14 +351,20 @@ const Elections = () => {
                 <TableCell align="right">
                   {/* View/Manage Election Data (Available in ACTIVE, PAUSED, or CLOSED states) */}
                   {(election.status === 'ACTIVE' || election.status === 'PAUSED' || election.status === 'CLOSED') && (
-                    <Tooltip title={isSelected ? (election.status === 'CLOSED' ? "Deselect for summary" : "Quit limited access") : (election.status === 'CLOSED' ? "Select for results/summary" : "Configure with limited access")}>
+                    <Tooltip title={isSelected ? (election.status === 'CLOSED' ? "View Results" : "Quit limited access") : (election.status === 'CLOSED' ? "View Results" : "Configure with limited access")}>
                       <IconButton 
                         color={isSelected ? "primary" : "secondary"} 
-                        onClick={() => handleContextSwitch(election, isSelected)}
+                        onClick={() => {
+                          if (election.status === 'CLOSED') {
+                            navigate('/school-admin/results', { state: { electionId: election.id } });
+                          } else {
+                            handleContextSwitch(election, isSelected);
+                          }
+                        }}
                         disabled={updateStatusMutation.isPending}
                         sx={{
                           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          ...(isSelected ? {
+                          ...(isSelected && election.status !== 'CLOSED' ? {
                             backgroundColor: 'primary.main',
                             color: 'white',
                             '&:hover': {

@@ -14,17 +14,25 @@ router.post(
   votingMachineController.registerMachine
 );
 
+// Get all machines for an election (Admin only)
+router.get(
+  "/get-machines",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  votingMachineController.getAllMachines
+);
+
 // Verify voting machine (No auth - uses machine token)
 router.get(
   "/verify",
   votingMachineController.verifyMachine
 );
 
-// Get all machines in a specific booth (Admin only)
+// Get all machines in a specific booth (Admin and Booth Officer)
 router.get(
   "/booth/:booth_id",
   requireAuth,
-  requireRole("SCHOOL_ADMIN"),
+  requireRole("SCHOOL_ADMIN", "BOOTH_OFFICER"),
   votingMachineController.getMachinesInBooth
 );
 
@@ -34,6 +42,14 @@ router.get(
   requireAuth,
   requireRole("SCHOOL_ADMIN"),
   votingMachineController.getMachineById
+);
+
+// Update machine details (Admin only)
+router.put(
+  "/:machine_id",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  votingMachineController.updateMachine
 );
 
 // Update machine status (Admin only)

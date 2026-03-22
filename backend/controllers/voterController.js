@@ -410,9 +410,52 @@ exports.downloadTemplate = async (req, res) => {
 
     await workbook.xlsx.write(res);
     res.end();
-
   } catch (error) {
     console.error("Error generating template:", error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.verifyVoter = async (req, res) => {
+  try {
+    const { admission_no } = req.params;
+    const { election_id } = req.query;
+    const school_id = req.user.school_id;
+
+    if (!admission_no || !election_id) {
+       return res.status(400).json({ message: "admission_no and election_id are required" });
+    }
+
+    const [rows] = await db.execute(
+       `SELECT v.*, c.name as class_name 
+        FROM voters v
+        JOIN classes c ON v.class_id = c.id
+        WHERE v.admission_no=? AND v.election_id=? AND v.school_id=?`,
+       [admission_no, election_id, school_id]
+    );
+
+    if (rows.length === 0) {
+       return res.status(404).json({ message: "Voter not found in this election" });
+    }
+
+    const voter = rows[0];
+
+    // Return status info
+    res.json({
+       message: "Voter found",
+       voter: {
+          id: voter.id,
+          name: voter.name,
+          admission_no: voter.admission_no,
+          class_name: voter.class_name,
+          has_voted: voter.has_voted,
+          is_active: voter.is_active,
+          is_blocked: voter.is_blocked
+       }
+    });
+
+  } catch (error) {
+    console.error("Error verifying voter:", error);
+    res.status(500).json({ message: "Server error during verification" });
   }
 };

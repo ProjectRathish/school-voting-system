@@ -102,6 +102,7 @@ exports.boothLogin = async (req, res) => {
     );
 
     let assigned_booth_id = assignments.length > 0 ? assignments[0].booth_id : user.booth_id;
+    let assigned_election_id = assignments.length > 0 ? assignments[0].election_id : null;
     if (!assigned_booth_id) return res.status(403).json({ message: "No active assignment" });
 
     const match = await bcrypt.compare(password, user.password_hash);
@@ -114,13 +115,14 @@ exports.boothLogin = async (req, res) => {
         school_id: user.school_id,
         school_code: school_code,
         booth_id: assigned_booth_id,
+        election_id: assigned_election_id,
         must_change_password: user.must_change_password
       },
       process.env.JWT_SECRET,
       { expiresIn: "12h" }
     );
 
-    res.json({ token, role: user.role, school_id: user.school_id, school_code: school_code, booth_id: assigned_booth_id, must_change_password: user.must_change_password });
+    res.json({ token, role: user.role, school_id: user.school_id, school_code: school_code, booth_id: assigned_booth_id, election_id: assigned_election_id, must_change_password: user.must_change_password });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -133,9 +135,9 @@ exports.createBoothOfficer = async (req, res) => {
     const school_id = req.user.school_id;
     const hash = await bcrypt.hash(password, 10);
     const [result] = await db.execute(
-      `INSERT INTO users (school_id, username, password_hash, role, must_change_password, booth_id)
-       VALUES (?, ?, ?, 'BOOTH_OFFICER', 1, ?)`,
-      [school_id, username, hash, booth_id || null]
+      `INSERT INTO users (school_id, username, password_hash, plain_password, role, must_change_password, booth_id)
+       VALUES (?, ?, ?, ?, 'BOOTH_OFFICER', 0, ?)`,
+      [school_id, username, hash, password, booth_id || null]
     );
     res.status(201).json({ message: "Officer created", id: result.insertId });
   } catch (error) {
@@ -146,7 +148,7 @@ exports.createBoothOfficer = async (req, res) => {
 
 exports.getBoothOfficers = async (req, res) => {
   try {
-    const [rows] = await db.execute("SELECT id, username, created_at, booth_id FROM users WHERE school_id=? AND role='BOOTH_OFFICER'", [req.user.school_id]);
+    const [rows] = await db.execute("SELECT id, username, plain_password, created_at, booth_id FROM users WHERE school_id=? AND role='BOOTH_OFFICER'", [req.user.school_id]);
     res.json({ data: rows });
   } catch (error) {
     console.error(error);
@@ -167,7 +169,7 @@ exports.deleteBoothOfficer = async (req, res) => {
 exports.resetBoothOfficerPassword = async (req, res) => {
   try {
     const hash = await bcrypt.hash(req.body.new_password, 10);
-    await db.execute("UPDATE users SET password_hash=?, must_change_password=1 WHERE id=? AND school_id=?", [hash, req.params.id, req.user.school_id]);
+    await db.execute("UPDATE users SET password_hash=?, plain_password=?, must_change_password=0 WHERE id=? AND school_id=?", [hash, req.body.new_password, req.params.id, req.user.school_id]);
     res.json({ message: "Reset" });
   } catch (error) {
     console.error(error);

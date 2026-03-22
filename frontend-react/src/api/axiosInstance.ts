@@ -1,8 +1,17 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
+const getBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  // If viewing on a local network IP but the .env hardcodes localhost, force dynamic IP fallback
+  if (envUrl && envUrl.includes('localhost') && window.location.hostname !== 'localhost') {
+    return `${window.location.protocol}//${window.location.hostname}:5000/api`;
+  }
+  return envUrl || `${window.location.protocol}//${window.location.hostname}:5000/api`;
+};
+
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  baseURL: getBaseUrl(),
 });
 
 axiosInstance.interceptors.request.use(

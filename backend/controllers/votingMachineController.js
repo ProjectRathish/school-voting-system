@@ -3,10 +3,10 @@ const crypto = require("crypto");
 const io = require("../utils/socket");
 
 // Generate unique machine code format: VM-BOOTH-NUMBER
-const generateMachineCode = async (booth_id) => {
+const generateMachineCode = async (booth_number) => {
   const timestamp = Date.now().toString().slice(-4);
   const random = Math.floor(Math.random() * 100).toString().padStart(2, "0");
-  return `VM-B${booth_id}-${timestamp}${random}`;
+  return `VM-B${booth_number}-${timestamp}${random}`;
 };
 
 // Generate secure machine token
@@ -41,7 +41,7 @@ exports.registerMachine = async (req, res) => {
 
     // Verify polling booth exists and belongs to the election
     const [boothRows] = await db.execute(
-      `SELECT id FROM polling_booths WHERE id=? AND election_id=? AND school_id=?`,
+      `SELECT id, booth_number FROM polling_booths WHERE id=? AND election_id=? AND school_id=?`,
       [booth_id, election_id, school_id]
     );
 
@@ -63,8 +63,9 @@ exports.registerMachine = async (req, res) => {
       });
     }
 
-    // Generate unique machine code
-    const machine_code = await generateMachineCode(booth_id);
+    // Generate unique machine code using actual booth number
+    const booth_number = boothRows[0].booth_number;
+    const machine_code = await generateMachineCode(booth_number);
 
     // Generate secure machine token
     const machine_token = generateMachineToken();
@@ -103,11 +104,11 @@ exports.verifyMachine = async (req, res) => {
       });
     }
 
-    // Find machine by token
+    // Find machine by machine_code (which is passed in the machine-token header for easier UX)
     const [machines] = await db.execute(
       `SELECT m.id, m.booth_id, m.status, m.machine_code, m.machine_name, m.election_id, m.school_id, m.current_voter_id
        FROM voting_machines m
-       WHERE m.machine_token=?`,
+       WHERE m.machine_code=?`,
       [machineToken]
     );
 
@@ -155,7 +156,7 @@ exports.getMachinesInBooth = async (req, res) => {
 
     // Verify booth exists
     const [boothRows] = await db.execute(
-      `SELECT id FROM polling_booths WHERE id=? AND school_id=?`,
+      `SELECT id, booth_number, location FROM polling_booths WHERE id=? AND school_id=?`,
       [booth_id, school_id]
     );
 
@@ -175,8 +176,9 @@ exports.getMachinesInBooth = async (req, res) => {
       [booth_id, school_id]
     );
 
-    // Add booth_name to response
-    const boothName = machines.length > 0 ? machines[0].booth_number : null;
+    // Add booth_name to response from the primary lookup
+    const boothName = boothRows[0]?.booth_number || null;
+    const boothLocation = boothRows[0]?.location || 'Unspecified Location';
     const machinesData = machines.map(m => ({
       id: m.id,
       machine_name: m.machine_name,
@@ -189,11 +191,41 @@ exports.getMachinesInBooth = async (req, res) => {
       message: "Machines retrieved successfully",
       booth_id,
       booth_name: boothName,
+      booth_location: boothLocation,
       count: machines.length,
       data: machinesData
     });
   } catch (err) {
     console.error("Error fetching machines:", err);
+    res.status(500).json({
+      message: "Error fetching machines",
+      error: err.message
+    });
+  }
+};
+
+// Get all machines for an election
+exports.getAllMachines = async (req, res) => {
+  try {
+    const school_id = req.user.school_id;
+    const { election_id } = req.query;
+
+    if (!election_id) {
+        return res.status(400).json({ message: "election_id is required" });
+    }
+
+    const [machines] = await db.execute(
+      `SELECT m.id, m.machine_name, m.machine_code, m.status, m.created_at, pb.booth_number, m.booth_id
+       FROM voting_machines m
+       JOIN polling_booths pb ON m.booth_id = pb.id
+       WHERE m.election_id=? AND m.school_id=?
+       ORDER BY pb.booth_number ASC, m.machine_name ASC`,
+      [election_id, school_id]
+    );
+
+    res.json(machines);
+  } catch (err) {
+    console.error("Error fetching all machines:", err);
     res.status(500).json({
       message: "Error fetching machines",
       error: err.message
@@ -282,6 +314,65 @@ exports.updateMachineStatus = async (req, res) => {
       machine_id,
       status
     });
+  } catch (err) {
+    console.error("Error updating machine:", err);
+    res.status(500).json({
+      message: "Error updating machine",
+      error: err.message
+    });
+  }
+};
+
+// Update machine details
+exports.updateMachine = async (req, res) => {
+  try {
+    const school_id = req.user.school_id;
+    const { machine_id } = req.params;
+    const { machine_name, booth_id } = req.body;
+
+    if (!machine_name || !booth_id) {
+       return res.status(400).json({ message: "machine_name and booth_id are required" });
+    }
+
+    // Verify machine exists
+    const [existing] = await db.execute(
+      `SELECT id, election_id FROM voting_machines WHERE id=? AND school_id=?`,
+      [machine_id, school_id]
+    );
+
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Machine not found" });
+    }
+
+    const election_id = existing[0].election_id;
+
+    // Verify booth belongs to this election
+    const [boothRows] = await db.execute(
+      `SELECT id FROM polling_booths WHERE id=? AND election_id=? AND school_id=?`,
+      [booth_id, election_id, school_id]
+    );
+
+    if (boothRows.length === 0) {
+      return res.status(400).json({ message: "Selected booth does not belong to this election" });
+    }
+
+    // Uniqueness check for machine name within the booth
+    const [dup] = await db.execute(
+      `SELECT id FROM voting_machines WHERE machine_name=? AND booth_id=? AND id != ?`,
+      [machine_name, booth_id, machine_id]
+    );
+
+    if (dup.length > 0) {
+       return res.status(400).json({ message: "Machine name already exists in this booth" });
+    }
+
+    await db.execute(
+      `UPDATE voting_machines SET machine_name=?, booth_id=? WHERE id=? AND school_id=?`,
+      [machine_name, booth_id, machine_id, school_id]
+    );
+
+    res.json({ message: "Machine updated successfully" });
+
   } catch (err) {
     console.error("Error updating machine:", err);
     res.status(500).json({
@@ -452,11 +543,11 @@ exports.castVote = async (req, res) => {
       return res.status(400).json({ error: "Votes array is required" });
     }
 
-    // Find machine by token (FOR UPDATE to lock it)
+    // Find machine by machine_code (FOR UPDATE to lock it)
     const [machines] = await connection.execute(
       `SELECT m.id, m.school_id, m.election_id, m.status, m.current_voter_id 
        FROM voting_machines m
-       WHERE m.machine_token=? FOR UPDATE`,
+       WHERE m.machine_code=? FOR UPDATE`,
       [machineToken]
     );
 

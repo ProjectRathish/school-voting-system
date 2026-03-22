@@ -166,6 +166,28 @@ exports.updatePollingBooth = async (req, res) => {
       });
     }
 
+    // If booth_number is being updated, check for uniqueness within the SAME election
+    if (booth_number !== undefined) {
+      // First, get the election_id of the booth being updated
+      const [[currentBooth]] = await db.execute(
+        `SELECT election_id FROM polling_booths WHERE id=?`,
+        [booth_id]
+      );
+
+      if (currentBooth) {
+        const [dupBooth] = await db.execute(
+          `SELECT id FROM polling_booths WHERE booth_number=? AND election_id=? AND id != ?`,
+          [booth_number, currentBooth.election_id, booth_id]
+        );
+
+        if (dupBooth.length > 0) {
+          return res.status(400).json({
+            message: `Polling booth with number ${booth_number} already exists in this election.`
+          });
+        }
+      }
+    }
+
     updateQuery += updateFields.join(", ");
     updateQuery += " WHERE id=? AND school_id=?";
     updateValues.push(booth_id, school_id);
@@ -202,14 +224,27 @@ exports.deletePollingBooth = async (req, res) => {
       });
     }
 
-    // Delete the polling booth
+    // Start cleanup of dependencies
+    // 1. Delete associated voting machines for this booth
+    await db.execute(
+      `DELETE FROM voting_machines WHERE booth_id=? AND school_id=?`,
+      [booth_id, school_id]
+    );
+
+    // 2. Delete officer assignments for this booth
+    await db.execute(
+      `DELETE FROM election_officer_assignments WHERE booth_id=?`,
+      [booth_id]
+    );
+
+    // 3. Finally delete the polling booth
     await db.execute(
       `DELETE FROM polling_booths WHERE id=? AND school_id=?`,
       [booth_id, school_id]
     );
 
     res.json({
-      message: "Polling booth deleted successfully"
+      message: "Polling booth and its associated machines/assignments deleted successfully"
     });
   } catch (err) {
     console.error("Error deleting polling booth:", err);
@@ -224,12 +259,26 @@ exports.deletePollingBooth = async (req, res) => {
 exports.assignVoter = async (req, res) => {
   try {
     const school_id = req.user.school_id;
-    const booth_id = req.user.booth_id || req.params.booth_id; 
-    const { admission_no, election_id } = req.body;
+    // Allow explicitly passing booth_id because user tokens might not always contain it if assigned post-login
+    const booth_id = req.body.booth_id || req.user.booth_id || req.params.booth_id; 
+    const { admission_no } = req.body;
 
-    if (!admission_no || !election_id || !booth_id) {
-       return res.status(400).json({ message: "admission_no, election_id, and booth_id are required" });
+    if (!admission_no || !booth_id) {
+       return res.status(400).json({ message: "admission_no and booth_id are required" });
     }
+
+    // 1. Discover the active election for this booth directly from the database
+    // This solves the stale JWT token issue where election_id isn't present in req.user
+    const [boothRows] = await db.execute(
+       "SELECT election_id FROM polling_booths WHERE id=? AND school_id=?",
+       [booth_id, school_id]
+    );
+
+    if (boothRows.length === 0) {
+       return res.status(404).json({ message: "Booth not found" });
+    }
+
+    const election_id = boothRows[0].election_id;
 
     // Verify election is currently ACTIVE
     const [electionRows] = await db.execute(

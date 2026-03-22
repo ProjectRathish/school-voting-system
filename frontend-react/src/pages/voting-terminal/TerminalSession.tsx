@@ -19,20 +19,47 @@ import {
   Chip
 } from '@mui/material';
 import { 
-  Vote, 
-  User, 
+  Search, 
+  Smartphone, 
+  PlayCircle, 
+  Lock, 
+  Unlock, 
+  LogOut, 
   CheckCircle2, 
   AlertCircle, 
+  Smartphone as SmartphoneIcon, 
+  Vote, 
+  ShieldCheck, 
+  User, 
   ArrowRight, 
   ArrowLeft, 
-  LogOut,
   Sparkles,
-  ShieldCheck,
-  SmartphoneIcon
+  ChevronRight,
+  Circle as CircleIcon,
+  Check as CheckIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../../api/axiosInstance';
 import { useQuery } from '@tanstack/react-query';
+import ThemeToggle from '../../components/common/ThemeToggle';
+
+// Simulated BEEP sound for tactile feedback
+const playBeep = () => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  } catch (e) {
+    console.log("Audio failed", e);
+  }
+};
 
 const TerminalSession = () => {
   const theme = useTheme();
@@ -47,6 +74,11 @@ const TerminalSession = () => {
   const [isCasting, setIsCasting] = useState(false);
   const [successDialog, setSuccessDialog] = useState(false);
 
+  const handleSelectCandidate = (postId: number, candId: number) => {
+     playBeep();
+     setSelections(prev => ({ ...prev, [postId]: candId }));
+  };
+
   // 1. Verify Machine Status (Polling)
   const { data: machine, refetch: refreshStatus } = useQuery({
     queryKey: ['terminal-status', token],
@@ -57,11 +89,7 @@ const TerminalSession = () => {
        return res.data;
     },
     enabled: !!token,
-    refetchInterval: (data: any) => {
-       // Poll every 3 seconds if machine is FREE or UNKNOWN
-       if (!data) return 3000;
-       return data.status === 'FREE' ? 3000 : false;
-    }
+    refetchInterval: 3000
   });
 
   // 2. Fetch Ballot Data
@@ -149,29 +177,26 @@ const TerminalSession = () => {
         justifyContent: 'center',
         background: `radial-gradient(circle at 50% 50%, ${alpha(theme.palette.primary.main, 0.15)} 0%, ${theme.palette.background.default} 100%)` 
       }}>
+        {/* Floating Theme Toggle */}
+        <Box sx={{ position: 'absolute', top: 24, right: 24 }}>
+          <ThemeToggle />
+        </Box>
+
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
-          <Paper sx={{ p: 4, width: 400, borderRadius: 4, textAlign: 'center' }}>
-            <Box sx={{ 
-              width: 70, height: 70, borderRadius: 3, 
-              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'white', mx: 'auto', mb: 3,
-              boxShadow: '0 8px 16px rgba(99, 102, 241, 0.3)'
-            }}>
-              <ShieldCheck size={40} />
+          <Paper sx={{ p: 5, maxWidth: 500, width: '100%', borderRadius: 4, boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+            <Box sx={{ textAlign: 'center', mb: 4 }}>
+              <ShieldCheck size={56} color={theme.palette.primary.main} style={{ marginBottom: 16 }} />
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Terminal Setup</Typography>
+              <Typography color="text.secondary">Enter the Machine Code to register this device for voting.</Typography>
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>Terminal Setup</Typography>
-            <Typography color="text.secondary" sx={{ mb: 4 }}>
-              Enter the machine registration token to authorize this device as an official EVM terminal.
-            </Typography>
             
-            {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{error}</Alert>}
+            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
             <form onSubmit={handleSetup}>
               <TextField 
-                fullWidth 
-                label="Machine Token" 
-                placeholder="Enter 64-character token"
+                fullWidth
+                label="Machine Code (e.g., VM-B1-1234)"
+                variant="outlined"
                 value={setupToken}
                 onChange={(e) => setSetupToken(e.target.value)}
                 sx={{ mb: 3 }}
@@ -195,20 +220,14 @@ const TerminalSession = () => {
   // IDLE SCREEN
   if (machine?.status === 'FREE') {
     return (
-      <Box sx={{ 
-        height: '100vh', 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        p: 4,
-        background: `radial-gradient(circle at 50% 50%, ${alpha(theme.palette.primary.main, 0.05)} 0%, ${theme.palette.background.default} 100%)`
-      }}>
-        <Box sx={{ position: 'absolute', top: 24, right: 24 }}>
-           <IconButton onClick={handleReset} color="error" title="De-register Device">
-              <LogOut />
-           </IconButton>
-        </Box>
+      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', position: 'relative' }}>
+         {/* Floating Layout Tools */}
+         <Box sx={{ position: 'absolute', top: 24, right: 24, display: 'flex', gap: 2 }}>
+            <ThemeToggle />
+            <IconButton onClick={handleReset} color="error" title="De-register Device" sx={{ bgcolor: alpha(theme.palette.error.main, 0.1) }}>
+               <LogOut />
+            </IconButton>
+         </Box>
 
         <motion.div 
           animate={{ y: [0, -10, 0] }}
@@ -256,13 +275,17 @@ const TerminalSession = () => {
                <Typography variant="caption" color="text.secondary">{machine?.machine_code} • {machine?.booth_name || 'Booth Protected'}</Typography>
             </Box>
          </Box>
-         {!isLastStep && posts.length > 0 && (
-            <Chip 
-               label={`Post ${step + 1} of ${posts.length}`} 
-               color="primary" 
-               sx={{ fontWeight: 800, px: 2 }} 
-            />
-         )}
+         
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+           {!isLastStep && posts.length > 0 && (
+              <Chip 
+                 label={`Post ${step + 1} of ${posts.length}`} 
+                 color="primary" 
+                 sx={{ fontWeight: 800, px: 2 }} 
+              />
+           )}
+           <ThemeToggle />
+         </Box>
       </Box>
 
       {/* Main Ballot Area */}
@@ -287,58 +310,78 @@ const TerminalSession = () => {
                   exit={{ opacity: 0, x: -50 }}
                   style={{ height: '100%' }}
                >
-                  <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', mb: 8, color: 'primary.main' }}>
-                     PLEASE SELECT A CANDIDATE FOR:<br />
-                     <span style={{ textTransform: 'uppercase' }}>{posts[step].post_name}</span>
-                  </Typography>
+                   <Typography variant="h5" sx={{ fontWeight: 900, textAlign: 'center', mb: 3, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 2 }}>
+                      Ballot Paper: {posts[step].post_name}
+                   </Typography>
 
-                  <Grid container spacing={4} sx={{ maxWidth: 1200, mx: 'auto', justifyContent: 'center' }}>
-                     {posts[step].candidates.map((c: any) => {
-                        const isSelected = selections[posts[step].post_id] === c.candidate_id;
-                        return (
-                           <Grid item xs={12} sm={6} md={3} key={c.candidate_id}>
-                              <Card 
-                                 component={motion.div}
-                                 whileHover={{ scale: 1.02 }}
-                                 whileTap={{ scale: 0.98 }}
-                                 onClick={() => setSelections(p => ({ ...p, [posts[step].post_id]: c.candidate_id }))}
-                                 sx={{ 
-                                    height: '100%',
-                                    cursor: 'pointer',
-                                    borderRadius: 4,
-                                    border: '3px solid',
-                                    borderColor: isSelected ? 'primary.main' : 'transparent',
-                                    bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.05) : 'background.paper',
-                                    boxShadow: isSelected ? theme.shadows[10] : theme.shadows[2],
-                                    transition: 'all 0.2s',
-                                    position: 'relative',
-                                    minHeight: 250
-                                 }}
-                              >
-                                 {isSelected && (
-                                    <Box sx={{ position: 'absolute', top: 12, right: 12, color: 'primary.main' }}>
-                                       <CheckCircle2 size={32} />
-                                    </Box>
-                                 )}
-                                 <CardContent sx={{ textAlign: 'center', p: 4 }}>
-                                    <Avatar 
-                                       src={c.photo}
-                                       sx={{ width: 120, height: 120, mx: 'auto', mb: 3, border: '4px solid white', boxShadow: theme.shadows[3] }}
-                                    >
-                                       <User size={60} />
-                                    </Avatar>
-                                    <Typography variant="h6" sx={{ fontWeight: 800 }}>{c.candidate_name}</Typography>
-                                    <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                                       <Sparkles size={16} color={theme.palette.secondary.main} />
-                                       <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>{c.symbol || 'Independent'}</Typography>
-                                    </Box>
-                                 </CardContent>
-                              </Card>
-                           </Grid>
-                        );
-                     })}
-                  </Grid>
-               </motion.div>
+                   {/* EVM Style Vertical List */}
+                   <Box sx={{ maxWidth: 900, mx: 'auto', border: '2px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', bgcolor: 'background.paper', boxShadow: 3 }}>
+                      {posts[step].candidates.map((c: any, idx: number) => {
+                         const isSelected = selections[posts[step].post_id] === c.candidate_id;
+                         return (
+                            <Box 
+                               key={c.candidate_id}
+                               onClick={() => handleSelectCandidate(posts[step].post_id, c.candidate_id)}
+                               sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center',
+                                  borderBottom: idx === posts[step].candidates.length - 1 ? 'none' : '2px solid',
+                                  borderColor: 'divider',
+                                  bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.04) : 'transparent',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                                  minHeight: { xs: 80, md: 100 }
+                               }}
+                            >
+                               {/* Serial No */}
+                               <Box sx={{ width: { xs: 40, md: 60 }, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider', fontWeight: 900, color: 'text.secondary' }}>
+                                  {idx + 1}
+                               </Box>
+
+                               {/* Candidate Info */}
+                               <Box sx={{ flexGrow: 1, px: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Avatar 
+                                     src={c.photo} 
+                                     sx={{ width: { xs: 40, md: 60 }, height: { xs: 40, md: 60 }, border: '1px solid', borderColor: 'divider' }}
+                                  >
+                                     <User />
+                                  </Avatar>
+                                  <Box>
+                                     <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1 }}>{c.candidate_name}</Typography>
+                                     <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                                        {c.symbol ? `Symbol: ${c.symbol}` : 'Independent'}
+                                     </Typography>
+                                  </Box>
+                               </Box>
+
+                               {/* Lamp Column */}
+                               <Box sx={{ width: 40, display: 'flex', justifyContent: 'center' }}>
+                                  <Box sx={{ 
+                                     width: 16, height: 16, borderRadius: '50%',
+                                     bgcolor: isSelected ? '#ff1744' : '#333',
+                                     boxShadow: isSelected ? '0 0 10px #ff1744' : 'none',
+                                     transition: 'all 0.3s'
+                                  }} />
+                               </Box>
+
+                               {/* Voting Button Column */}
+                               <Box sx={{ width: { xs: 80, md: 120 }, textAlign: 'center', borderLeft: '1px solid', borderColor: 'divider', py: 1, px: 1 }}>
+                                  <Box sx={{ 
+                                     width: { xs: 50, md: 70 }, height: { xs: 35, md: 45 }, 
+                                     bgcolor: '#455a64', borderRadius: 1.5, mx: 'auto',
+                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                     boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.2), 0 4px 0 #1c313a',
+                                     '&:active': { transform: 'translateY(2px)', boxShadow: '0 2px 0 #1c313a' }
+                                  }}>
+                                     {isSelected && <CheckIcon color="white" size={24} />}
+                                  </Box>
+                               </Box>
+                            </Box>
+                         );
+                      })}
+                   </Box>
+                </motion.div>
             ) : isLastStep ? (
                <motion.div 
                   key="review"

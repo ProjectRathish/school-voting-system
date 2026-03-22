@@ -22,6 +22,7 @@ import SchoolAdminDashboard from './pages/school-admin/Dashboard';
 import Elections from './pages/school-admin/Elections';
 import Voters from './pages/school-admin/Voters';
 import Candidates from './pages/school-admin/Candidates';
+import Staff from './pages/school-admin/Staff';
 import Posts from './pages/school-admin/Posts';
 import ClassesAndSections from './pages/school-admin/ClassesAndSections';
 import Infrastructure from './pages/school-admin/Infrastructure';
@@ -67,48 +68,53 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <DashboardLayout>
+      {location.pathname === '/terminal' ? (
         <Routes>
-          {/* Super Admin Routes */}
-          {user?.role === 'SUPER_ADMIN' && (
-            <>
-              <Route path="/" element={<Navigate to="/super-admin" />} />
-              <Route path="/super-admin" element={<SuperAdminDashboard />} />
-              <Route path="/super-admin/schools" element={<Schools />} />
-              <Route path="/super-admin/enquiries" element={<Enquiries />} />
-              <Route path="*" element={<Navigate to="/super-admin" />} />
-            </>
-          )}
-
-          {/* School Admin Routes */}
-          {user?.role === 'SCHOOL_ADMIN' && (
-            <>
-              <Route path="/" element={<Navigate to="/school-admin" />} />
-              <Route path="/school-admin" element={<SchoolAdminDashboard />} />
-              <Route path="/school-admin/elections" element={<Elections />} />
-              <Route path="/school-admin/voters" element={<Voters />} />
-              <Route path="/school-admin/candidates" element={<Candidates />} />
-              <Route path="/school-admin/posts" element={<Posts />} />
-              <Route path="/school-admin/classes" element={<ClassesAndSections />} />
-              <Route path="/school-admin/infrastructure" element={<Infrastructure />} />
-              <Route path="/school-admin/results" element={<Results />} />
-              <Route path="/school-admin/profile" element={<Profile />} />
-              <Route path="*" element={<Navigate to="/school-admin" />} />
-            </>
-          )}
-
-          {/* Booth Officer Routes */}
-          {user?.role === 'BOOTH_OFFICER' && (
-            <>
-              <Route path="/" element={<Navigate to="/booth-officer" />} />
-              <Route path="/booth-officer" element={<BoothOfficerDashboard />} />
-              <Route path="*" element={<Navigate to="/booth-officer" />} />
-            </>
-          )}
-          {/* Voting Machine (Public/Token Auth) */}
           <Route path="/terminal" element={<TerminalSession />} />
         </Routes>
-      </DashboardLayout>
+      ) : (
+        <DashboardLayout>
+          <Routes>
+            {/* Super Admin Routes */}
+            {user?.role === 'SUPER_ADMIN' && (
+              <>
+                <Route path="/" element={<Navigate to="/super-admin" />} />
+                <Route path="/super-admin" element={<SuperAdminDashboard />} />
+                <Route path="/super-admin/schools" element={<Schools />} />
+                <Route path="/super-admin/enquiries" element={<Enquiries />} />
+                <Route path="*" element={<Navigate to="/super-admin" />} />
+              </>
+            )}
+
+            {/* School Admin Routes */}
+            {user?.role === 'SCHOOL_ADMIN' && (
+              <>
+                <Route path="/" element={<Navigate to="/school-admin" />} />
+                <Route path="/school-admin" element={<SchoolAdminDashboard />} />
+                <Route path="/school-admin/elections" element={<Elections />} />
+                <Route path="/school-admin/voters" element={<Voters />} />
+                <Route path="/school-admin/candidates" element={<Candidates />} />
+                <Route path="/school-admin/staff" element={<Staff />} />
+                <Route path="/school-admin/posts" element={<Posts />} />
+                <Route path="/school-admin/classes" element={<ClassesAndSections />} />
+                <Route path="/school-admin/infrastructure" element={<Infrastructure />} />
+                <Route path="/school-admin/results" element={<Results />} />
+                <Route path="/school-admin/profile" element={<Profile />} />
+                <Route path="*" element={<Navigate to="/school-admin" />} />
+              </>
+            )}
+
+            {/* Booth Officer Routes */}
+            {user?.role === 'BOOTH_OFFICER' && (
+              <>
+                <Route path="/" element={<Navigate to="/booth-officer" />} />
+                <Route path="/booth-officer" element={<BoothOfficerDashboard />} />
+                <Route path="*" element={<Navigate to="/booth-officer" />} />
+              </>
+            )}
+          </Routes>
+        </DashboardLayout>
+      )}
     </ThemeProvider>
   );
 }
