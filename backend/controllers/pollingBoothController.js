@@ -251,7 +251,7 @@ exports.assignVoter = async (req, res) => {
 
     // Fetch the voter (include class_id and sex for eligibility check)
     const [voterRows] = await db.execute(
-       "SELECT id, is_active, has_voted, class_id, sex FROM voters WHERE admission_no=? AND election_id=? AND school_id=?",
+       "SELECT id, is_active, has_voted, is_blocked, class_id, sex FROM voters WHERE admission_no=? AND election_id=? AND school_id=?",
        [admission_no, election_id, school_id]
     );
 
@@ -263,6 +263,10 @@ exports.assignVoter = async (req, res) => {
 
     if (voter.has_voted) {
        return res.status(400).json({ message: "Voter has already cast their vote" });
+    }
+    
+    if (voter.is_blocked) {
+       return res.status(403).json({ message: "This voter has been blocked by an administrator and cannot vote." });
     }
 
     if (voter.is_active) {

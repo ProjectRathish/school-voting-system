@@ -1,18 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Grid, Button, Chip, Alert, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, Card, CardContent,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress
 } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Download, Trophy, Users, BarChart3 } from 'lucide-react';
+import { Download, Trophy, Users, BarChart3, Sparkles } from 'lucide-react';
+import { useElectionStore } from '../../store/electionStore';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 
 const COLORS = ['#3f51b5', '#f50057', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
 const Results = () => {
-  const [selectedElection, setSelectedElection] = useState('');
+  const { selectedElectionId, selectedElectionName, selectedElectionStatus, setSelectedElection: setGlobalElection } = useElectionStore();
+  const [selectedElection, setSelectedElection] = useState(selectedElectionId || '');
+
+  useEffect(() => {
+    if (selectedElectionId && selectedElectionId !== selectedElection) {
+      setSelectedElection(selectedElectionId);
+    }
+  }, [selectedElectionId]);
 
   const { data: elections } = useQuery({
     queryKey: ['elections'],
@@ -58,10 +66,83 @@ const Results = () => {
         )}
       </Box>
 
+      {/* Current Context Banner */}
+      <Box sx={{ 
+        mb: 4, 
+        display: 'flex'
+      }}>
+        <Box sx={{ 
+          p: '1.5px', 
+          borderRadius: '24px', 
+          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
+          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
+          position: 'relative'
+        }}>
+          <Box sx={{ 
+            px: 3, 
+            py: 2, 
+            borderRadius: '23px', 
+            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2.5
+          }}>
+            <Box sx={{ 
+              width: 45, 
+              height: 45, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
+            }}>
+              <Sparkles size={22} />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ 
+                color: 'text.secondary', 
+                fontWeight: 800, 
+                textTransform: 'uppercase', 
+                letterSpacing: 1.5,
+                fontSize: '0.65rem',
+                display: 'block',
+                mb: 0.5
+              }}>
+                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
+              </Typography>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 900, 
+                color: 'text.primary', 
+                lineHeight: 1.1,
+                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '1.25rem'
+              }}>
+                {selectedElectionName || 'None Selected'}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
       <Paper sx={{ p: 3, mb: 3 }}>
         <FormControl fullWidth>
           <InputLabel>Select Election</InputLabel>
-          <Select value={selectedElection} label="Select Election" onChange={e => setSelectedElection(e.target.value)}>
+          <Select 
+            value={selectedElection} 
+            label="Select Election" 
+            onChange={e => {
+              const id = e.target.value;
+              setSelectedElection(id);
+              const election = elections?.find((el: any) => String(el.id) === String(id));
+              if (election) {
+                setGlobalElection(String(election.id), election.name, election.status);
+              }
+            }}
+          >
             {elections?.map((el: any) => (
               <MenuItem key={el.id} value={el.id}>
                 {el.name} — <Chip label={el.status} size="small" sx={{ ml: 1 }} />

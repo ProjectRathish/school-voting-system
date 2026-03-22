@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { getTheme } from './theme/theme';
 import { useThemeStore } from './store/themeStore';
@@ -31,17 +31,23 @@ import Profile from './pages/school-admin/Profile';
 // Booth Officer Pages
 import BoothOfficerDashboard from './pages/booth-officer/Dashboard';
 
+// Voting Terminal (EVM)
+import TerminalSession from './pages/voting-terminal/TerminalSession';
+
 function App() {
   const { mode } = useThemeStore();
   const { isAuthenticated, user } = useAuthStore();
   const theme = useMemo(() => getTheme(mode), [mode]);
 
-  if (!isAuthenticated) {
+  const location = useLocation();
+
+  if (!isAuthenticated && location.pathname !== '/terminal') {
     return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/terminal" element={<TerminalSession />} />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </ThemeProvider>
@@ -99,6 +105,8 @@ function App() {
               <Route path="*" element={<Navigate to="/booth-officer" />} />
             </>
           )}
+          {/* Voting Machine (Public/Token Auth) */}
+          <Route path="/terminal" element={<TerminalSession />} />
         </Routes>
       </DashboardLayout>
     </ThemeProvider>

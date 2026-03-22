@@ -12,8 +12,11 @@ class TerminalRepository {
 
   Future<VotingMachine> verifyMachine(String token) async {
     try {
-      final response = await _dio.get('/voting-machines/verify', queryParameters: {'token': token});
-      return VotingMachine.fromJson(response.data['data']);
+      final response = await _dio.get(
+        '/machines/verify', 
+        options: Options(headers: {'machine-token': token}),
+      );
+      return VotingMachine.fromJson(response.data);
     } catch (e) {
       rethrow;
     }
@@ -22,7 +25,7 @@ class TerminalRepository {
   Future<Map<String, dynamic>> fetchBallot(String token) async {
     try {
       final response = await _dio.get(
-        '/voting-machines/ballot/fetch',
+        '/machines/ballot/fetch',
         options: Options(headers: {'machine-token': token}),
       );
       return response.data;
@@ -37,7 +40,7 @@ class TerminalRepository {
   }) async {
     try {
       await _dio.post(
-        '/voting-machines/vote/cast',
+        '/machines/vote/cast',
         data: {'votes': votes},
         options: Options(headers: {'machine-token': token}),
       );

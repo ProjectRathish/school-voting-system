@@ -105,9 +105,8 @@ exports.verifyMachine = async (req, res) => {
 
     // Find machine by token
     const [machines] = await db.execute(
-      `SELECT m.id, m.booth_id, m.status, m.machine_code, m.election_id, pb.booth_number
+      `SELECT m.id, m.booth_id, m.status, m.machine_code, m.machine_name, m.election_id, m.school_id, m.current_voter_id
        FROM voting_machines m
-       JOIN polling_booths pb ON m.booth_id = pb.id
        WHERE m.machine_token=?`,
       [machineToken]
     );
@@ -129,12 +128,14 @@ exports.verifyMachine = async (req, res) => {
     }
 
     res.status(200).json({
-      machine_id: machine.id,
+      id: machine.id,
+      school_id: machine.school_id,
+      machine_name: machine.machine_name,
       machine_code: machine.machine_code,
       booth_id: machine.booth_id,
-      booth_name: machine.booth_number,
       election_id: machine.election_id,
       status: machine.status,
+      current_voter_id: machine.current_voter_id,
       message: "Machine verified successfully"
     });
   } catch (err) {
@@ -376,12 +377,15 @@ exports.fetchBallot = async (req, res) => {
     );
 
     const eligiblePosts = posts.filter(post => {
+       // Check Gender Rule
+       if (post.gender_rule && post.gender_rule !== 'ANY' && post.gender_rule !== voter.sex) {
+          return false;
+       }
+
        // Check class rule
        if (post.voting_classes) {
           try {
              const classes = JSON.parse(post.voting_classes);
-             // If classes array is empty it might mean open to all, or nobody. Assume empty array means open to all if that's the prior logic, but usually it means only those listed.
-             // If the list is empty, let's assume it means no classes are restricted, but conventionally it should be an array of IDs.
              if (classes && classes.length > 0 && !classes.includes(voter.class_id)) {
                  return false;
              }
@@ -391,7 +395,7 @@ exports.fetchBallot = async (req, res) => {
     });
 
     if (eligiblePosts.length === 0) {
-        return res.json({ message: "No posts available for this voter", posts: [] });
+        return res.json({ message: "No posts available for this voter", ballot: [] });
     }
 
     const postIds = eligiblePosts.map(p => p.id);
@@ -402,7 +406,9 @@ exports.fetchBallot = async (req, res) => {
        `SELECT c.id as candidate_id, c.post_id, c.photo, c.symbol, v.name as candidate_name
         FROM candidates c
         JOIN voters v ON c.voter_id = v.id
-        WHERE c.post_id IN (${placeholders}) AND c.election_id=?`,
+        WHERE c.post_id IN (${placeholders}) 
+        AND c.election_id=? 
+        AND v.is_blocked = 0`,
        [...postIds, machine.election_id]
     );
 

@@ -123,6 +123,22 @@ const getDesignTokens = (mode: PaletteMode) => ({
         },
       },
     },
+    MuiIconButton: {
+      defaultProps: {
+        disableRipple: true,
+      },
+      styleOverrides: {
+        root: {
+          '&:focus': {
+            outline: 'none',
+          },
+          '&.Mui-focusVisible': {
+            outline: 'none',
+            boxShadow: 'none',
+          },
+        },
+      },
+    },
   },
 });
 

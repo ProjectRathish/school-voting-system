@@ -24,16 +24,32 @@ exports.createElection = async (req, res) => {
       });
     }
 
+    // 1. Get School Code
+    const [schoolRows] = await db.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
+    if (schoolRows.length === 0) {
+      return res.status(404).json({ message: "School not found" });
+    }
+    const school_code = schoolRows[0].code;
+
+    // 2. Count existing elections to generate the next number
+    const [countRows] = await db.execute(
+      "SELECT COUNT(*) as count FROM elections WHERE school_id = ?",
+      [school_id]
+    );
+    const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
+    const election_code = `${school_code}-EL${nextNumber}`;
+
     const [result] = await db.execute(
       `INSERT INTO elections
-       (school_id, name, start_time, end_time, created_by)
-       VALUES (?,?,?,?,?)`,
-      [school_id, name, start_time, end_time, created_by]
+       (school_id, name, start_time, end_time, created_by, election_code)
+       VALUES (?,?,?,?,?,?)`,
+      [school_id, name, start_time, end_time, created_by, election_code]
     );
 
     res.json({
       message: "Election created successfully",
-      election_id: result.insertId
+      election_id: result.insertId,
+      election_code: election_code
     });
 
   } catch (error) {
@@ -130,6 +146,43 @@ exports.getElection = async (req, res) => {
 
 
 
+exports.getStats = async (req, res) => {
+  try {
+    const school_id = req.user.school_id;
+
+    const [[{ totalElections }]] = await db.execute(
+      "SELECT COUNT(*) as totalElections FROM elections WHERE school_id = ?",
+      [school_id]
+    );
+
+    const [[{ totalVoters }]] = await db.execute(
+      "SELECT COUNT(*) as totalVoters FROM voters WHERE school_id = ?",
+      [school_id]
+    );
+
+    const [[{ totalCandidates }]] = await db.execute(
+      "SELECT COUNT(*) as totalCandidates FROM candidates WHERE school_id = ?",
+      [school_id]
+    );
+
+    const [[{ activeBooths }]] = await db.execute(
+      "SELECT COUNT(*) as activeBooths FROM polling_booths WHERE school_id = ?",
+      [school_id]
+    );
+
+    res.json({
+      totalElections,
+      totalVoters,
+      totalCandidates,
+      activeBooths
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 exports.updateElection = async (req, res) => {
   try {
     const { id } = req.params;
@@ -199,10 +252,10 @@ exports.updateElectionStatus = async (req, res) => {
     }
 
 
-    // Require thorough confirmation when attempting to finalize/close an election
-    if (status === 'CLOSED') {
+    // Require thorough confirmation when attempting to finalize/close or start an election
+    if (status === 'CLOSED' || status === 'ACTIVE') {
       const [electionRows] = await db.execute(
-        "SELECT name, status FROM elections WHERE id = ? AND school_id = ?",
+        "SELECT name, status, election_code FROM elections WHERE id = ? AND school_id = ?",
         [id, school_id]
       );
 
@@ -210,14 +263,16 @@ exports.updateElectionStatus = async (req, res) => {
         return res.status(404).json({ message: "Election not found" });
       }
 
-      if (electionRows[0].status === 'CLOSED') {
+      if (status === 'CLOSED' && electionRows[0].status === 'CLOSED') {
         return res.status(400).json({ message: "Election is already closed." });
       }
 
-      if (!confirmation_text || confirmation_text.trim() !== electionRows[0].name.trim()) {
+      const expectedCode = electionRows[0].election_code;
+
+      if (!confirmation_text || confirmation_text.trim() !== expectedCode) {
         return res.status(400).json({
-          message: "Confirmation failed. To close the election, you must type the exact election name.",
-          expected_confirmation_text: electionRows[0].name
+          message: `Confirmation failed. To ${status === 'ACTIVE' ? 'start' : 'end'} the election, you must enter the correct election code.`,
+          expected_confirmation_text: expectedCode
         });
       }
     }

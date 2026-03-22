@@ -147,7 +147,7 @@ const ClassesAndSections = () => {
                 display: 'block',
                 mb: 0.5
               }}>
-                Active Configuration
+                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
               </Typography>
               <Typography variant="h6" sx={{ 
                 fontWeight: 900, 

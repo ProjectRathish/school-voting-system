@@ -23,6 +23,8 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { Sparkles } from 'lucide-react';
+import { useElectionStore } from '../../store/electionStore';
 import axiosInstance from '../../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -30,6 +32,7 @@ import { useAuthStore } from '../../store/authStore';
 const SchoolAdminDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['school-admin-stats'],
@@ -39,10 +42,10 @@ const SchoolAdminDashboard = () => {
     }
   });
 
-  const { data: activeElections } = useQuery({
-    queryKey: ['active-elections'],
+  const { data: elections } = useQuery({
+    queryKey: ['elections'],
     queryFn: async () => {
-      const res = await axiosInstance.get('/elections/get-elections?status=ACTIVE');
+      const res = await axiosInstance.get('/elections/get-elections');
       return res.data || [];
     }
   });
@@ -108,6 +111,7 @@ const SchoolAdminDashboard = () => {
         </Button>
       </Box>
 
+
       <Grid container spacing={3}>
         {statCards.map((stat, index) => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
@@ -139,7 +143,7 @@ const SchoolAdminDashboard = () => {
           <Paper sx={{ p: 3, borderRadius: 3, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                Active Elections
+                Election Overview
               </Typography>
               <Button 
                 endIcon={<ArrowRight size={16} />} 
@@ -149,23 +153,34 @@ const SchoolAdminDashboard = () => {
               </Button>
             </Box>
             
-            {!activeElections || activeElections.length === 0 ? (
+            {!elections || elections.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 6 }}>
                 <Vote size={48} color="lightgray" style={{ marginBottom: '16px' }} />
                 <Typography color="text.secondary">
-                  No active elections at the moment
+                  No elections created yet
                 </Typography>
               </Box>
             ) : (
               <List>
-                {activeElections?.map((election: any) => (
+                {elections?.slice(0, 5).map((election: any) => (
                   <ListItem key={election.id} divider sx={{ px: 0, py: 2 }}>
                     <ListItemText 
                       primary={election.name}
-                      secondary={election.end_time ? `Ends on ${new Date(election.end_time).toLocaleString()}` : 'Configuring...'}
+                      secondary={election.status === 'DRAFT' || election.status === 'CONFIGURING' ? 'Configuring...' : (election.end_time ? `Ends on ${new Date(election.end_time).toLocaleDateString()}` : 'No end time')}
                       primaryTypographyProps={{ fontWeight: 600 }}
                     />
-                    <Chip label="LIVE" color="success" size="small" sx={{ fontWeight: 700 }} />
+                    <Chip 
+                      label={election.status} 
+                      color={
+                        election.status === 'ACTIVE' ? 'success' : 
+                        election.status === 'CONFIGURING' ? 'primary' :
+                        election.status === 'READY' ? 'info' :
+                        election.status === 'PAUSED' ? 'warning' :
+                        election.status === 'CLOSED' ? 'error' : 'default'
+                      } 
+                      size="small" 
+                      sx={{ fontWeight: 700, fontSize: '0.65rem' }} 
+                    />
                   </ListItem>
                 ))}
               </List>

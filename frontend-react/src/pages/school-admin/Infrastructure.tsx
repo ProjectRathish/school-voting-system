@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
@@ -7,13 +8,16 @@ import {
   InputAdornment,
   List
 } from '@mui/material';
-import { Plus, Trash2, RefreshCw, Smartphone, Monitor, UserPlus, Unlink, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Smartphone, Monitor, UserPlus, Unlink, CheckCircle2, Eye, EyeOff, Sparkles, Settings } from 'lucide-react';
+import { useElectionStore } from '../../store/electionStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 
 const Infrastructure = () => {
+  const navigate = useNavigate();
   const [tab, setTab] = useState(0);
-  const [selectedElection, setSelectedElection] = useState('');
+  const { selectedElectionId, selectedElectionName, selectedElectionStatus, setSelectedElection: setGlobalElection } = useElectionStore();
+  const [selectedElection, setSelectedElection] = useState(selectedElectionId || '');
   const [openOfficer, setOpenOfficer] = useState(false);
   const [openAssign, setOpenAssign] = useState<any>(null); // For which booth we are assigning
   const [officerForm, setOfficerForm] = useState({ username: '', password: '' });
@@ -22,13 +26,23 @@ const Infrastructure = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [openMachine, setOpenMachine] = useState(false); // Fix missing state
+  const [openMachine, setOpenMachine] = useState(false);
   const queryClient = useQueryClient();
+  // Sync with global store
+  useEffect(() => {
+    if (selectedElectionId && selectedElectionId !== selectedElection) {
+      setSelectedElection(selectedElectionId);
+    }
+  }, [selectedElectionId]);
 
   const { data: elections } = useQuery({
     queryKey: ['elections'],
     queryFn: async () => (await axiosInstance.get('/elections/get-elections')).data
   });
+
+  const selectedElectionObj = elections?.find((e: any) => String(e.id) === String(selectedElection));
+  const isConfiguring = selectedElectionObj && (selectedElectionObj.status === 'CONFIGURING' || selectedElectionObj.status === 'DRAFT');
+  const isClosed = selectedElectionStatus === 'CLOSED' || selectedElectionObj?.status === 'CLOSED';
 
   const { data: booths } = useQuery({
     queryKey: ['booths', selectedElection],
@@ -104,12 +118,80 @@ const Infrastructure = () => {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
+      {/* Current Context Banner */}
+      <Box sx={{ 
+        mb: 4, 
+        display: 'flex'
+      }}>
+        <Box sx={{ 
+          p: '1.5px', 
+          borderRadius: '24px', 
+          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
+          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
+          position: 'relative'
+        }}>
+          <Box sx={{ 
+            px: 3, 
+            py: 2, 
+            borderRadius: '23px', 
+            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2.5
+          }}>
+            <Box sx={{ 
+              width: 45, 
+              height: 45, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
+            }}>
+              <Sparkles size={22} />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ 
+                color: 'text.secondary', 
+                fontWeight: 800, 
+                textTransform: 'uppercase', 
+                letterSpacing: 1.5,
+                fontSize: '0.65rem',
+                display: 'block',
+                mb: 0.5
+              }}>
+                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
+              </Typography>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 900, 
+                color: 'text.primary', 
+                lineHeight: 1.1,
+                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '1.25rem'
+              }}>
+                {selectedElectionName || 'None Selected'}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
       <Paper sx={{ mb: 3, borderRadius: 3 }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
-          <Tab label="Staff Pool" />
-          <Tab label="Booth Assignments & Infrastructure" />
+          <Tab label="School Staff Pool (Global)" />
+          <Tab label="Election Assignments (Live Context)" />
         </Tabs>
       </Paper>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, px: 1, fontWeight: 500 }}>
+        {tab === 0 
+          ? "Manage the school's permanent pool of booth officers. These accounts can be assigned to different roles across any election."
+          : "Design booths, register voting machines, and assign staff from the global pool to the currently selected election."}
+      </Typography>
 
       {tab === 0 && (
         <Box>
@@ -162,10 +244,26 @@ const Infrastructure = () => {
 
       {tab === 1 && (
         <Box>
+          {isClosed && (
+            <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
+              <strong>Election Closed:</strong> Modification of booths, staff assignments, or voting machines is permanently disabled for closed elections.
+            </Alert>
+          )}
           <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
             <FormControl fullWidth>
               <InputLabel>Select Election Context</InputLabel>
-              <Select value={selectedElection} label="Select Election Context" onChange={e => setSelectedElection(e.target.value)}>
+              <Select 
+                value={selectedElection} 
+                label="Select Election Context" 
+                onChange={e => {
+                  const id = e.target.value;
+                  setSelectedElection(id);
+                  const election = elections?.find((el: any) => String(el.id) === String(id));
+                  if (election) {
+                    setGlobalElection(String(election.id), election.name, election.status);
+                  }
+                }}
+              >
                 {elections?.map((el: any) => <MenuItem key={el.id} value={el.id}>{el.name}</MenuItem>)}
               </Select>
             </FormControl>
@@ -177,7 +275,7 @@ const Infrastructure = () => {
                 <Paper sx={{ p: 3, borderRadius: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>Polling Booths</Typography>
-                    <IconButton color="primary" size="small"><Plus size={20} /></IconButton>
+                    <IconButton color="primary" size="small" disabled={isClosed}><Plus size={20} /></IconButton>
                   </Box>
                   <List>
                     {booths?.length === 0 ? (
@@ -198,6 +296,7 @@ const Infrastructure = () => {
                                 label={assignments.find((a: any) => a.booth_id === b.id).username} 
                               />
                               <IconButton size="small" color="error" 
+                                disabled={isClosed}
                                 onClick={() => unassignOfficerMutation.mutate(assignments.find((a: any) => a.booth_id === b.id).user_id)}>
                                 <Unlink size={16} />
                               </IconButton>
@@ -206,6 +305,7 @@ const Infrastructure = () => {
                             <Button 
                               size="small" 
                               startIcon={<UserPlus size={16} />} 
+                              disabled={isClosed}
                               onClick={() => setOpenAssign(b)}
                             >
                               Assign Staff
@@ -221,7 +321,7 @@ const Infrastructure = () => {
                 <Paper sx={{ p: 3, borderRadius: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>Voting Machines</Typography>
-                    <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)}>
+                    <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)} disabled={isClosed}>
                       Add Machine
                     </Button>
                   </Box>

@@ -10,7 +10,7 @@ try {
   const upload = require("../middleware/uploadCandidate");
   
   router.post(
-   "/create",
+   "/register",
    requireAuth,
    requireRole("SCHOOL_ADMIN"),
    upload.fields([
@@ -19,14 +19,32 @@ try {
    ]),
    candidateController.createCandidate
   );
+
+  router.put(
+   "/:candidate_id",
+   requireAuth,
+   requireRole("SCHOOL_ADMIN"),
+   upload.fields([
+    { name: 'photo', maxCount: 1 },
+    { name: 'symbol', maxCount: 1 }
+   ]),
+   candidateController.updateCandidate
+  );
 } catch (err) {
   console.error("Error loading upload middleware:", err);
   
   router.post(
-   "/create",
+   "/register",
    requireAuth,
    requireRole("SCHOOL_ADMIN"),
    candidateController.createCandidate
+  );
+
+  router.put(
+   "/:candidate_id",
+   requireAuth,
+   requireRole("SCHOOL_ADMIN"),
+   candidateController.updateCandidate
   );
 }
 
@@ -42,13 +60,6 @@ router.get(
  requireAuth,
  requireRole("SCHOOL_ADMIN"),
  candidateController.getCandidate
-);
-
-router.put(
- "/:candidate_id",
- requireAuth,
- requireRole("SCHOOL_ADMIN"),
- candidateController.updateCandidate
 );
 
 router.delete(
