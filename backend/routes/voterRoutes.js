@@ -58,4 +58,11 @@ router.delete(
  voterController.deleteVoter
 );
 
+router.get(
+ "/verify/:admission_no",
+ requireAuth,
+ requireRole("BOOTH_OFFICER", "SCHOOL_ADMIN"),
+ voterController.verifyVoter
+);
+
 module.exports = router;

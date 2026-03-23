@@ -1,0 +1,503 @@
+import { useState, useEffect } from 'react';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Button, 
+  TextField, 
+  CircularProgress, 
+  Alert, 
+  Card, 
+  CardContent, 
+  Grid, 
+  Avatar, 
+  IconButton, 
+  useTheme,
+  alpha,
+  Dialog,
+  DialogContent,
+  Chip
+} from '@mui/material';
+import { 
+  Search, 
+  Smartphone, 
+  PlayCircle, 
+  Lock, 
+  Unlock, 
+  LogOut, 
+  CheckCircle2, 
+  AlertCircle, 
+  Smartphone as SmartphoneIcon, 
+  Vote, 
+  ShieldCheck, 
+  User, 
+  ArrowRight, 
+  ArrowLeft, 
+  Sparkles,
+  ChevronRight,
+  Circle as CircleIcon,
+  Check as CheckIcon
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import axiosInstance from '../../api/axiosInstance';
+import { useQuery } from '@tanstack/react-query';
+import ThemeToggle from '../../components/common/ThemeToggle';
+
+// Simulated BEEP sound for tactile feedback
+const playBeep = () => {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  } catch (e) {
+    console.log("Audio failed", e);
+  }
+};
+
+const TerminalSession = () => {
+  const theme = useTheme();
+  const [token, setToken] = useState(localStorage.getItem('terminal_token') || '');
+  const [setupToken, setSetupToken] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  
+  // Voting State
+  const [step, setStep] = useState(0);
+  const [selections, setSelections] = useState<Record<number, number>>({});
+  const [isCasting, setIsCasting] = useState(false);
+  const [successDialog, setSuccessDialog] = useState(false);
+
+  const handleSelectCandidate = (postId: number, candId: number) => {
+     playBeep();
+     setSelections(prev => ({ ...prev, [postId]: candId }));
+  };
+
+  // 1. Verify Machine Status (Polling)
+  const { data: machine, refetch: refreshStatus } = useQuery({
+    queryKey: ['terminal-status', token],
+    queryFn: async () => {
+       const res = await axiosInstance.get('/machines/verify', {
+          headers: { 'machine-token': token }
+       });
+       return res.data;
+    },
+    enabled: !!token,
+    refetchInterval: 3000
+  });
+
+  // 2. Fetch Ballot Data
+  const { data: ballotData, isLoading: ballotLoading, error: ballotError } = useQuery({
+    queryKey: ['ballot', token],
+    queryFn: async () => {
+       const res = await axiosInstance.get('/machines/ballot/fetch', {
+          headers: { 'machine-token': token }
+       });
+       return res.data;
+    },
+    enabled: !!token && machine?.status === 'BUSY'
+  });
+
+  useEffect(() => {
+    if (token) {
+      setIsInitializing(false);
+    } else {
+      setIsInitializing(false);
+    }
+  }, [token]);
+
+  const handleSetup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!setupToken) return;
+    setError(null);
+    try {
+      await axiosInstance.get('/machines/verify', {
+        headers: { 'machine-token': setupToken }
+      });
+      localStorage.setItem('terminal_token', setupToken);
+      setToken(setupToken);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Invalid machine token');
+    }
+  };
+
+  const handleReset = () => {
+    localStorage.removeItem('terminal_token');
+    setToken('');
+    setSelections({});
+    setStep(0);
+  };
+
+  const handleCastVote = async () => {
+    setIsCasting(true);
+    try {
+      const votes = Object.entries(selections).map(([postId, candidateId]) => ({
+        post_id: parseInt(postId),
+        candidate_id: candidateId
+      }));
+      
+      await axiosInstance.post('/machines/vote/cast', { votes }, {
+        headers: { 'machine-token': token }
+      });
+      
+      setSuccessDialog(true);
+      setSelections({});
+      setStep(0);
+      setTimeout(() => {
+         setSuccessDialog(false);
+         refreshStatus();
+      }, 5000);
+
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to cast vote');
+    } finally {
+      setIsCasting(false);
+    }
+  };
+
+  if (isInitializing) return (
+     <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+     </Box>
+  );
+
+  // SETUP SCREEN
+  if (!token) {
+    return (
+      <Box sx={{ 
+        height: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: `radial-gradient(circle at 50% 50%, ${alpha(theme.palette.primary.main, 0.15)} 0%, ${theme.palette.background.default} 100%)` 
+      }}>
+        {/* Floating Theme Toggle */}
+        <Box sx={{ position: 'absolute', top: 24, right: 24 }}>
+          <ThemeToggle />
+        </Box>
+
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+          <Paper sx={{ p: 5, maxWidth: 500, width: '100%', borderRadius: 4, boxShadow: '0 20px 40px rgba(0,0,0,0.1)' }}>
+            <Box sx={{ textAlign: 'center', mb: 4 }}>
+              <ShieldCheck size={56} color={theme.palette.primary.main} style={{ marginBottom: 16 }} />
+              <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>Terminal Setup</Typography>
+              <Typography color="text.secondary">Enter the Machine Code to register this device for voting.</Typography>
+            </Box>
+            
+            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+
+            <form onSubmit={handleSetup}>
+              <TextField 
+                fullWidth
+                label="Machine Code (e.g., VM-B1-1234)"
+                variant="outlined"
+                value={setupToken}
+                onChange={(e) => setSetupToken(e.target.value)}
+                sx={{ mb: 3 }}
+              />
+              <Button 
+                fullWidth 
+                variant="contained" 
+                size="large" 
+                type="submit"
+                sx={{ py: 1.5, borderRadius: 2, fontWeight: 700 }}
+              >
+                Authorize Device
+              </Button>
+            </form>
+          </Paper>
+        </motion.div>
+      </Box>
+    );
+  }
+
+  // IDLE SCREEN
+  if (machine?.status === 'FREE') {
+    return (
+      <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default', position: 'relative' }}>
+         {/* Floating Layout Tools */}
+         <Box sx={{ position: 'absolute', top: 24, right: 24, display: 'flex', gap: 2 }}>
+            <ThemeToggle />
+            <IconButton onClick={handleReset} color="error" title="De-register Device" sx={{ bgcolor: alpha(theme.palette.error.main, 0.1) }}>
+               <LogOut />
+            </IconButton>
+         </Box>
+
+        <motion.div 
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Box sx={{ 
+            width: 120, height: 120, borderRadius: '50%', 
+            background: alpha(theme.palette.primary.main, 0.1),
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'primary.main', mb: 4
+          }}>
+            <SmartphoneIcon size={64} />
+          </Box>
+        </motion.div>
+
+        <Typography variant="h3" sx={{ fontWeight: 900, textAlign: 'center', mb: 2 }}>
+           Wating for Voter...
+        </Typography>
+        <Typography color="text.secondary" variant="h6" sx={{ textAlign: 'center', mb: 6, opacity: 0.7 }}>
+           The ballot will automatically load once authorized by the booth officer.
+        </Typography>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, bgcolor: alpha(theme.palette.success.main, 0.1), borderRadius: 4, color: 'success.main' }}>
+           <CircularProgress size={20} color="inherit" />
+           <Typography sx={{ fontWeight: 700 }}>Connection Active • Terminal: {machine.machine_code}</Typography>
+        </Box>
+      </Box>
+    );
+  }
+
+  // BALLOT SCREEN (BUSY)
+  const posts = ballotData?.ballot || [];
+  const isLastStep = step === posts.length;
+
+  return (
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+      {/* Header */}
+      <Box sx={{ p: 4, background: theme.palette.mode === 'dark' ? '#1e1e28' : '#fff', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ px: 2, py: 1, bgcolor: 'primary.main', borderRadius: 2, color: 'white', display: 'flex', alignItems: 'center' }}>
+               <Vote />
+            </Box>
+            <Box>
+               <Typography variant="h6" sx={{ fontWeight: 800 }}>Electronic Voting Terminal</Typography>
+               <Typography variant="caption" color="text.secondary">{machine?.machine_code} • {machine?.booth_name || 'Booth Protected'}</Typography>
+            </Box>
+         </Box>
+         
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+           {!isLastStep && posts.length > 0 && (
+              <Chip 
+                 label={`Post ${step + 1} of ${posts.length}`} 
+                 color="primary" 
+                 sx={{ fontWeight: 800, px: 2 }} 
+              />
+           )}
+           <ThemeToggle />
+         </Box>
+      </Box>
+
+      {/* Main Ballot Area */}
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 4 }}>
+         <AnimatePresence mode="wait">
+            {ballotLoading ? (
+               <Box key="loading" sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <CircularProgress size={60} />
+               </Box>
+            ) : ballotError ? (
+               <Box key="error" sx={{ textAlign: 'center', mt: 10 }}>
+                  <AlertCircle size={64} color="red" style={{ marginBottom: 16 }} />
+                  <Typography variant="h4" color="error" sx={{ fontWeight: 800 }}>Error Loading Ballot</Typography>
+                  <Typography color="text.secondary">{String(ballotError)}</Typography>
+                  <Button variant="contained" sx={{ mt: 4 }} onClick={() => refreshStatus()}>Retry</Button>
+               </Box>
+            ) : !isLastStep && posts[step] ? (
+               <motion.div 
+                  key={posts[step].post_id}
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  style={{ height: '100%' }}
+               >
+                   <Typography variant="h5" sx={{ fontWeight: 900, textAlign: 'center', mb: 3, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 2 }}>
+                      Ballot Paper: {posts[step].post_name}
+                   </Typography>
+
+                   {/* EVM Style Vertical List */}
+                   <Box sx={{ maxWidth: 900, mx: 'auto', border: '2px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', bgcolor: 'background.paper', boxShadow: 3 }}>
+                      {posts[step].candidates.map((c: any, idx: number) => {
+                         const isSelected = selections[posts[step].post_id] === c.candidate_id;
+                         return (
+                            <Box 
+                               key={c.candidate_id}
+                               onClick={() => handleSelectCandidate(posts[step].post_id, c.candidate_id)}
+                               sx={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center',
+                                  borderBottom: idx === posts[step].candidates.length - 1 ? 'none' : '2px solid',
+                                  borderColor: 'divider',
+                                  bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.04) : 'transparent',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s',
+                                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                                  minHeight: { xs: 80, md: 100 }
+                               }}
+                            >
+                               {/* Serial No */}
+                               <Box sx={{ width: { xs: 40, md: 60 }, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider', fontWeight: 900, color: 'text.secondary' }}>
+                                  {idx + 1}
+                               </Box>
+
+                               {/* Candidate Info */}
+                               <Box sx={{ flexGrow: 1, px: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Avatar 
+                                     src={c.photo} 
+                                     sx={{ width: { xs: 40, md: 60 }, height: { xs: 40, md: 60 }, border: '1px solid', borderColor: 'divider' }}
+                                  >
+                                     <User />
+                                  </Avatar>
+                                  <Box>
+                                     <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1 }}>{c.candidate_name}</Typography>
+                                     <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mt: 0.5, display: 'block' }}>
+                                        {c.symbol ? `Symbol: ${c.symbol}` : 'Independent'}
+                                     </Typography>
+                                  </Box>
+                               </Box>
+
+                               {/* Lamp Column */}
+                               <Box sx={{ width: 40, display: 'flex', justifyContent: 'center' }}>
+                                  <Box sx={{ 
+                                     width: 16, height: 16, borderRadius: '50%',
+                                     bgcolor: isSelected ? '#ff1744' : '#333',
+                                     boxShadow: isSelected ? '0 0 10px #ff1744' : 'none',
+                                     transition: 'all 0.3s'
+                                  }} />
+                               </Box>
+
+                               {/* Voting Button Column */}
+                               <Box sx={{ width: { xs: 80, md: 120 }, textAlign: 'center', borderLeft: '1px solid', borderColor: 'divider', py: 1, px: 1 }}>
+                                  <Box sx={{ 
+                                     width: { xs: 50, md: 70 }, height: { xs: 35, md: 45 }, 
+                                     bgcolor: '#455a64', borderRadius: 1.5, mx: 'auto',
+                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                     boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.2), 0 4px 0 #1c313a',
+                                     '&:active': { transform: 'translateY(2px)', boxShadow: '0 2px 0 #1c313a' }
+                                  }}>
+                                     {isSelected && <CheckIcon color="white" size={24} />}
+                                  </Box>
+                               </Box>
+                            </Box>
+                         );
+                      })}
+                   </Box>
+                </motion.div>
+            ) : isLastStep ? (
+               <motion.div 
+                  key="review"
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ maxWidth: 800, marginLeft: 'auto', marginRight: 'auto', paddingBottom: 80 }}
+               >
+                  <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', mb: 2 }}>REVIEW YOUR VOTES</Typography>
+                  <Typography sx={{ textAlign: 'center', color: 'text.secondary', mb: 6 }}>
+                     Please verify your selections before final submission.
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                     {posts.map((post: any) => {
+                        const sel = selections[post.post_id];
+                        const cand = post.candidates.find((c: any) => c.candidate_id === sel);
+                        return (
+                           <Paper key={post.post_id} sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 3, borderRadius: 3 }}>
+                              <Box sx={{ bgcolor: 'secondary.main', color: 'white', p: 1.5, borderRadius: 2 }}>
+                                 <Sparkles />
+                              </Box>
+                              <Box sx={{ flexGrow: 1 }}>
+                                 <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary' }}>{post.post_name}</Typography>
+                                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{cand?.candidate_name || 'NOT SELECTED'}</Typography>
+                              </Box>
+                              {cand ? <CheckCircle2 color="green" /> : <AlertCircle color="red" />}
+                           </Paper>
+                        );
+                     })}
+                  </Box>
+               </motion.div>
+            ) : null}
+         </AnimatePresence>
+      </Box>
+
+      {/* Footer Controls */}
+      <Box sx={{ p: 4, background: theme.palette.mode === 'dark' ? '#1e1e28' : '#fff', borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between' }}>
+         {step > 0 && !isLastStep ? (
+            <Button 
+               size="large" 
+               startIcon={<ArrowLeft />} 
+               variant="outlined"
+               onClick={() => setStep(s => s - 1)}
+               sx={{ px: 4, py: 2, borderRadius: 3, fontWeight: 700 }}
+            >
+               Previous Post
+            </Button>
+         ) : isLastStep ? (
+            <Button 
+               size="large" 
+               startIcon={<ArrowLeft />} 
+               variant="outlined"
+               onClick={() => setStep(posts.length - 1)}
+               disabled={isCasting}
+               sx={{ px: 4, py: 2, borderRadius: 3, fontWeight: 700 }}
+            >
+               Change Selections
+            </Button>
+         ) : <Box />}
+
+         {!isLastStep ? (
+            <Button 
+               size="large" 
+               endIcon={<ArrowRight />} 
+               variant="contained"
+               onClick={() => setStep(s => s + 1)}
+               sx={{ px: 8, py: 2, borderRadius: 3, fontWeight: 700 }}
+            >
+               Next Post
+            </Button>
+         ) : (
+            <Button 
+               size="large" 
+               variant="contained" 
+               color="success"
+               onClick={handleCastVote}
+               disabled={isCasting}
+               sx={{ 
+                  px: 10, py: 2.5, borderRadius: 3, fontWeight: 900, fontSize: '1.2rem',
+                  boxShadow: '0 8px 25px rgba(76, 175, 80, 0.4)'
+               }}
+            >
+               {isCasting ? <CircularProgress size={28} color="inherit" /> : 'Confirm & Cast Vote'}
+            </Button>
+         )}
+      </Box>
+
+      {/* Success Dialog */}
+      <Dialog 
+         open={successDialog} 
+         disableEscapeKeyDown
+         PaperProps={{ sx: { borderRadius: 4, p: 4, textAlign: 'center' } }}
+      >
+         <DialogContent>
+            <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
+               <Box sx={{ 
+                  width: 100, height: 100, borderRadius: '50%', 
+                  bgcolor: 'success.main', color: 'white', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  mx: 'auto', mb: 3, boxShadow: '0 10px 30px rgba(76, 175, 80, 0.3)'
+               }}>
+                  <CheckCircle2 size={64} />
+               </Box>
+            </motion.div>
+            <Typography variant="h4" sx={{ fontWeight: 900, mb: 1 }}>Vote Cast Succesfully!</Typography>
+            <Typography color="text.secondary" variant="h6">
+               Thank you for participating in the election.<br />
+               Your response has been secured.
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mt: 4, opacity: 0.6 }}>
+               Terminal will reset automatically in a few seconds...
+            </Typography>
+         </DialogContent>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default TerminalSession;

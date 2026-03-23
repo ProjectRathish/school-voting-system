@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { 
-  Box, 
-  Typography, 
-  Button, 
-  Paper, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
   TableRow,
   Chip,
   IconButton,
@@ -19,7 +19,8 @@ import {
   TextField,
   Tooltip
 } from '@mui/material';
-import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { Alert, CircularProgress } from '@mui/material';
@@ -31,6 +32,7 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import dayjs from 'dayjs';
 
 const Elections = () => {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -39,12 +41,15 @@ const Elections = () => {
   });
   const [editingElection, setEditingElection] = useState<any>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [confirmStartId, setConfirmStartId] = useState<number | null>(null);
+  const [confirmEndId, setConfirmEndId] = useState<number | null>(null);
+  const [confirmCodeInput, setConfirmCodeInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const queryClient = useQueryClient();
-  const { setSelectedElection, selectedElectionId, selectedElectionStatus } = useElectionStore();
+  const { setSelectedElection, selectedElectionId, selectedElectionName, selectedElectionStatus, clearSelection } = useElectionStore();
 
   const { data: elections, isLoading } = useQuery({
     queryKey: ['elections'],
@@ -58,7 +63,7 @@ const Elections = () => {
   useEffect(() => {
     if (elections && Array.isArray(elections)) {
       const configElection = elections.find((e: any) => e.status === 'CONFIGURING');
-      
+
       if (configElection && !selectedElectionId) {
         setSelectedElection(String(configElection.id), configElection.name, configElection.status);
       } else if (selectedElectionId) {
@@ -83,6 +88,7 @@ const Elections = () => {
       setEditingElection(null);
       setFormData({ name: '', start_time: '', end_time: '' });
       queryClient.invalidateQueries({ queryKey: ['elections'] });
+      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
       setTimeout(() => setSuccess(null), 5000);
     },
     onError: (err: any) => {
@@ -96,20 +102,53 @@ const Elections = () => {
       setSuccess('Election deleted successfully');
       setDeleteId(null);
       queryClient.invalidateQueries({ queryKey: ['elections'] });
+      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
       setTimeout(() => setSuccess(null), 3000);
     }
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: number, status: string }) => {
-      return await axiosInstance.put(`/elections/${id}/status`, { status });
+    mutationFn: async ({ id, status, confirmation_text }: { id: number, status: string, confirmation_text?: string }) => {
+      return await axiosInstance.put(`/elections/${id}/status`, { status, confirmation_text });
     },
-    onSuccess: () => {
-      setSuccess('Election status updated');
+    onSuccess: (response, variables) => {
+      const { status, id } = variables;
+      const election = elections?.find((e: any) => e.id === id);
+      const name = election?.name || 'Election';
+
+      if (status === 'ACTIVE') {
+        setSuccess(`Election "${name}" is now LIVE! Switching context...`);
+        setSelectedElection(String(id), name, status);
+        setTimeout(() => navigate('/school-admin/voters'), 1000);
+      } else if (status === 'CLOSED') {
+        setSuccess(`Election "${name}" has been CLOSED permanently.`);
+        clearSelection();
+      } else {
+        setSuccess(`Status updated to ${status}`);
+      }
+      
       queryClient.invalidateQueries({ queryKey: ['elections'] });
-      setTimeout(() => setSuccess(null), 3000);
+      queryClient.invalidateQueries({ queryKey: ['active-elections'] });
+      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
+      setTimeout(() => setSuccess(null), 4000);
     }
   });
+
+  const handleContextSwitch = (election: any, isClearing: boolean) => {
+    if (isClearing) {
+      clearSelection();
+      setSuccess('Context reverted to latest draft/configuring election');
+    } else {
+      setSelectedElection(String(election.id), election.name, election.status);
+      setSuccess(`Context switched to: ${election.name} (Limited Access)`);
+      if (election.status === 'CLOSED') {
+        setTimeout(() => navigate('/school-admin/results'), 500);
+      } else {
+        setTimeout(() => navigate('/school-admin/classes'), 500);
+      }
+    }
+    setTimeout(() => setSuccess(null), 3000);
+  };
 
 
 
@@ -142,8 +181,8 @@ const Elections = () => {
     setOpen(true);
   };
 
-  const changeStatus = (id: number, status: string) => {
-    updateStatusMutation.mutate({ id, status });
+  const changeStatus = (id: number, status: string, confirmation_text?: string) => {
+    updateStatusMutation.mutate({ id, status, confirmation_text });
   };
 
   const handleConfigure = (election: any) => {
@@ -167,7 +206,7 @@ const Elections = () => {
     }
   };
 
-  const filteredElections = elections?.filter((e: any) => 
+  const filteredElections = elections?.filter((e: any) =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
@@ -194,54 +233,167 @@ const Elections = () => {
       </Box>
 
       {success && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>{success}</Alert>}
+      
+      {/* Current Context Banner */}
+      <Box sx={{ 
+        mb: 4, 
+        display: 'flex'
+      }}>
+        <Box sx={{ 
+          p: '1.5px', 
+          borderRadius: '24px', 
+          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
+          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
+          position: 'relative'
+        }}>
+          <Box sx={{ 
+            px: 3, 
+            py: 2, 
+            borderRadius: '23px', 
+            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2.5
+          }}>
+            <Box sx={{ 
+              width: 45, 
+              height: 45, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
+            }}>
+              <Sparkles size={22} />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ 
+                color: 'text.secondary', 
+                fontWeight: 800, 
+                textTransform: 'uppercase', 
+                letterSpacing: 1.5,
+                fontSize: '0.65rem',
+                display: 'block',
+                mb: 0.5
+              }}>
+                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
+              </Typography>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 900, 
+                color: 'text.primary', 
+                lineHeight: 1.1,
+                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '1.25rem'
+              }}>
+                {selectedElectionName || 'None Selected'}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
 
       <TableContainer component={Paper}>
         <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Election Name</TableCell>
-              <TableCell>Start Time</TableCell>
-              <TableCell>End Time</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Actions</TableCell>
-            </TableRow>
-          </TableHead>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: 'rgba(99, 102, 241, 0.04)' }}>
+                <TableCell sx={{ fontWeight: 700 }}>Election Name</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Code</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Start Time</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>End Time</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} align="center"><CircularProgress size={24} /></TableCell>
+                <TableCell colSpan={6} align="center"><CircularProgress size={24} /></TableCell>
               </TableRow>
             ) : filteredElections.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary' }}>
+                <TableCell colSpan={6} align="center" sx={{ color: 'text.secondary' }}>
                   {searchQuery ? 'No elections match your search' : 'No elections found. Create one to get started.'}
                 </TableCell>
               </TableRow>
-            ) : filteredElections.map((election: any) => (
+            ) : filteredElections.map((election: any) => {
+              const isSelected = selectedElectionId === String(election.id);
+              return (
               <TableRow key={election.id}>
-                <TableCell sx={{ fontWeight: 600 }}>{election.name}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {election.name}
+                    {isSelected && (
+                      <Chip 
+                        label={(election.status === 'ACTIVE' || election.status === 'PAUSED') ? "Configuring with limited access" : "Current Context"} 
+                        size="small" 
+                        color={(election.status === 'ACTIVE' || election.status === 'PAUSED') ? "warning" : "primary"} 
+                        sx={{ height: 20, fontSize: '0.65rem' }} 
+                      />
+                    )}
+                  </Box>
+                </TableCell>
+                <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700, color: 'primary.main' }}>
+                  {election.election_code}
+                </TableCell>
                 <TableCell>{new Date(election.start_time).toLocaleString()}</TableCell>
                 <TableCell>{new Date(election.end_time).toLocaleString()}</TableCell>
                 <TableCell>
-                  <Chip 
-                    label={election.status} 
-                    color={getStatusColor(election.status) as any} 
-                    size="small" 
+                  <Chip
+                    label={election.status}
+                    color={getStatusColor(election.status) as any}
+                    size="small"
                   />
                 </TableCell>
                 <TableCell align="right">
-                  {/* View/Manage Election Data (Available in all states) */}
-                  <Tooltip title="View Election Context (Voters, Classes)">
-                    <IconButton color="secondary" onClick={() => setSelectedElection(String(election.id), election.name, election.status)} disabled={updateStatusMutation.isPending}>
-                       <Eye size={18} />
-                    </IconButton>
-                  </Tooltip>
+                  {/* View/Manage Election Data (Available in ACTIVE, PAUSED, or CLOSED states) */}
+                  {(election.status === 'ACTIVE' || election.status === 'PAUSED' || election.status === 'CLOSED') && (
+                    <Tooltip title={isSelected ? (election.status === 'CLOSED' ? "View Results" : "Quit limited access") : (election.status === 'CLOSED' ? "View Results" : "Configure with limited access")}>
+                      <IconButton 
+                        color={isSelected ? "primary" : "secondary"} 
+                        onClick={() => {
+                          if (election.status === 'CLOSED') {
+                            navigate('/school-admin/results', { state: { electionId: election.id } });
+                          } else {
+                            handleContextSwitch(election, isSelected);
+                          }
+                        }}
+                        disabled={updateStatusMutation.isPending}
+                        sx={{
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                          ...(isSelected && election.status !== 'CLOSED' ? {
+                            backgroundColor: 'primary.main',
+                            color: 'white',
+                            '&:hover': {
+                              backgroundColor: 'primary.dark',
+                              transform: 'scale(1.05)',
+                            },
+                            boxShadow: '0 0 12px rgba(99, 102, 241, 0.5)',
+                          } : {
+                            backgroundColor: 'transparent',
+                            '&:hover': {
+                              backgroundColor: 'action.hover',
+                            },
+                            '&:focus': {
+                              outline: 'none',
+                              backgroundColor: 'transparent',
+                            }
+                          })
+                        }}
+                      >
+                        {election.status === 'CLOSED' ? <BarChart3 size={18} /> : <Eye size={18} />}
+                      </IconButton>
+                    </Tooltip>
+                  )}
 
                   {/* Configuration Toggle (Available in DRAFT or CONFIGURING) */}
                   {(election.status === 'DRAFT' || election.status === 'CONFIGURING') && (
                     <Tooltip title={election.status === 'CONFIGURING' ? "Active Configuration" : "Set to Configuration Mode"}>
-                      <IconButton 
-                        color={election.status === 'CONFIGURING' ? 'primary' : 'default'} 
+                      <IconButton
+                        color={election.status === 'CONFIGURING' ? 'primary' : 'default'}
                         onClick={() => handleConfigure(election)}
                         disabled={updateStatusMutation.isPending}
                       >
@@ -271,7 +423,7 @@ const Elections = () => {
                   {/* Start Election (Available in READY or PAUSED) */}
                   {(election.status === 'READY' || election.status === 'PAUSED') && (
                     <Tooltip title="Start Election">
-                      <IconButton color="success" onClick={() => changeStatus(election.id, 'ACTIVE')} disabled={updateStatusMutation.isPending}>
+                      <IconButton color="success" onClick={() => setConfirmStartId(election.id)} disabled={updateStatusMutation.isPending}>
                         <Play size={18} />
                       </IconButton>
                     </Tooltip>
@@ -289,7 +441,7 @@ const Elections = () => {
                   {/* End Election (Available in ACTIVE or PAUSED) */}
                   {(election.status === 'ACTIVE' || election.status === 'PAUSED') && (
                     <Tooltip title="End Election Permanently">
-                      <IconButton color="error" onClick={() => changeStatus(election.id, 'CLOSED')} disabled={updateStatusMutation.isPending}>
+                      <IconButton color="error" onClick={() => setConfirmEndId(election.id)} disabled={updateStatusMutation.isPending}>
                         <Square size={18} />
                       </IconButton>
                     </Tooltip>
@@ -304,8 +456,8 @@ const Elections = () => {
                     </Tooltip>
                   )}
 
-                  {/* Delete Election (Not allowed once active/completed) */}
-                  {(election.status !== 'ACTIVE' && election.status !== 'CLOSED' && election.status !== 'PAUSED') && (
+                  {/* Delete Election (Not allowed once active) */}
+                  {(election.status !== 'ACTIVE' && election.status !== 'PAUSED') && (
                     <Tooltip title="Delete Election">
                       <IconButton color="error" onClick={() => setDeleteId(election.id)} disabled={updateStatusMutation.isPending}>
                         <Trash2 size={18} />
@@ -314,7 +466,7 @@ const Elections = () => {
                   )}
                 </TableCell>
               </TableRow>
-            ))}
+            );})}
           </TableBody>
         </Table>
       </TableContainer>
@@ -325,23 +477,23 @@ const Elections = () => {
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField 
-              label="Election Name" 
-              fullWidth 
+            <TextField
+              label="Election Name"
+              fullWidth
               placeholder="e.g. Student Council 2025"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <LocalizationProvider dateAdapter={AdapterDayjs}>
-                <DateTimePicker 
-                  label="Start Time" 
+                <DateTimePicker
+                  label="Start Time"
                   value={formData.start_time ? dayjs(formData.start_time) : null}
                   onChange={(newValue) => setFormData({ ...formData, start_time: newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '' })}
                   sx={{ width: '100%' }}
                 />
-                <DateTimePicker 
-                  label="End Time" 
+                <DateTimePicker
+                  label="End Time"
                   value={formData.end_time ? dayjs(formData.end_time) : null}
                   onChange={(newValue) => setFormData({ ...formData, end_time: newValue ? newValue.format('YYYY-MM-DDTHH:mm') : '' })}
                   sx={{ width: '100%' }}
@@ -354,8 +506,8 @@ const Elections = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => { setOpen(false); setEditingElection(null); }}>Cancel</Button>
-          <Button 
-            variant="contained" 
+          <Button
+            variant="contained"
             onClick={handleUpsert}
             disabled={upsertElectionMutation.isPending}
             startIcon={upsertElectionMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <Save size={20} />}
@@ -373,13 +525,165 @@ const Elections = () => {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setDeleteId(null)}>Cancel</Button>
-          <Button 
-            color="error" 
-            variant="contained" 
+          <Button
+            color="error"
+            variant="contained"
             onClick={() => deleteId && deleteElectionMutation.mutate(deleteId)}
             disabled={deleteElectionMutation.isPending}
           >
             {deleteElectionMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Start Confirmation Dialog */}
+      <Dialog open={!!confirmStartId} onClose={() => { setConfirmStartId(null); setConfirmCodeInput(''); }}>
+        <DialogTitle>Confirm Start Election</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 3, color: 'text.secondary', lineHeight: 1.6 }}>
+            Are you sure you want to start this election? Once started, voting will be live. Please ensure all candidates and posts are correctly configured.
+          </Typography>
+          <Box sx={{ 
+            mt: 2, 
+            p: 3, 
+            bgcolor: 'action.hover', 
+            borderRadius: 2, 
+            border: '1px solid', 
+            borderColor: 'primary.main',
+            opacity: 0.9
+          }}>
+            <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 500, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span>Required Code:</span>
+              <Box component="span" sx={{ 
+                bgcolor: 'background.paper', 
+                px: 1, 
+                py: 0.5, 
+                borderRadius: 1, 
+                border: '1px solid',
+                borderColor: 'divider',
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: 'primary.main'
+              }}>
+                {elections?.find((e: any) => e.id === confirmStartId)?.election_code}
+              </Box>
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Type code to confirm"
+              value={confirmCodeInput}
+              onChange={(e) => setConfirmCodeInput(e.target.value)}
+              autoFocus
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  bgcolor: 'background.paper'
+                }
+              }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button 
+            onClick={() => { setConfirmStartId(null); setConfirmCodeInput(''); }}
+            sx={{ color: 'text.secondary', fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            color="success"
+            variant="contained"
+            disableElevation
+            onClick={() => {
+              const election = elections?.find((e: any) => e.id === confirmStartId);
+              if (confirmStartId && election && confirmCodeInput === election.election_code) {
+                changeStatus(confirmStartId, 'ACTIVE', confirmCodeInput);
+                setConfirmStartId(null);
+                setConfirmCodeInput('');
+              }
+            }}
+            sx={{ borderRadius: 2, px: 3, fontWeight: 700 }}
+            disabled={updateStatusMutation.isPending || !confirmCodeInput || confirmCodeInput !== elections?.find((e: any) => e.id === confirmStartId)?.election_code}
+          >
+            {updateStatusMutation.isPending ? 'Starting...' : 'Start Election'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* End Confirmation Dialog */}
+      <Dialog open={!!confirmEndId} onClose={() => { setConfirmEndId(null); setConfirmCodeInput(''); }}>
+        <DialogTitle>Confirm End Election</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 3, color: 'text.secondary', lineHeight: 1.6 }}>
+            Are you sure you want to permanently end this election? Once closed, no more votes can be cast, and results will be finalized. This action cannot be undone.
+          </Typography>
+          <Box sx={{ 
+            mt: 2, 
+            p: 3, 
+            bgcolor: 'action.hover', 
+            borderRadius: 2, 
+            border: '1px solid', 
+            borderColor: 'error.main',
+            opacity: 0.9
+          }}>
+            <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 500, color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <span>Required Code:</span>
+              <Box component="span" sx={{ 
+                bgcolor: 'background.paper', 
+                px: 1, 
+                py: 0.5, 
+                borderRadius: 1, 
+                border: '1px solid',
+                borderColor: 'divider',
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                fontSize: '1rem',
+                color: 'error.main'
+              }}>
+                {elections?.find((e: any) => e.id === confirmEndId)?.election_code}
+              </Box>
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Type code to confirm"
+              value={confirmCodeInput}
+              onChange={(e) => setConfirmCodeInput(e.target.value)}
+              autoFocus
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  bgcolor: 'background.paper'
+                }
+              }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button 
+            onClick={() => { setConfirmEndId(null); setConfirmCodeInput(''); }}
+            sx={{ color: 'text.secondary', fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disableElevation
+            onClick={() => {
+              const election = elections?.find((e: any) => e.id === confirmEndId);
+              if (confirmEndId && election && confirmCodeInput === election.election_code) {
+                changeStatus(confirmEndId, 'CLOSED', confirmCodeInput);
+                setConfirmEndId(null);
+                setConfirmCodeInput('');
+              }
+            }}
+            sx={{ borderRadius: 2, px: 3, fontWeight: 700 }}
+            disabled={updateStatusMutation.isPending || !confirmCodeInput || confirmCodeInput !== elections?.find((e: any) => e.id === confirmEndId)?.election_code}
+          >
+            {updateStatusMutation.isPending ? 'Ending...' : 'End Election Permanently'}
           </Button>
         </DialogActions>
       </Dialog>

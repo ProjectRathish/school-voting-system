@@ -1,254 +1,194 @@
 import { useState } from 'react';
 import { 
-  Paper, 
-  Typography, 
-  Box, 
-  Grid, 
-  Button, 
-  TextField, 
-  InputAdornment,
-  Avatar,
-  Chip,
-  Alert,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Divider,
-  List,
-  ListItem
+  Paper, Typography, Box, Grid, Button, TextField, 
+  InputAdornment, Chip, Alert, CircularProgress 
 } from '@mui/material';
-import { Search, UserCheck, Smartphone, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { Search, Smartphone, PlayCircle, Lock, Unlock } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
 
 const BoothOfficerDashboard = () => {
-  const [admissionNo, setAdmissionNo] = useState('');
-  const [voter, setVoter] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [openMachineSelect, setOpenMachineSelect] = useState(false);
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+  const [inputs, setInputs] = useState<Record<number, string>>({});
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Fetch machines for this booth
-  const { data: machines, isLoading: machinesLoading } = useQuery({
+  // Fetch machines with polling every 3 seconds to ensure real-time status updates
+  const { data: boothData, isLoading: machinesLoading, error: machinesError } = useQuery({
     queryKey: ['booth-machines', user?.booth_id],
     queryFn: async () => {
-      const res = await axiosInstance.get(`/booths/${user?.booth_id}/machines`);
+      const res = await axiosInstance.get(`/machines/booth/${user?.booth_id}`);
       return res.data;
     },
-    enabled: !!user?.booth_id
+    enabled: !!user?.booth_id,
+    refetchInterval: 3000,
+    retry: false
   });
 
-  const searchVoterMutation = useMutation({
-    mutationFn: async (adm: string) => {
-      const res = await axiosInstance.get(`/voters/verify/${adm}?booth_id=${user?.booth_id}`);
-      return res.data;
-    },
-    onSuccess: (data) => {
-      setVoter(data.voter);
-      setError(null);
-    },
-    onError: (err: any) => {
-      setError(err.response?.data?.message || 'Voter not found or ineligible');
-      setVoter(null);
-    }
-  });
+  const machines = boothData?.data || [];
+  const boothCode = boothData?.booth_name || `Booth ID: ${user?.booth_id}`;
+  const boothLocation = boothData?.booth_location || '';
 
   const assignMachineMutation = useMutation({
-    mutationFn: async (machineId: number) => {
-      return await axiosInstance.post(`/voters/assign-machine`, {
-        voter_id: voter.id,
-        machine_id: machineId
+    mutationFn: async (data: { admission_no: string, machine_id: number }) => {
+      return await axiosInstance.post(`/polling-booths/assign-voter`, {
+        admission_no: data.admission_no,
+        machine_id: data.machine_id
       });
     },
-    onSuccess: () => {
-      setSuccess(`Voter ${voter.name} assigned to machine successfully!`);
-      setVoter(null);
-      setAdmissionNo('');
-      setOpenMachineSelect(false);
+    onSuccess: (res, variables) => {
+      setSuccessMsg(`Voter successfully assigned to Machine! They may now proceed to vote.`);
+      setInputs(prev => ({ ...prev, [variables.machine_id]: '' }));
       queryClient.invalidateQueries({ queryKey: ['booth-machines'] });
-      setTimeout(() => setSuccess(null), 5000);
+      setTimeout(() => setSuccessMsg(null), 5000);
     },
     onError: (err: any) => {
-      setError(err.response?.data?.message || 'Error assigning machine');
+      setErrorMsg(err.response?.data?.message || 'Error assigning voter to machine');
+      setTimeout(() => setErrorMsg(null), 7000);
     }
   });
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAssign = (machineId: number) => {
+    const admissionNo = inputs[machineId];
     if (!admissionNo) return;
-    searchVoterMutation.mutate(admissionNo);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    assignMachineMutation.mutate({ admission_no: admissionNo.toUpperCase(), machine_id: machineId });
   };
 
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800 }}>
-          {user?.school_name || 'Booth Operations'}
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+          Booth Control Panel
         </Typography>
-        <Typography color="text.secondary" variant="body1" sx={{ fontWeight: 500 }}>
-           {user?.username} • Booth ID: {user?.booth_id}
+        <Box sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: 'primary.main', color: 'primary.contrastText', px: 2, py: 0.5, borderRadius: 2, mb: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+             Booth {boothCode} {boothLocation ? ` • ${boothLocation}` : ''}
+          </Typography>
+        </Box>
+        <Typography color="text.secondary" variant="body2" sx={{ fontWeight: 500 }}>
+           Logged in as {user?.username} • {user?.school_name}
         </Typography>
       </Box>
 
-      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {successMsg && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>{successMsg}</Alert>}
+      {errorMsg && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{errorMsg}</Alert>}
+      {machinesError && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>Failed to load machines: {String(machinesError)}</Alert>}
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Paper sx={{ p: 4, borderRadius: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
-              Voter Verification
-            </Typography>
-            <form onSubmit={handleSearch}>
-              <Box sx={{ display: 'flex', gap: 2 }}>
-                <TextField 
-                  fullWidth
-                  placeholder="Enter Student Admission Number (e.g. ADM1001)"
-                  value={admissionNo}
-                  onChange={(e) => setAdmissionNo(e.target.value.toUpperCase())}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Search size={20} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <Button 
-                  variant="contained" 
-                  size="large" 
-                  type="submit"
-                  disabled={searchVoterMutation.isPending}
-                >
-                  {searchVoterMutation.isPending ? <CircularProgress size={24} /> : 'Verify'}
-                </Button>
-              </Box>
-            </form>
+      <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          Connected Voting Machines
+        </Typography>
+        <Chip label={`${machines?.length || 0} Total Terminals`} color="primary" variant="outlined" />
+      </Box>
 
-            {voter && (
-              <Box sx={{ mt: 4, p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
-                  <Avatar sx={{ width: 64, height: 64, bgcolor: 'primary.main', fontSize: '1.5rem' }}>
-                    {voter.name?.charAt(0)}
-                  </Avatar>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 700 }}>{voter.name}</Typography>
-                    <Typography color="text.secondary">{voter.admission_no} • {voter.class_name}</Typography>
-                  </Box>
-                  <Chip 
-                    icon={voter.has_voted ? <XCircle size={16} /> : <CheckCircle size={16} />}
-                    label={voter.has_voted ? "ALREADY VOTED" : "ELIGIBLE"} 
-                    color={voter.has_voted ? "error" : "success"}
-                    sx={{ fontWeight: 700 }}
-                  />
-                </Box>
-                <Divider />
-                {!voter.has_voted && (
-                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button 
-                      variant="contained" 
-                      color="success" 
-                      size="large"
-                      startIcon={<UserCheck size={20} />}
-                      onClick={() => setOpenMachineSelect(true)}
-                    >
-                      Process Voting
-                    </Button>
-                  </Box>
-                )}
-              </Box>
-            )}
-          </Paper>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Paper sx={{ p: 4, borderRadius: 3, height: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                Voting Machines
-              </Typography>
-              <Chip label={`${machines?.length || 0} Connected`} size="small" />
-            </Box>
-
-            {machinesLoading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : machines?.length === 0 ? (
-              <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-                No voting machines assigned to this booth
-              </Typography>
-            ) : (
-              <Grid container spacing={2}>
-                {machines?.map((machine: any) => (
-                  <Grid size={12} key={machine.id}>
-                    <Paper 
-                      variant="outlined" 
-                      sx={{ 
-                        p: 2, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 2,
-                        borderColor: machine.status === 'FREE' ? 'success.light' : machine.status === 'BUSY' ? 'warning.light' : 'divider'
-                      }}
-                    >
-                      <Smartphone size={24} color={machine.status === 'FREE' ? '#4caf50' : '#ff9800'} />
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{machine.machine_name}</Typography>
-                        <Typography variant="caption" color="text.secondary">{machine.machine_code}</Typography>
-                      </Box>
-                      <Chip 
-                        label={machine.status} 
-                        size="small" 
-                        color={machine.status === 'FREE' ? 'success' : machine.status === 'BUSY' ? 'warning' : 'default'}
-                      />
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Machine Selection Dialog */}
-      <Dialog open={openMachineSelect} onClose={() => setOpenMachineSelect(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Select Voting Machine</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
-            Assign <b>{voter?.name}</b> to an available machine to start the secret ballot.
+      {machinesLoading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 8 }}>
+          <CircularProgress />
+        </Box>
+      ) : machines?.length === 0 ? (
+        <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
+          <Smartphone size={48} color="lightgray" style={{ marginBottom: 16 }} />
+          <Typography color="text.secondary" variant="h6">
+            No voting machines are registered to this booth.
           </Typography>
-          <List>
-            {machines?.filter((m: any) => m.status === 'FREE').length === 0 ? (
-              <Alert severity="warning">All machines are currently busy</Alert>
-            ) : machines?.filter((m: any) => m.status === 'FREE').map((m: any) => (
-              <ListItem key={m.id} disablePadding sx={{ mb: 1 }}>
-                <Button 
-                  fullWidth 
-                  variant="outlined" 
-                  onClick={() => assignMachineMutation.mutate(m.id)}
-                  disabled={assignMachineMutation.isPending}
-                  startIcon={<Smartphone size={18} />}
-                  sx={{ justifyContent: 'space-between', px: 3, py: 1.5, borderRadius: 2 }}
+        </Paper>
+      ) : (
+        <Grid container spacing={3}>
+          {[...(machines || [])].sort((a, b) => {
+            if (a.status === 'BUSY' && b.status !== 'BUSY') return -1;
+            if (a.status !== 'BUSY' && b.status === 'BUSY') return 1;
+            return a.machine_name.localeCompare(b.machine_name);
+          }).map((machine: any) => {
+            const isFree = machine.status === 'FREE';
+            
+            return (
+              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={machine.id}>
+                <Paper 
+                  sx={{ 
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    border: '2px solid',
+                    borderColor: isFree ? 'success.main' : 'warning.main',
+                    transition: 'all 0.3s ease'
+                  }}
+                  elevation={isFree ? 4 : 1}
                 >
-                  {m.machine_name}
-                  <ArrowRight size={18} />
-                </Button>
-              </ListItem>
-            ))}
-          </List>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenMachineSelect(false)}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
+                  <Box sx={{ p: 2, bgcolor: isFree ? 'success.lighter' : 'warning.lighter', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Smartphone size={32} color={isFree ? '#4caf50' : '#ff9800'} />
+                      <Box>
+                        <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.1 }}>{machine.machine_name}</Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary', mt: 0.5, letterSpacing: 0.5 }}>{machine.machine_code}</Typography>
+                      </Box>
+                    </Box>
+                    <Chip 
+                      label={isFree ? 'FREE' : 'BUSY'} 
+                      size="small" 
+                      color={isFree ? 'success' : 'warning'}
+                      icon={isFree ? <Unlock size={14} /> : <Lock size={14} />}
+                      sx={{ fontWeight: 800 }}
+                    />
+                  </Box>
+
+                  <Box sx={{ p: 3, minHeight: 180, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    {isFree ? (
+                      <Box component="form" onSubmit={(e) => { e.preventDefault(); handleAssign(machine.id); }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1.5 }}>
+                          Scan or Enter Voter Admission Number:
+                        </Typography>
+                        <TextField 
+                          fullWidth
+                          size="medium"
+                          placeholder="e.g. ADM1001"
+                          value={inputs[machine.id] || ''}
+                          onChange={(e) => setInputs(prev => ({ ...prev, [machine.id]: e.target.value }))}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <Search size={18} />
+                              </InputAdornment>
+                            ),
+                          }}
+                          sx={{ mb: 2 }}
+                        />
+                        <Button 
+                          fullWidth 
+                          variant="contained" 
+                          color="success" 
+                          size="large"
+                          type="submit"
+                          disabled={!inputs[machine.id] || assignMachineMutation.isPending}
+                          startIcon={<PlayCircle size={20} />}
+                          sx={{ py: 1.2, fontWeight: 700 }}
+                        >
+                          Verify & Assign Voter
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Box sx={{ textAlign: 'center', py: 2 }}>
+                        <CircularProgress color="warning" size={40} thickness={4} sx={{ mb: 2 }} />
+                        <Typography variant="h6" color="warning.main" sx={{ fontWeight: 800 }}>
+                          Voting Happening...
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          A voter is currently using this machine. Please wait until they cast their ballot.
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
+      )}
     </Box>
   );
 };
 
-export default BoothOfficerDashboard;
+export default BoothOfficerDashboard;;

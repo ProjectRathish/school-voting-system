@@ -1,18 +1,29 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Box, Typography, Paper, Grid, Button, Chip, Alert, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, Card, CardContent,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress
 } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Download, Trophy, Users, BarChart3 } from 'lucide-react';
+import { Download, Trophy, Users, BarChart3, Sparkles } from 'lucide-react';
+import { useElectionStore } from '../../store/electionStore';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 
 const COLORS = ['#3f51b5', '#f50057', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
 const Results = () => {
+  const { setSelectedElection: setGlobalElection } = useElectionStore();
   const [selectedElection, setSelectedElection] = useState('');
+  const location = useLocation();
+  const incomingId = location.state?.electionId;
+
+  useEffect(() => {
+    if (incomingId) {
+      setSelectedElection(String(incomingId));
+    }
+  }, [incomingId]);
 
   const { data: elections } = useQuery({
     queryKey: ['elections'],
@@ -58,24 +69,39 @@ const Results = () => {
         )}
       </Box>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+
+      <Paper sx={{ p: 3, mb: 1.5 }}>
         <FormControl fullWidth>
           <InputLabel>Select Election</InputLabel>
-          <Select value={selectedElection} label="Select Election" onChange={e => setSelectedElection(e.target.value)}>
-            {elections?.map((el: any) => (
+          <Select 
+            value={selectedElection} 
+            label="Select Election" 
+            onChange={e => {
+              const id = e.target.value;
+              setSelectedElection(id);
+              const election = elections?.find((el: any) => String(el.id) === String(id));
+              if (election) {
+                setGlobalElection(String(election.id), election.name, election.status);
+              }
+            }}
+          >
+            {elections?.filter((el: any) => el.status === 'CLOSED').map((el: any) => (
               <MenuItem key={el.id} value={el.id}>
-                {el.name} — <Chip label={el.status} size="small" sx={{ ml: 1 }} />
+                {el.name}
               </MenuItem>
             ))}
+            {elections?.filter((el: any) => el.status === 'CLOSED').length === 0 && (
+              <MenuItem disabled value="">
+                No closed elections found
+              </MenuItem>
+            )}
           </Select>
         </FormControl>
       </Paper>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3, ml: 1, fontWeight: 500 }}>
+        Note: Only elections that have been marked as <b>CLOSED</b> are available for result viewing.
+      </Typography>
 
-      {selectedElection && !isClosedElection && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Results are only available once the election is <b>CLOSED</b>. Current status: <b>{selectedElectionData?.status}</b>
-        </Alert>
-      )}
 
       {selectedElection && isClosedElection && (
         <>

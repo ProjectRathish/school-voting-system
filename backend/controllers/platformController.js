@@ -8,7 +8,7 @@ const path = require("path");
 const generateNextSchoolCode = async () => {
   const [rows] = await db.execute("SELECT code FROM schools");
   let maxId = 0;
-  
+
   rows.forEach(row => {
     const match = row.code.match(/\d+/);
     if (match) {
@@ -271,7 +271,7 @@ exports.deleteSchool = async (req, res) => {
           if (fs.existsSync(logoDir)) {
             const files = fs.readdirSync(logoDir);
             const school_id_str = `school_${school_id}`;
-            
+
             files.forEach(file => {
               // Matches school_code.ext or school_id.ext
               if (file.startsWith(school_code) || file.startsWith(school_id_str)) {

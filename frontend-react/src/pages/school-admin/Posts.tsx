@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
-  Chip, FormControl, InputLabel, Select, MenuItem
+  Chip, FormControl, InputLabel, Select, MenuItem, Tooltip
 } from '@mui/material';
 import { Plus, Trash2, Edit, Sparkles, Settings, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -150,7 +150,7 @@ const Posts = () => {
                 display: 'block',
                 mb: 0.5
               }}>
-                Active Configuration
+                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
               </Typography>
               <Typography variant="h6" sx={{ 
                 fontWeight: 900, 
@@ -216,12 +216,16 @@ const Posts = () => {
                   </TableCell>
                   {isConfiguring && (
                     <TableCell align="right">
-                      <IconButton color="primary" onClick={() => handleEditClick(post)}>
-                        <Edit size={18} />
-                      </IconButton>
-                      <IconButton color="error" onClick={() => deletePostMutation.mutate(post.id)}>
-                        <Trash2 size={18} />
-                      </IconButton>
+                      <Tooltip title="Edit Post">
+                        <IconButton color="primary" onClick={() => handleEditClick(post)}>
+                          <Edit size={18} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Post">
+                        <IconButton color="error" onClick={() => deletePostMutation.mutate(post.id)}>
+                          <Trash2 size={18} />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   )}
                 </TableRow>

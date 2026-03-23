@@ -19,6 +19,13 @@ router.get(
   requireRole("SCHOOL_ADMIN"),
   electionController.getElections
 );
+ 
+router.get(
+  "/get-stats",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  electionController.getStats
+);
 
 router.get(
   "/:id",

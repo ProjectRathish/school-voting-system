@@ -1,39 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton, Tooltip,
-  Tabs, Tab, Grid, Chip, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment,
-  List
+  Grid, Chip, FormControl, InputLabel, Select, MenuItem,
+  InputAdornment
 } from '@mui/material';
-import { Plus, Trash2, RefreshCw, Smartphone, Monitor, UserPlus, Unlink, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, Smartphone, Monitor, UserPlus, Unlink, CheckCircle2, Eye, EyeOff, Sparkles, Settings, Edit } from 'lucide-react';
+import { useElectionStore } from '../../store/electionStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 
 const Infrastructure = () => {
-  const [tab, setTab] = useState(0);
-  const [selectedElection, setSelectedElection] = useState('');
-  const [openOfficer, setOpenOfficer] = useState(false);
+  const navigate = useNavigate();
+  const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
+  const [selectedElection, setSelectedElection] = useState(selectedElectionId || '');
   const [openAssign, setOpenAssign] = useState<any>(null); // For which booth we are assigning
-  const [officerForm, setOfficerForm] = useState({ username: '', password: '' });
-  const [selectedStaff, setSelectedStaff] = useState('');
-  const [machineForm, setMachineForm] = useState({ machine_name: '', machine_code: '', booth_id: '' });
+  const [selectedOfficer, setSelectedOfficer] = useState('');
+  const [machineForm, setMachineForm] = useState({ machine_name: '', booth_id: '' });
   const [error, setError] = useState<string | null>(null);
+  const [dialogError, setDialogError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [openMachine, setOpenMachine] = useState(false); // Fix missing state
+  const [openMachine, setOpenMachine] = useState(false);
+  const [editingMachine, setEditingMachine] = useState<any>(null);
+  const [openDeleteMachine, setOpenDeleteMachine] = useState<any>(null);
+  const [openBooth, setOpenBooth] = useState(false);
+  const [editingBooth, setEditingBooth] = useState<any>(null);
+  const [openDelete, setOpenDelete] = useState<any>(null);
+  const [boothForm, setBoothForm] = useState({ booth_number: '', location: '', capacity: '100' });
   const queryClient = useQueryClient();
+  // Sync with global store
+  useEffect(() => {
+    if (selectedElectionId && selectedElectionId !== selectedElection) {
+      setSelectedElection(selectedElectionId);
+    }
+  }, [selectedElectionId]);
 
   const { data: elections } = useQuery({
     queryKey: ['elections'],
     queryFn: async () => (await axiosInstance.get('/elections/get-elections')).data
   });
 
+  const selectedElectionObj = elections?.find((e: any) => String(e.id) === String(selectedElection));
+  const isConfiguring = selectedElectionObj && (selectedElectionObj.status === 'CONFIGURING' || selectedElectionObj.status === 'DRAFT');
+  const isClosed = selectedElectionStatus === 'CLOSED' || selectedElectionObj?.status === 'CLOSED';
+  const isEditDeleteLocked = !isConfiguring;
+
   const { data: booths } = useQuery({
     queryKey: ['booths', selectedElection],
     enabled: !!selectedElection,
-    queryFn: async () => (await axiosInstance.get(`/booths/get-booths?election_id=${selectedElection}`)).data
+    queryFn: async () => (await axiosInstance.get(`/polling-booths?election_id=${selectedElection}`)).data?.data || []
   });
 
   const { data: officers, isLoading: officersLoading } = useQuery({
@@ -53,26 +71,78 @@ const Infrastructure = () => {
     queryFn: async () => (await axiosInstance.get(`/machines/get-machines?election_id=${selectedElection}`)).data
   });
 
-  const createOfficerMutation = useMutation({
-    mutationFn: (data: any) => axiosInstance.post('/auth/create-booth-officer', data),
-    onSuccess: () => {
-      setSuccess('Staff member added to pool!');
-      setOpenOfficer(false);
-      setOfficerForm({ username: '', password: '' });
-      queryClient.invalidateQueries({ queryKey: ['booth-officers'] });
-    },
-    onError: (err: any) => setError(err.response?.data?.message || 'Error creating officer')
-  });
-
   const createMachineMutation = useMutation({
-    mutationFn: (data: any) => axiosInstance.post('/machines/create', { ...data, election_id: selectedElection }),
+    mutationFn: (data: any) => axiosInstance.post('/machines/register', { ...data, election_id: selectedElection }),
     onSuccess: () => {
       setSuccess('Voting machine registered!');
       setOpenMachine(false);
-      setMachineForm({ machine_name: '', machine_code: '', booth_id: '' });
+      setDialogError(null);
+      setMachineForm({ machine_name: '', booth_id: '' });
       queryClient.invalidateQueries({ queryKey: ['machines', selectedElection] });
+      setTimeout(() => setSuccess(null), 3000);
     },
-    onError: (err: any) => setError(err.response?.data?.message || 'Error creating machine')
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error creating machine')
+  });
+
+  const updateMachineMutation = useMutation({
+    mutationFn: (data: any) => axiosInstance.put(`/machines/${editingMachine.id}`, data),
+    onSuccess: () => {
+      setSuccess('Voting machine updated!');
+      setEditingMachine(null);
+      setDialogError(null);
+      setMachineForm({ machine_name: '', booth_id: '' });
+      queryClient.invalidateQueries({ queryKey: ['machines', selectedElection] });
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error updating machine')
+  });
+
+  const deleteMachineMutation = useMutation({
+    mutationFn: (id: number) => axiosInstance.delete(`/machines/${id}`),
+    onSuccess: () => {
+      setSuccess('Voting machine deleted.');
+      setOpenDeleteMachine(null);
+      queryClient.invalidateQueries({ queryKey: ['machines', selectedElection] });
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error deleting machine')
+  });
+
+  const createBoothMutation = useMutation({
+    mutationFn: (data: any) => axiosInstance.post('/polling-booths/create', { ...data, election_id: selectedElection }),
+    onSuccess: () => {
+      setSuccess('Polling booth created!');
+      setOpenBooth(false);
+      setDialogError(null);
+      setBoothForm({ booth_number: '', location: '', capacity: '100' });
+      queryClient.invalidateQueries({ queryKey: ['booths', selectedElection] });
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error creating booth')
+  });
+
+  const updateBoothMutation = useMutation({
+    mutationFn: (data: any) => axiosInstance.put(`/polling-booths/${editingBooth.id}`, data),
+    onSuccess: () => {
+      setSuccess('Polling booth updated!');
+      setEditingBooth(null);
+      setDialogError(null);
+      setBoothForm({ booth_number: '', location: '', capacity: '100' });
+      queryClient.invalidateQueries({ queryKey: ['booths', selectedElection] });
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error updating booth')
+  });
+
+  const deleteBoothMutation = useMutation({
+    mutationFn: (id: number) => axiosInstance.delete(`/polling-booths/${id}`),
+    onSuccess: () => {
+      setSuccess('Polling booth deleted.');
+      setOpenDelete(null);
+      queryClient.invalidateQueries({ queryKey: ['booths', selectedElection] });
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error deleting booth')
   });
 
   const assignOfficerMutation = useMutation({
@@ -80,10 +150,11 @@ const Infrastructure = () => {
     onSuccess: () => {
       setSuccess('Officer assigned successfully!');
       setOpenAssign(null);
-      setSelectedStaff('');
+      setDialogError(null);
+      setSelectedOfficer('');
       refetchAssignments();
     },
-    onError: (err: any) => setError(err.response?.data?.message || 'Error assigning officer')
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error assigning officer')
   });
 
   const unassignOfficerMutation = useMutation({
@@ -104,196 +175,332 @@ const Infrastructure = () => {
       {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
-      <Paper sx={{ mb: 3, borderRadius: 3 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
-          <Tab label="Staff Pool" />
-          <Tab label="Booth Assignments & Infrastructure" />
-        </Tabs>
-      </Paper>
-
-      {tab === 0 && (
-        <Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => setOpenOfficer(true)}>
-              Create Booth Officer
-            </Button>
+      {/* Current Context Banner */}
+      <Box sx={{ 
+        mb: 4, 
+        display: 'flex'
+      }}>
+        <Box sx={{ 
+          p: '1.5px', 
+          borderRadius: '24px', 
+          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
+          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
+          position: 'relative'
+        }}>
+          <Box sx={{ 
+            px: 3, 
+            py: 2, 
+            borderRadius: '23px', 
+            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2.5
+          }}>
+            <Box sx={{ 
+              width: 45, 
+              height: 45, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
+            }}>
+              <Sparkles size={22} />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ 
+                color: 'text.secondary', 
+                fontWeight: 800, 
+                textTransform: 'uppercase', 
+                letterSpacing: 1.5,
+                fontSize: '0.65rem',
+                display: 'block',
+                mb: 0.5
+              }}>
+                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
+              </Typography>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 900, 
+                color: 'text.primary', 
+                lineHeight: 1.1,
+                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '1.25rem'
+              }}>
+                {selectedElectionName || 'None Selected'}
+              </Typography>
+            </Box>
           </Box>
-          <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Username</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Assigned Booth</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Created At</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {officersLoading ? (
-                  <TableRow><TableCell colSpan={4} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-                ) : officers?.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>No booth officers yet</TableCell></TableRow>
-                ) : officers?.map((o: any) => (
-                  <TableRow key={o.id} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{o.username}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label="Available in Pool" 
-                        size="small" 
-                        color="success"
-                        variant="outlined"
-                        icon={<CheckCircle2 size={14} />} 
-                      />
-                    </TableCell>
-                    <TableCell>{new Date(o.created_at).toLocaleDateString()}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Reset Password">
-                        <IconButton color="warning"><RefreshCw size={18} /></IconButton>
-                      </Tooltip>
-                      <IconButton color="error"><Trash2 size={18} /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
         </Box>
-      )}
+      </Box>
 
-      {tab === 1 && (
-        <Box>
-          <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
-            <FormControl fullWidth>
-              <InputLabel>Select Election Context</InputLabel>
-              <Select value={selectedElection} label="Select Election Context" onChange={e => setSelectedElection(e.target.value)}>
-                {elections?.map((el: any) => <MenuItem key={el.id} value={el.id}>{el.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Paper>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+          Manage polling booths, register voting machines, and assign booth officers to booths for the selected election.
+        </Typography>
+      </Box>
 
-          {selectedElection ? (
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Paper sx={{ p: 3, borderRadius: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>Polling Booths</Typography>
-                    <IconButton color="primary" size="small"><Plus size={20} /></IconButton>
-                  </Box>
-                  <List>
-                    {booths?.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary">No booths defined</Typography>
-                    ) : booths?.map((b: any) => (
-                      <Paper key={b.id} variant="outlined" sx={{ p: 2, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Monitor size={20} color="#3f51b5" />
-                        <Box sx={{ flexGrow: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Booth #{b.booth_number}</Typography>
-                          <Typography variant="caption" color="text.secondary">{b.location}</Typography>
+      <Box>
+        {selectedElectionObj && isEditDeleteLocked && !isClosed && (
+          <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+            <strong>Live Scaling Mode:</strong> Edit and Delete actions are locked while the election is Active or Paused to protect data, but you can still Add Booths, Machines, and Officers.
+          </Alert>
+        )}
+        {selectedElectionObj && isClosed && (
+          <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
+            <strong>Election Closed:</strong> All infrastructure management is permanently locked.
+          </Alert>
+        )}
+
+        {selectedElection ? (
+          <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 4 }}>
+              <Paper sx={{ p: 3, borderRadius: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>Polling Booths</Typography>
+                  <Button 
+                    variant="contained" 
+                    size="small" 
+                    startIcon={<Plus size={18} />} 
+                    disabled={isClosed} 
+                    onClick={() => setOpenBooth(true)}
+                    sx={{ borderRadius: 2 }}
+                  >
+                    Add Booth
+                  </Button>
+                </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {booths?.length === 0 ? (
+                    <Box sx={{ py: 6, textAlign: 'center', opacity: 0.5 }}>
+                      <Monitor size={48} style={{ marginBottom: '12px' }} />
+                      <Typography variant="body2">No booths defined yet</Typography>
+                    </Box>
+                  ) : booths?.map((b: any) => {
+                    const assignedStaff = assignments?.find((a: any) => a.booth_id === b.id);
+                    return (
+                      <Paper 
+                        key={b.id} 
+                        variant="outlined" 
+                        sx={{ 
+                          p: 2.5, 
+                          borderRadius: 3, 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          gap: 2,
+                          transition: 'all 0.2s',
+                          borderColor: assignedStaff ? 'primary.light' : 'divider',
+                          backgroundColor: assignedStaff ? 'rgba(99, 102, 241, 0.02)' : 'background.paper',
+                          '&:hover': {
+                            borderColor: 'primary.main',
+                            boxShadow: '0 4px 12px rgba(99, 102, 241, 0.08)'
+                          }
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Box sx={{ 
+                              p: 1, 
+                              borderRadius: 2, 
+                              bgcolor: 'primary.main', 
+                              color: 'white',
+                              display: 'flex'
+                            }}>
+                              <Monitor size={20} />
+                            </Box>
+                            <Box>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                                Booth #{b.booth_number}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                                {b.location}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Tooltip title="Edit Booth">
+                                <IconButton size="small" disabled={isEditDeleteLocked} onClick={() => {
+                                    setEditingBooth(b);
+                                    setBoothForm({ booth_number: String(b.booth_number), location: b.location, capacity: String(b.capacity || 100) });
+                                }}><Edit size={16} /></IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete Booth">
+                                <IconButton size="small" color="error" disabled={isEditDeleteLocked} onClick={() => setOpenDelete(b)}><Trash2 size={16} /></IconButton>
+                            </Tooltip>
+                            {assignedStaff && (
+                                <Chip 
+                                    size="small" 
+                                    label="Officer Assigned" 
+                                    color="primary" 
+                                    sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800 }} 
+                                />
+                            )}
+                          </Box>
                         </Box>
-                        <Box>
-                          {assignments?.find((a: any) => a.booth_id === b.id) ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Chip 
-                                size="small" 
-                                color="primary" 
-                                label={assignments.find((a: any) => a.booth_id === b.id).username} 
-                              />
-                              <IconButton size="small" color="error" 
-                                onClick={() => unassignOfficerMutation.mutate(assignments.find((a: any) => a.booth_id === b.id).user_id)}>
-                                <Unlink size={16} />
-                              </IconButton>
+
+                        <Box sx={{ 
+                          pt: 1.5, 
+                          borderTop: '1px dashed', 
+                          borderColor: 'divider',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          {assignedStaff ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden', flexGrow: 1 }}>
+                              <UserPlus size={14} color="gray" />
+                              <Typography variant="caption" noWrap sx={{ fontWeight: 700, color: 'text.primary' }}>
+                                {assignedStaff.username}
+                              </Typography>
                             </Box>
                           ) : (
-                            <Button 
-                              size="small" 
-                              startIcon={<UserPlus size={16} />} 
-                              onClick={() => setOpenAssign(b)}
-                            >
-                              Assign Staff
-                            </Button>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, fontStyle: 'italic' }}>
+                              Unassigned
+                            </Typography>
                           )}
+
+                          <Box>
+                            {assignedStaff ? (
+                                <Tooltip title="Unassign Staff">
+                                    <IconButton 
+                                        size="small" 
+                                        color="error"
+                                        disabled={isEditDeleteLocked}
+                                        onClick={() => unassignOfficerMutation.mutate(assignedStaff.user_id)}
+                                        sx={{ ml: 1 }}
+                                    >
+                                        <Unlink size={16} />
+                                    </IconButton>
+                                </Tooltip>
+                            ) : (
+                                <Button 
+                                    size="small" 
+                                    startIcon={<UserPlus size={14} />} 
+                                    disabled={isClosed}
+                                    onClick={() => setOpenAssign(b)}
+                                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                                >
+                                    Assign Booth Officer
+                                </Button>
+                            )}
+                          </Box>
                         </Box>
                       </Paper>
-                    ))}
-                  </List>
-                </Paper>
-              </Grid>
-              <Grid size={{ xs: 12, md: 8 }}>
-                <Paper sx={{ p: 3, borderRadius: 3 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>Voting Machines</Typography>
-                    <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)}>
-                      Add Machine
-                    </Button>
-                  </Box>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>Machine Name</TableCell>
-                          <TableCell>Code</TableCell>
-                          <TableCell>Booth</TableCell>
-                          <TableCell>Status</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {machinesLoading ? (
-                          <TableRow><TableCell colSpan={4} align="center"><CircularProgress size={20} /></TableCell></TableRow>
-                        ) : machines?.length === 0 ? (
-                          <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4 }}>No machines registered</TableCell></TableRow>
-                        ) : machines?.map((m: any) => (
-                          <TableRow key={m.id}>
-                            <TableCell sx={{ fontWeight: 600 }}>{m.machine_name}</TableCell>
-                            <TableCell><code style={{ color: '#d32f2f' }}>{m.machine_code}</code></TableCell>
-                            <TableCell>Booth #{m.booth_number || m.booth_id}</TableCell>
-                            <TableCell>
-                              <Chip label={m.status} size="small" color={m.status === 'FREE' ? 'success' : 'warning'} />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                </Paper>
-              </Grid>
+                    );
+                  })}
+                </Box>
+              </Paper>
             </Grid>
-          ) : (
-            <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 3 }}>
-              <Typography color="text.secondary">Select an election to manage booths and machines</Typography>
-            </Paper>
-          )}
-        </Box>
-      )}
+            <Grid size={{ xs: 12, md: 8 }}>
+              <Paper sx={{ p: 3, borderRadius: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Voting Machines</Typography>
+                  <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)} disabled={isClosed}>
+                    Add Machine
+                  </Button>
+                </Box>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Machine Name</TableCell>
+                        <TableCell>Code</TableCell>
+                        <TableCell>Booth</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell align="right">Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {machinesLoading ? (
+                        <TableRow><TableCell colSpan={5} align="center"><CircularProgress size={20} /></TableCell></TableRow>
+                      ) : machines?.length === 0 ? (
+                        <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>No machines registered</TableCell></TableRow>
+                      ) : machines?.map((m: any) => (
+                        <TableRow key={m.id}>
+                          <TableCell sx={{ fontWeight: 600 }}>{m.machine_name}</TableCell>
+                          <TableCell><code style={{ color: '#d32f2f' }}>{m.machine_code}</code></TableCell>
+                          <TableCell>Booth #{m.booth_number || m.booth_id}</TableCell>
+                          <TableCell>
+                            <Chip label={m.status} size="small" color={m.status === 'FREE' ? 'success' : 'warning'} />
+                          </TableCell>
+                          <TableCell align="right">
+                            <Tooltip title="Edit Machine">
+                              <IconButton size="small" onClick={() => { setEditingMachine(m); setMachineForm({ machine_name: m.machine_name, booth_id: m.booth_id }); }} disabled={isEditDeleteLocked}>
+                                <Edit size={16} />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete Machine">
+                              <IconButton size="small" color="error" onClick={() => setOpenDeleteMachine(m)} disabled={isEditDeleteLocked}>
+                                <Trash2 size={16} />
+                              </IconButton>
+                            </Tooltip>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </Grid>
+          </Grid>
+        ) : (
+          <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 3 }}>
+            <Typography color="text.secondary">Select an election to manage booths and machines</Typography>
+          </Paper>
+        )}
+      </Box>
 
       {/* Dialogs */}
-      <Dialog open={openOfficer} onClose={() => setOpenOfficer(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Create Booth Officer</DialogTitle>
+      <Dialog open={openBooth || !!editingBooth} onClose={() => { setOpenBooth(false); setEditingBooth(null); setDialogError(null); setBoothForm({ booth_number: '', location: '', capacity: '100' }); }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>{editingBooth ? 'Edit Polling Booth' : 'Create Polling Booth'}</DialogTitle>
         <DialogContent>
+          {dialogError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{dialogError}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField label="Username" fullWidth value={officerForm.username} onChange={e => setOfficerForm(p => ({ ...p, username: e.target.value }))} />
             <TextField 
-              label="Password" 
-              type={showPassword ? 'text' : 'password'} 
-              fullWidth 
-              value={officerForm.password} 
-              onChange={e => setOfficerForm(p => ({ ...p, password: e.target.value }))} 
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
+                label="Booth Number" 
+                fullWidth 
+                placeholder="e.g. 1"
+                value={boothForm.booth_number} 
+                onChange={e => setBoothForm(p => ({ ...p, booth_number: e.target.value }))} 
+            />
+            <TextField 
+                label="Location / Room" 
+                fullWidth 
+                placeholder="e.g. Library"
+                value={boothForm.location} 
+                onChange={e => setBoothForm(p => ({ ...p, location: e.target.value }))} 
+            />
+            <TextField 
+                label="Capacity (Optional)" 
+                type="number"
+                fullWidth 
+                value={boothForm.capacity} 
+                onChange={e => setBoothForm(p => ({ ...p, capacity: e.target.value }))} 
             />
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}><Button onClick={() => setOpenOfficer(false)}>Cancel</Button><Button variant="contained" onClick={() => createOfficerMutation.mutate(officerForm)}>Create</Button></DialogActions>
+        <DialogActions sx={{ p: 3 }}>
+            <Button onClick={() => { setOpenBooth(false); setEditingBooth(null); setBoothForm({ booth_number: '', location: '', capacity: '100' }); }}>Cancel</Button>
+            <Button variant="contained" onClick={() => {
+                const isDuplicate = booths?.some((b: any) => String(b.booth_number) === String(boothForm.booth_number) && (!editingBooth || b.id !== editingBooth.id));
+                if (isDuplicate) {
+                   setDialogError(`Booth #${boothForm.booth_number} already exists in this election!`);
+                   return;
+                }
+                editingBooth ? updateBoothMutation.mutate(boothForm) : createBoothMutation.mutate(boothForm);
+            }}>
+                {editingBooth ? 'Save Changes' : 'Create Booth'}
+            </Button>
+        </DialogActions>
       </Dialog>
 
-      <Dialog open={openMachine} onClose={() => setOpenMachine(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Register Voting Machine</DialogTitle>
+      {/* Machine Create/Edit Dialog */}
+      <Dialog open={openMachine || !!editingMachine} onClose={() => { setOpenMachine(false); setEditingMachine(null); setDialogError(null); setMachineForm({ machine_name: '', booth_id: '' }); }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>{editingMachine ? 'Edit Voting Machine' : 'Register Voting Machine'}</DialogTitle>
         <DialogContent>
+          {dialogError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{dialogError}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
              <FormControl fullWidth>
                 <InputLabel>Assign to Booth</InputLabel>
@@ -301,20 +508,57 @@ const Infrastructure = () => {
                   {booths?.map((b: any) => <MenuItem key={b.id} value={b.id}>Booth #{b.booth_number} - {b.location}</MenuItem>)}
                 </Select>
               </FormControl>
-            <TextField label="Machine Name" fullWidth value={machineForm.machine_name} onChange={e => setMachineForm(p => ({ ...p, machine_name: e.target.value }))} placeholder="e.g. M-01" />
-            <TextField label="Machine Unique Code" fullWidth value={machineForm.machine_code} onChange={e => setMachineForm(p => ({ ...p, machine_code: e.target.value }))} placeholder="e.g. MAC-SPE-001" />
+            <TextField label="Machine Name" fullWidth value={machineForm.machine_name} onChange={e => setMachineForm(p => ({ ...p, machine_name: e.target.value }))} placeholder="e.g. Primary Tab 1" />
+            {!editingMachine && (
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                  Machine Code will be securely auto-generated using the assigned Booth Number as a prefix (e.g. VM-B2-xxxx).
+              </Alert>
+            )}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}><Button onClick={() => setOpenMachine(false)}>Cancel</Button><Button variant="contained" onClick={() => createMachineMutation.mutate(machineForm)}>Register</Button></DialogActions>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => { setOpenMachine(false); setEditingMachine(null); setMachineForm({ machine_name: '', booth_id: '' }); }}>Cancel</Button>
+          <Button variant="contained" onClick={() => {
+            editingMachine ? updateMachineMutation.mutate(machineForm) : createMachineMutation.mutate(machineForm)
+          }}>
+            {editingMachine ? 'Save Changes' : 'Register'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
-      <Dialog open={!!openAssign} onClose={() => setOpenAssign(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Assign Staff to Booth #{openAssign?.booth_number}</DialogTitle>
+      {/* Delete Machine Confirmation */}
+      <Dialog open={!!openDeleteMachine} onClose={() => { setOpenDeleteMachine(null); setDialogError(null); }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>Delete Voting Machine?</DialogTitle>
         <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Are you sure you want to delete <strong>{openDeleteMachine?.machine_name} ({openDeleteMachine?.machine_code})</strong>?
+          </Typography>
+          <Alert severity="warning" sx={{ borderRadius: 2 }}>
+            This will permanently remove the machine from the configuration. This action cannot be undone.
+          </Alert>
+          {dialogError && <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{dialogError}</Alert>}
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenDeleteMachine(null)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            disabled={deleteMachineMutation.isPending}
+            onClick={() => deleteMachineMutation.mutate(openDeleteMachine.id)}
+          >
+            Confirm Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!openAssign} onClose={() => { setOpenAssign(null); setDialogError(null); }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Assign Booth Officer to Booth #{openAssign?.booth_number}</DialogTitle>
+        <DialogContent>
+          {dialogError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{dialogError}</Alert>}
           <Box sx={{ mt: 1 }}>
             <FormControl fullWidth>
-              <InputLabel>Select Staff from Pool</InputLabel>
-              <Select value={selectedStaff} label="Select Staff from Pool" onChange={e => setSelectedStaff(e.target.value)}>
+              <InputLabel>Select Officer from Pool</InputLabel>
+              <Select value={selectedOfficer} label="Select Officer from Pool" onChange={e => setSelectedOfficer(e.target.value)}>
                 {officers?.map((o: any) => (
                   <MenuItem key={o.id} value={o.id} disabled={assignments?.some((a: any) => a.user_id === o.id)}>
                     {o.username} {assignments?.some((a: any) => a.user_id === o.id) ? '(Assigned)' : ''}
@@ -327,9 +571,33 @@ const Infrastructure = () => {
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenAssign(null)}>Cancel</Button>
           <Button variant="contained" 
-            disabled={!selectedStaff || assignOfficerMutation.isPending}
-            onClick={() => assignOfficerMutation.mutate({ user_id: selectedStaff, booth_id: openAssign?.id })}>
-            Assign Now
+            disabled={!selectedOfficer || assignOfficerMutation.isPending}
+            onClick={() => assignOfficerMutation.mutate({ user_id: selectedOfficer, booth_id: openAssign?.id })}>
+            Assign Booth Officer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!openDelete} onClose={() => { setOpenDelete(null); setDialogError(null); }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>Delete Polling Booth?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Are you sure you want to delete <strong>Booth #{openDelete?.booth_number}</strong>?
+          </Typography>
+          <Alert severity="warning" sx={{ borderRadius: 2 }}>
+            This will also remove all voting machines and officer assignments associated with this booth. This action cannot be undone.
+          </Alert>
+          {dialogError && <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{dialogError}</Alert>}
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenDelete(null)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            disabled={deleteBoothMutation.isPending}
+            onClick={() => deleteBoothMutation.mutate(openDelete.id)}
+          >
+            Confirm Delete
           </Button>
         </DialogActions>
       </Dialog>

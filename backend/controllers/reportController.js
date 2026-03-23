@@ -213,3 +213,98 @@ exports.generateElectionReport = async (req, res) => {
     res.status(500).json({ message: "Server error generating report", error: error.message });
   }
 };
+
+exports.generateVoterSignatureSheet = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const school_id = req.user.school_id;
+
+    // 1. Fetch School & Election Info
+    const [schools] = await db.execute("SELECT id, name, logo, location FROM schools WHERE id = ?", [school_id]);
+    const school = schools[0];
+    const [elections] = await db.execute("SELECT name FROM elections WHERE id = ? AND school_id = ?", [id, school_id]);
+    const election = elections[0];
+
+    if (!election) return res.status(404).json({ message: "Election not found" });
+
+    // 2. Fetch Voters
+    const [voters] = await db.execute(
+      `SELECT 
+        v.admission_no, v.name, v.sex, v.division,
+        c.name AS class_name, s.name AS section_name
+       FROM voters v
+       JOIN classes c ON v.class_id = c.id
+       JOIN sections s ON c.section_id = s.id
+       WHERE v.election_id = ? AND v.school_id = ?
+       ORDER BY s.name, c.name, v.division, v.name`,
+      [id, school_id]
+    );
+
+    // Grouping by "Section - Class - Division"
+    const groups = {};
+    voters.forEach(v => {
+      const divisionStr = v.division ? ` - Division ${v.division}` : '';
+      const key = `${v.section_name} - ${v.class_name}${divisionStr}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(v);
+    });
+
+    // PDF Generation
+    const doc = new PDFDocument({ margin: 50 });
+    const filename = `${election.name.replace(/\s+/g, "_")}_Voter_Signature_Sheets.pdf`;
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    doc.pipe(res);
+
+    const groupKeys = Object.keys(groups);
+    groupKeys.forEach((groupKey, gIdx) => {
+      if (gIdx > 0) doc.addPage();
+
+      // Header
+      doc.fontSize(16).fillColor("#000").text(school.name.toUpperCase(), { align: "center" });
+      doc.fontSize(10).text("VOTER SIGNATURE LIST / POLLING SHEET", { align: "center" }).moveDown();
+      doc.fontSize(12).fillColor("#0052cc").text(`${election.name} | ${groupKey}`, { align: "center" }).moveDown();
+
+      // Table Headers
+      const tableTop = doc.y;
+      doc.fillColor("#666").fontSize(9)
+        .text("SI.", 50, tableTop)
+        .text("ADM NO", 80, tableTop)
+        .text("STUDENT NAME", 155, tableTop)
+        .text("DIV", 350, tableTop)
+        .text("M/F", 385, tableTop)
+        .text("SIGNATURE / THUMB IMPRESSION", 420, tableTop);
+      
+      doc.strokeColor("#ddd").lineWidth(1).moveTo(50, tableTop + 12).lineTo(550, tableTop + 12).stroke();
+
+      let currentY = tableTop + 25;
+      groups[groupKey].forEach((v, vIdx) => {
+        if (currentY > 700) {
+          doc.addPage();
+          // Repeat header on new page if needed (simplified here)
+          currentY = 50;
+        }
+
+        doc.fillColor("#333").fontSize(10)
+          .text((vIdx + 1).toString(), 50, currentY)
+          .text(v.admission_no, 80, currentY)
+          .text(v.name, 155, currentY)
+          .text(v.division || '-', 350, currentY)
+          .text(v.sex, 385, currentY);
+        
+        // Signature Line
+        doc.strokeColor("#ccc").lineCap('butt').moveTo(415, currentY + 12).lineTo(545, currentY + 12).stroke();
+
+        currentY += 28;
+      });
+
+      // Footer
+      doc.fontSize(8).fillColor("#999").text(`Generated for ${groupKey}`, 50, 750, { align: "center" });
+    });
+
+    doc.end();
+  } catch (error) {
+    console.error("Error generating signature sheet:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};

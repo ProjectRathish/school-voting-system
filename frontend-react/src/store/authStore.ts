@@ -9,6 +9,7 @@ interface User {
   role: UserRole;
   school_id?: number;
   booth_id?: number;
+  election_id?: number;
   school_code?: string;
   school_name?: string;
   school_logo?: string;
