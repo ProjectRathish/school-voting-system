@@ -96,14 +96,22 @@ exports.boothLogin = async (req, res) => {
       `SELECT a.booth_id, a.election_id, e.name as election_name
        FROM election_officer_assignments a
        JOIN elections e ON a.election_id = e.id
-       WHERE a.user_id = ? AND e.status IN ('ACTIVE', 'PAUSED')
+       WHERE a.user_id = ? AND e.status != 'CLOSED'
+       ORDER BY (CASE 
+         WHEN e.status = 'ACTIVE' THEN 1 
+         WHEN e.status = 'PAUSED' THEN 2 
+         WHEN e.status = 'READY' THEN 3 
+         ELSE 4 END) ASC
        LIMIT 1`,
       [user.id]
     );
 
     let assigned_booth_id = assignments.length > 0 ? assignments[0].booth_id : user.booth_id;
     let assigned_election_id = assignments.length > 0 ? assignments[0].election_id : null;
-    if (!assigned_booth_id) return res.status(403).json({ message: "No active assignment" });
+    // Don't hard-block login if no booth is assigned yet. 
+    // This allows officers to still log in and change passwords.
+    // If needed, the frontend will show a "No assignment" message.
+
 
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) return res.status(401).json({ message: "Invalid credentials" });

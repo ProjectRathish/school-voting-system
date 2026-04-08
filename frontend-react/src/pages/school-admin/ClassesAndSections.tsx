@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
-  FormControl, InputLabel, Select, MenuItem, Tabs, Tab
+  FormControl, InputLabel, Select, MenuItem, Tabs, Tab, Snackbar
 } from '@mui/material';
 import { Plus, Trash2, Edit, Settings, Sparkles, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -25,6 +25,8 @@ const ClassesAndSections = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [searchSection, setSearchSection] = useState('');
   const [searchClass, setSearchClass] = useState('');
+  const [sectionToDelete, setSectionToDelete] = useState<any>(null);
+  const [classToDelete, setClassToDelete] = useState<any>(null);
   const queryClient = useQueryClient();
 
   // No local election query needed
@@ -80,6 +82,7 @@ const ClassesAndSections = () => {
     mutationFn: (id: number) => axiosInstance.delete(`/sections/${id}`),
     onSuccess: () => {
       setSuccess('Section deleted!');
+      setSectionToDelete(null);
       queryClient.invalidateQueries({ queryKey: ['sections', selectedElectionId] });
     }
   });
@@ -88,6 +91,7 @@ const ClassesAndSections = () => {
     mutationFn: (id: number) => axiosInstance.delete(`/classes/${id}`),
     onSuccess: () => {
       setSuccess('Class deleted!');
+      setClassToDelete(null);
       queryClient.invalidateQueries({ queryKey: ['classes', selectedElectionId] });
     }
   });
@@ -96,7 +100,16 @@ const ClassesAndSections = () => {
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 700, mb: 4 }}>Classes & Sections</Typography>
 
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={4000}
+        onClose={() => setSuccess(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" sx={{ width: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          {success}
+        </Alert>
+      </Snackbar>
 
       {!isConfiguring && selectedElectionId && (
         <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
@@ -216,7 +229,7 @@ const ClassesAndSections = () => {
                             <IconButton onClick={() => { setError(null); setEditingSection(s); setSectionName(s.name); setOpenSection(true); }} color="primary">
                               <Edit size={18} />
                             </IconButton>
-                            <IconButton onClick={() => deleteSectionMutation.mutate(s.id)} color="error">
+                            <IconButton onClick={() => setSectionToDelete(s)} color="error">
                               <Trash2 size={18} />
                             </IconButton>
                           </TableCell>
@@ -280,7 +293,7 @@ const ClassesAndSections = () => {
                             }} color="primary">
                               <Edit size={18} />
                             </IconButton>
-                            <IconButton onClick={() => deleteClassMutation.mutate(c.id)} color="error">
+                            <IconButton onClick={() => setClassToDelete(c)} color="error">
                               <Trash2 size={18} />
                             </IconButton>
                           </TableCell>
@@ -346,6 +359,46 @@ const ClassesAndSections = () => {
           <Button variant="contained" onClick={() => upsertClassMutation.mutate(classForm)}
             disabled={upsertClassMutation.isPending || !classForm.name || !classForm.section_id}>
             {upsertClassMutation.isPending ? <CircularProgress size={20} /> : (editingClass ? 'Update' : 'Create')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Section Confirmation */}
+      <Dialog open={!!sectionToDelete} onClose={() => setSectionToDelete(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Section?</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete the section <strong>{sectionToDelete?.name}</strong>? 
+          This will also remove all classes within this section.
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setSectionToDelete(null)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={() => deleteSectionMutation.mutate(sectionToDelete.id)}
+            disabled={deleteSectionMutation.isPending}
+          >
+            {deleteSectionMutation.isPending ? <CircularProgress size={20} /> : 'Delete Permanently'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Class Confirmation */}
+      <Dialog open={!!classToDelete} onClose={() => setClassToDelete(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Delete Class?</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete the class <strong>{classToDelete?.name}</strong>? 
+          All voters and candidates registered under this class will be affected.
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setClassToDelete(null)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={() => deleteClassMutation.mutate(classToDelete.id)}
+            disabled={deleteClassMutation.isPending}
+          >
+            {deleteClassMutation.isPending ? <CircularProgress size={20} /> : 'Delete Permanently'}
           </Button>
         </DialogActions>
       </Dialog>

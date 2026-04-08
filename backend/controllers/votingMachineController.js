@@ -427,11 +427,11 @@ exports.fetchBallot = async (req, res) => {
       return res.status(400).json({ error: "machine-token header is required" });
     }
 
-    // Find machine by token
+    // Find machine by code (it's passed as the token header)
     const [machines] = await db.execute(
       `SELECT m.id, m.school_id, m.election_id, m.status, m.current_voter_id 
        FROM voting_machines m
-       WHERE m.machine_token=?`,
+       WHERE m.machine_code=?`,
       [machineToken]
     );
 

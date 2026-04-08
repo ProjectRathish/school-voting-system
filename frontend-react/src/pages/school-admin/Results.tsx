@@ -43,7 +43,7 @@ const Results = () => {
   });
 
   const selectedElectionData = elections?.find((e: any) => e.id == selectedElection);
-  const isClosedElection = selectedElectionData?.status === 'CLOSED';
+  const canViewResults = ['CLOSED', 'ACTIVE', 'PAUSED'].includes(selectedElectionData?.status);
 
   const handleExport = async () => {
     try {
@@ -62,7 +62,7 @@ const Results = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 700 }}>Results & Analytics</Typography>
-        {isClosedElection && (
+        {canViewResults && (
           <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>
             Export Excel
           </Button>
@@ -70,7 +70,7 @@ const Results = () => {
       </Box>
 
 
-      <Paper sx={{ p: 3, mb: 1.5 }}>
+      <Paper sx={{ p: 3, mb: 1.5, borderRadius: 2 }}>
         <FormControl fullWidth>
           <InputLabel>Select Election</InputLabel>
           <Select 
@@ -85,25 +85,25 @@ const Results = () => {
               }
             }}
           >
-            {elections?.filter((el: any) => el.status === 'CLOSED').map((el: any) => (
+            {elections?.filter((el: any) => ['CLOSED', 'ACTIVE', 'PAUSED'].includes(el.status)).map((el: any) => (
               <MenuItem key={el.id} value={el.id}>
-                {el.name}
+                 {el.name} {el.status !== 'CLOSED' && `(${el.status})`}
               </MenuItem>
             ))}
-            {elections?.filter((el: any) => el.status === 'CLOSED').length === 0 && (
+            {elections?.filter((el: any) => ['CLOSED', 'ACTIVE', 'PAUSED'].includes(el.status)).length === 0 && (
               <MenuItem disabled value="">
-                No closed elections found
+                No valid elections found
               </MenuItem>
             )}
           </Select>
         </FormControl>
       </Paper>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3, ml: 1, fontWeight: 500 }}>
-        Note: Only elections that have been marked as <b>CLOSED</b> are available for result viewing.
+        Note: You can view live turnout and results for <b>Active</b> elections or final results for <b>Closed</b> ones.
       </Typography>
 
 
-      {selectedElection && isClosedElection && (
+      {selectedElection && canViewResults && (
         <>
           {resultsLoading ? (
             <Box sx={{ textAlign: 'center', py: 8 }}><CircularProgress /></Box>
@@ -146,7 +146,7 @@ const Results = () => {
 
               {/* Results by Post */}
               {results?.results?.map((post: any) => (
-                <Paper key={post.post_id} sx={{ p: 3, mb: 3 }}>
+                <Paper key={post.post_id} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
                     🏆 {post.post_name}
                   </Typography>
@@ -211,7 +211,7 @@ const Results = () => {
 
               {/* Demographics charts */}
               {detailedResults?.demographics && (
-                <Paper sx={{ p: 3 }}>
+                <Paper sx={{ p: 3, borderRadius: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
                     Voter Demographics
                   </Typography>

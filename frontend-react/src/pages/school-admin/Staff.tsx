@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton, Tooltip,
-  Chip, InputAdornment
+  Chip, InputAdornment, Snackbar
 } from '@mui/material';
 import { Plus, Trash2, RefreshCw, Eye, EyeOff, CheckCircle2, UserSquare2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -73,8 +73,27 @@ const Staff = () => {
         </Button>
       </Box>
 
-      {success && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>{success}</Alert>}
-      {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={6000}
+        onClose={() => setSuccess(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" sx={{ width: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          {success}
+        </Alert>
+      </Snackbar>
+
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" variant="filled" sx={{ width: '100%', borderRadius: 2 }}>
+          {error}
+        </Alert>
+      </Snackbar>
 
       <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
         <Table>

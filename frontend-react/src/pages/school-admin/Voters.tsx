@@ -1,23 +1,31 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
-  FormControl, InputLabel, Select, MenuItem, Tabs, Tab, InputAdornment,
-  Chip, Grid, Tooltip
+  FormControl, InputLabel, Select, MenuItem, InputAdornment,
+  Chip, Grid, Tooltip, Snackbar, TablePagination, LinearProgress
 } from '@mui/material';
-import { Plus, Upload, Search, Trash2, Download, Edit, Sparkles, Settings, Lock, Unlock, ShieldAlert, AlertTriangle } from 'lucide-react';
+import { Plus, Upload, Search, Trash2, Download, Edit, Settings, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useElectionStore } from '../../store/electionStore';
 import { NavLink } from 'react-router-dom';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const Voters = () => {
-  const [currentTab, setCurrentTab] = useState(0);
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
   const isConfiguring = selectedElectionStatus === 'DRAFT' || selectedElectionStatus === 'CONFIGURING';
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
   const [selectedClass, setSelectedClass] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
+  const [selectedDivision, setSelectedDivision] = useState('');
+  const [selectedSex, setSelectedSex] = useState('ANY');
+  const [selectedStatus, setSelectedStatus] = useState('ANY');
+  const [selectedIsCandidate, setSelectedIsCandidate] = useState('ANY');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [openEdit, setOpenEdit] = useState(false);
@@ -30,10 +38,10 @@ const Voters = () => {
   const [voterForm, setVoterForm] = useState({ admission_no: '', name: '', class_id: '', division: '', sex: 'M' });
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
+  const [openClearConfirm, setOpenClearConfirm] = useState(false);
+  const [clearVotersInput, setClearVotersInput] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-
-  // Removed local elections query as we use global state
 
   const { data: classes } = useQuery({
     queryKey: ['classes', selectedElectionId],
@@ -41,11 +49,40 @@ const Voters = () => {
     queryFn: async () => (await axiosInstance.get(`/classes/get-classes?election_id=${selectedElectionId}`)).data
   });
 
-  const { data: voters, isLoading } = useQuery({
-    queryKey: ['voters', selectedElectionId],
+  const { data: sections } = useQuery({
+    queryKey: ['sections', selectedElectionId],
     enabled: !!selectedElectionId,
-    queryFn: async () => (await axiosInstance.get(`/voters/get-voters?election_id=${selectedElectionId}`)).data
+    queryFn: async () => (await axiosInstance.get(`/sections/get-sections?election_id=${selectedElectionId}`)).data
   });
+
+  const { data: votersData, isLoading, isFetching } = useQuery({
+    queryKey: ['voters', selectedElectionId, page, rowsPerPage, debouncedSearch, selectedClass, selectedSection, selectedDivision, selectedSex, selectedStatus, selectedIsCandidate],
+    enabled: !!selectedElectionId,
+    queryFn: async () => {
+      const resp = await axiosInstance.get('/voters/get-voters', {
+        params: {
+          election_id: selectedElectionId,
+          page: page + 1,
+          limit: rowsPerPage,
+          search: debouncedSearch,
+          class_id: selectedClass,
+          section_id: selectedSection,
+          division: selectedDivision,
+          sex: selectedSex,
+          status: selectedStatus,
+          is_candidate: selectedIsCandidate
+        }
+      });
+      return resp.data;
+    }
+  });
+
+  const voters = votersData?.data || [];
+  const totalCount = votersData?.total || 0;
+
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, selectedClass, selectedDivision, selectedSex, selectedStatus, selectedIsCandidate]);
 
   const addVoterMutation = useMutation({
     mutationFn: (data: any) => axiosInstance.post('/voters/create', { ...data, election_id: selectedElectionId }),
@@ -54,8 +91,6 @@ const Voters = () => {
       setOpenAdd(false);
       setVoterForm({ admission_no: '', name: '', class_id: '', division: '', sex: 'M' });
       queryClient.invalidateQueries({ queryKey: ['voters'] });
-      queryClient.invalidateQueries({ queryKey: ['candidates'] });
-      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error adding voter')
   });
@@ -68,126 +103,160 @@ const Voters = () => {
       setOpenBlockConfirm(false);
       setSelectedVoter(null);
       queryClient.invalidateQueries({ queryKey: ['voters'] });
-      queryClient.invalidateQueries({ queryKey: ['candidates'] });
-      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error updating voter')
   });
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      if (!uploadFile) throw new Error('No file selected');
       const formData = new FormData();
-      formData.append('file', uploadFile);
-      formData.append('election_id', selectedElectionId || '');
+      formData.append('file', uploadFile!);
+      formData.append('election_id', selectedElectionId!);
       return axiosInstance.post('/voters/upload', formData);
     },
-    onSuccess: (response: any) => {
-      const data = response.data;
-      if (data.errors && data.errors.length > 0) {
-        setUploadErrors(data.errors);
-        setSuccess(`Import complete with ${data.errors.length} errors. ${data.inserted || 0} voters added.`);
+    onSuccess: (resp: any) => {
+      if (resp.data.errors?.length) {
+        setUploadErrors(resp.data.errors);
+        setSuccess(`Imported with ${resp.data.errors.length} errors.`);
       } else {
-        setSuccess(`Import successful! ${data.inserted || 0} voters added.`);
+        setSuccess('Imported successfully!');
         setOpenUpload(false);
-        setUploadFile(null);
-        setUploadErrors([]);
       }
       queryClient.invalidateQueries({ queryKey: ['voters'] });
-      queryClient.invalidateQueries({ queryKey: ['candidates'] });
-      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
     },
-    onError: (err: any) => {
-      setError(err.response?.data?.message || 'Upload failed');
-      setUploadErrors([]);
-    }
+    onError: (err: any) => setError(err.response?.data?.message || 'Upload failed')
   });
 
   const deleteVoterMutation = useMutation({
     mutationFn: (id: number) => axiosInstance.delete(`/voters/${id}`),
     onSuccess: () => {
-      setSuccess('Voter deleted successfully!');
+      setSuccess('Voter deleted!');
       setDeleteConfirmOpen(false);
-      setVoterToDelete(null);
       queryClient.invalidateQueries({ queryKey: ['voters'] });
-      queryClient.invalidateQueries({ queryKey: ['candidates'] });
-      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error deleting voter')
   });
 
-  const filteredVoters = useMemo(() => {
-    return voters?.filter((v: any) => {
-      const matchSearch = !searchQuery || 
-        v.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        v.admission_no?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchClass = currentTab === 0 ? true : 
-                         currentTab === 1 ? (selectedClass ? v.class_id == selectedClass : true) :
-                         true;
-      
-      return matchSearch && matchClass;
-    });
-  }, [voters, searchQuery, currentTab, selectedClass]);
-
-  const handleDownloadTemplate = async () => {
-    try {
-      const resp = await axiosInstance.get(`/voters/download-template?election_id=${selectedElectionId}`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([resp.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'Voter_Import_Template.xlsx');
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error downloading template');
-    }
-  };
-
-  const handleDownloadSignatureSheet = async () => {
-    try {
-      const resp = await axiosInstance.get(`/reports/election/${selectedElectionId}/signature-sheet`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([resp.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `Voter_Signature_Sheets_${selectedElectionId}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error downloading signature sheet');
-    }
-  };
+  const clearVotersMutation = useMutation({
+    mutationFn: () => axiosInstance.post('/voters/clear-voters', { election_id: selectedElectionId }),
+    onSuccess: () => {
+      setSuccess('All voters cleared!');
+      setOpenClearConfirm(false);
+      setClearVotersInput('');
+      queryClient.invalidateQueries({ queryKey: ['voters'] });
+    },
+    onError: (err: any) => setError(err.response?.data?.message || 'Error clearing voters')
+  });
 
   const handleEdit = (voter: any) => {
     setSelectedVoter(voter);
     setVoterForm({
       admission_no: voter.admission_no,
       name: voter.name,
-      class_id: voter.class_id || '', // We'll need class_id in the row data now
+      class_id: voter.class_id || '',
       division: voter.division || '',
       sex: voter.sex
     });
     setOpenEdit(true);
   };
 
-  const handleExport = () => {
-    // Basic CSV export
-    const headers = ['Admission No', 'Name', 'Class', 'Division', 'Sex', 'Blocked', 'Voted'];
-    const rows = filteredVoters?.map((v: any) => [
-      v.admission_no, v.name, v.class_name, v.division || '-', v.sex, v.is_blocked ? 'Yes' : 'No', v.has_voted ? 'Yes' : 'No'
-    ]);
-    const csvContent = [headers, ...rows!].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `voters_export_${new Date().getTime()}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExport = async () => {
+     try {
+       const resp = await axiosInstance.get(`/voters/get-voters`, { params: { election_id: selectedElectionId, limit: 10000 } });
+       const data = resp.data.data;
+       const csv = "Admission No,Name,Class,Division,Sex\n" + data.map((v:any) => `${v.admission_no},${v.name},${v.class_name},${v.division},${v.sex}`).join("\n");
+       const blob = new Blob([csv], { type: 'text/csv' });
+       const url = window.URL.createObjectURL(blob);
+       const link = document.createElement('a');
+       link.href = url;
+       link.download = `voters_${selectedElectionName}.csv`;
+       link.click();
+     } catch (err) { setError('Export failed'); }
+  };
+
+  const handlePrintSignatureSheet = async () => {
+    try {
+      setError(null);
+      // Fetch all voters for the current selection (no pagination)
+      const resp = await axiosInstance.get(`/voters/get-voters`, { 
+        params: { 
+          election_id: selectedElectionId, 
+          limit: 10000,
+          class_id: selectedClass,
+          division: selectedDivision,
+          sex: selectedSex,
+          status: selectedStatus,
+          is_candidate: selectedIsCandidate,
+          search: debouncedSearch
+        } 
+      });
+      const data = resp.data.data;
+      if (!data || data.length === 0) {
+        setError("No voters found in the current filtered list to print.");
+        return;
+      }
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) return;
+
+      const style = `
+        @page { size: A4; margin: 15mm; }
+        body { font-family: 'Inter', sans-serif; color: #1e1e28; margin: 0; padding: 20px; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 30px; }
+        h1 { margin: 0; font-size: 1.5rem; text-transform: uppercase; }
+        h2 { margin: 5px 0; font-size: 1rem; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background-color: #f0f0f0; text-align: left; padding: 10px; border: 1px solid #ccc; text-transform: uppercase; font-size: 10px; }
+        td { padding: 8px 10px; border: 1px solid #ccc; font-size: 12px; }
+        .signature-box { height: 35px; min-width: 150px; }
+        .page-break { page-break-after: always; }
+        .footer { position: fixed; bottom: 0; width: 100%; text-align: right; font-size: 9px; color: #999; }
+        .voter-row:nth-child(even) { background-color: #f9f9f9; }
+      `;
+
+      let html = `<html><head><title>Signature Sheet - ${selectedElectionName}</title><style>${style}</style></head><body>`;
+      
+      // Group voters by Class + Division for easier signing
+      const groups: Record<string, any[]> = {};
+      data.forEach((v: any) => {
+        const key = `${v.class_name} ${v.division || ''}`.trim();
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(v);
+      });
+
+      const groupKeys = Object.keys(groups).sort();
+      
+      groupKeys.forEach((key, index) => {
+        html += `<div class="voter-group ${index > 0 ? 'page-break' : ''}">`;
+        html += `<div class="header">
+                   <h1>${selectedElectionName}</h1>
+                   <h2>VOTER SIGNATURE SHEET - ${key}</h2>
+                 </div>`;
+        html += `<table><thead><tr>
+                   <th style="width: 50px;">#</th>
+                   <th style="width: 120px;">ADMISSION NO</th>
+                   <th>FULL NAME</th>
+                   <th style="width: 200px;">SIGNATURE / THUMB</th>
+                 </tr></thead><tbody>`;
+        
+        groups[key].forEach((v, i) => {
+          html += `<tr class="voter-row">
+                     <td>${i + 1}</td>
+                     <td style="font-family: monospace;">${v.admission_no}</td>
+                     <td style="font-weight: 700;">${v.name}</td>
+                     <td class="signature-box"></td>
+                   </tr>`;
+        });
+        
+        html += `</tbody></table></div>`;
+      });
+
+      html += `<div class="footer">Generated on ${new Date().toLocaleString()} | School Voting System</div>`;
+      html += `</body><script>window.onload = () => { window.print(); window.close(); };</script></html>`;
+
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } catch (err) { setError('Failed to generate PDF signature sheet'); }
   };
 
   return (
@@ -196,470 +265,353 @@ const Voters = () => {
         <Typography variant="h4" sx={{ fontWeight: 700 }}>Voter Management</Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           {isConfiguring && (
-            <Button variant="outlined" startIcon={<Upload size={20} />} onClick={() => { setError(null); setUploadErrors([]); setOpenUpload(true); }} disabled={!selectedElectionId}>
-              Bulk Upload
-            </Button>
+            <>
+              <Button color="error" variant="outlined" startIcon={<Trash2 size={20} />} onClick={() => setOpenClearConfirm(true)} disabled={!selectedElectionId || !voters?.length}>
+                Clear List
+              </Button>
+              <Button variant="outlined" startIcon={<Upload size={20} />} onClick={() => { setUploadErrors([]); setOpenUpload(true); }}>
+                Bulk Upload
+              </Button>
+            </>
           )}
           {selectedElectionStatus !== 'CLOSED' && (
-            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenAdd(true); }} disabled={!selectedElectionId}>
+            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => setOpenAdd(true)}>
               Add Voter
             </Button>
           )}
         </Box>
       </Box>
 
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
-      {error && !openAdd && !openUpload && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      <Paper sx={{ mb: 3, borderRadius: 1, overflow: 'hidden' }}>
+        {/* EXPORT & TOOLS */}
+        <Box sx={{ p: 2, bgcolor: 'background.default', display: 'flex', gap: 2, justifyContent: 'flex-end', borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto', display: 'flex', alignItems: 'center', fontWeight: 700 }}>
+             <Settings size={14} style={{ marginRight: 8 }} /> EXPORT & TOOLS
+          </Typography>
+           <Button variant="outlined" size="small" startIcon={<Download size={18} />} onClick={handleExport} disabled={!voters?.length}>Export CSV</Button>
+           <Button variant="contained" size="small" color="secondary" startIcon={<Download size={18} />} onClick={handlePrintSignatureSheet} disabled={!voters?.length}>Print Signature Sheet (PDF)</Button>
+         </Box>
 
-      {!isConfiguring && selectedElectionId && selectedElectionStatus !== 'CLOSED' && (
-        <Alert severity="warning" sx={{ mb: 4, borderRadius: 2 }}>
-          <strong>Configuration Locked:</strong> This election is active or ready. To ensure data integrity, bulk uploading, editing, and deleting voters is restricted. However, you are cleanly permitted to add missing voters individually.
-        </Alert>
-      )}
-
-      {/* Moved Banner Outside */}
-      <Box sx={{ 
-        mb: 4, 
-        display: 'flex'
-      }}>
-        <Box sx={{ 
-          p: '1.5px', 
-          borderRadius: '24px', 
-          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
-          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
-          position: 'relative'
-        }}>
-          <Box sx={{ 
-            px: 3, 
-            py: 2, 
-            borderRadius: '23px', 
-            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2.5
-          }}>
-            <Box sx={{ 
-              width: 45, 
-              height: 45, 
-              borderRadius: '12px', 
-              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
-            }}>
-              <Sparkles size={22} />
-            </Box>
-            <Box>
-              <Typography variant="caption" sx={{ 
-                color: 'text.secondary', 
-                fontWeight: 800, 
-                textTransform: 'uppercase', 
-                letterSpacing: 1.5,
-                fontSize: '0.65rem',
-                mb: 0.5
-              }}>
-                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
-              </Typography>
-              <Typography variant="h6" sx={{ 
-                fontWeight: 900, 
-                color: 'text.primary', 
-                lineHeight: 1.1,
-                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontSize: '1.25rem'
-              }}>
-                {selectedElectionName || 'None Selected'}
-              </Typography>
-            </Box>
+        <Box sx={{ p: 4, bgcolor: 'background.paper' }}>
+          {/* Section 1: Broad Search Interface - FULL WIDTH */}
+          <Box sx={{ mb: 4 }}>
+            <TextField
+              fullWidth
+              placeholder="Search by name or admission number..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              InputProps={{ 
+                startAdornment: <InputAdornment position="start"><Search size={22} color="#666" /></InputAdornment>,
+                sx: { 
+                  height: 60,
+                  bgcolor: 'background.default',
+                  borderRadius: 2,
+                  fontSize: '1rem',
+                  fontWeight: 800
+                }
+              }}
+            />
           </Box>
-        </Box>
-      </Box>
 
-      <Paper sx={{ mb: 3, borderRadius: 3 }}>
-        <Box sx={{ p: 3, borderBottom: 1, borderColor: 'divider' }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={8}>
-              <TextField
-                fullWidth
-                placeholder="Search name or admission number..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: <InputAdornment position="start"><Search size={18} /></InputAdornment>
-                }}
-              />
+          {/* Section 2: Refined Filters Grid - FORCED FULL WIDTH FOR FIRST TWO */}
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
+               <FormControl fullWidth>
+                <InputLabel sx={{ fontWeight: 800 }}>Section</InputLabel>
+                <Select value={selectedSection} label="Section" onChange={e => setSelectedSection(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
+                  <MenuItem value="">All Sections</MenuItem>
+                  {sections?.map((s: any) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
+                </Select>
+              </FormControl>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button fullWidth variant="outlined" startIcon={<Download size={18} />} onClick={handleExport} disabled={!filteredVoters?.length} sx={{ height: '56px' }}>
-                  Export CSV
-                </Button>
-                <Button fullWidth variant="contained" color="secondary" startIcon={<Download size={18} />} onClick={handleDownloadSignatureSheet} disabled={!voters?.length} sx={{ height: '56px' }}>
-                  Signature Sheet (PDF)
-                </Button>
-              </Box>
+            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
+               <FormControl fullWidth>
+                <InputLabel sx={{ fontWeight: 800 }}>Class</InputLabel>
+                <Select value={selectedClass} label="Class" onChange={e => setSelectedClass(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
+                  <MenuItem value="">All Classes</MenuItem>
+                  {classes?.map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
+               <FormControl fullWidth>
+                <InputLabel sx={{ fontWeight: 800 }}>Division</InputLabel>
+                <Select value={selectedDivision} label="Division" onChange={e => setSelectedDivision(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
+                  <MenuItem value="">All Divisions</MenuItem>
+                  {Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map(div => (
+                    <MenuItem key={div} value={div}>Division {div}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel sx={{ fontWeight: 800 }}>Gender</InputLabel>
+                <Select value={selectedSex} label="Gender" onChange={e => setSelectedSex(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
+                   <MenuItem value="ANY">Any Gender</MenuItem>
+                   <MenuItem value="M">Male (M)</MenuItem>
+                   <MenuItem value="F">Female (F)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 2 }}>
+               <FormControl fullWidth>
+                <InputLabel sx={{ fontWeight: 800 }}>Voting Status</InputLabel>
+                <Select value={selectedStatus} label="Voting Status" onChange={e => setSelectedStatus(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
+                   <MenuItem value="ANY">Any Status</MenuItem>
+                   <MenuItem value="READY">Ready</MenuItem>
+                   <MenuItem value="VOTED">Voted</MenuItem>
+                   <MenuItem value="BLOCKED">Blocked</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 2 }}>
+               <FormControl fullWidth>
+                <InputLabel sx={{ fontWeight: 800 }}>Candidacy</InputLabel>
+                <Select value={selectedIsCandidate} label="Candidacy" onChange={e => setSelectedIsCandidate(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
+                   <MenuItem value="ANY">Any</MenuItem>
+                   <MenuItem value="YES">Candidate</MenuItem>
+                   <MenuItem value="NO">Voter Only</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
         </Box>
         
-        <Tabs value={currentTab} onChange={(_, v) => setCurrentTab(v)} sx={{ px: 2 }}>
-          <Tab label="All Voters" />
-          <Tab label="Filter by Class" />
-        </Tabs>
-
-        {currentTab === 1 && (
-          <Box sx={{ p: 2, backgroundColor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
-            <FormControl sx={{ minWidth: 200 }}>
-              <InputLabel>Select Class</InputLabel>
-              <Select value={selectedClass} label="Select Class" onChange={e => setSelectedClass(e.target.value)}>
-                <MenuItem value="">All Classes</MenuItem>
-                {classes?.map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-              </Select>
-            </FormControl>
-          </Box>
-        )}
+        {/* Active Filter Status Message - Reduced size as requested */}
+        <Box sx={{ px: 4, py: 2, bgcolor: 'rgba(0,0,0,0.02)', borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+             {isLoading ? "Updating list..." : `Showing ${totalCount} records matching your filters`}
+           </Typography>
+           {(selectedClass || selectedDivision || selectedSex !== 'ANY' || selectedStatus !== 'ANY' || selectedIsCandidate !== 'ANY' || searchQuery) && (
+             <Button variant="outlined" color="error" size="small" onClick={() => { 
+               setSelectedClass(''); 
+               setSelectedSection('');
+               setSelectedDivision(''); 
+               setSelectedSex('ANY'); 
+               setSelectedStatus('ANY'); 
+               setSelectedIsCandidate('ANY'); 
+               setSearchQuery('');
+             }}>Clear All Filters</Button>
+           )}
+        </Box>
       </Paper>
 
-      {selectedElectionId ? (
-        <TableContainer component={Paper} sx={{ borderRadius: 3 }}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Admission No</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Class</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Division</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Gender</TableCell>
-                {!isConfiguring && <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>}
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 8 }}><CircularProgress size={32} /></TableCell></TableRow>
-              ) : filteredVoters?.length === 0 ? (
-                <TableRow><TableCell colSpan={7} align="center" sx={{ py: 8, color: 'text.secondary' }}>No voters found</TableCell></TableRow>
-              ) : filteredVoters?.map((v: any) => (
-                <TableRow key={v.id} hover>
-                  <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {v.admission_no}
-                      {v.is_blocked === 1 && (
-                        <Chip label="BLOCKED" size="small" color="error" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800, borderRadius: 1 }} />
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>{v.name}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{v.class_name}</Typography>
-                    <Typography variant="caption" color="text.secondary">{v.section_name}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    {v.division ? <Chip label={v.division} size="small" variant="filled" color="primary" sx={{ borderRadius: 1.5, fontWeight: 700 }} /> : <Typography variant="caption" color="text.disabled">N/A</Typography>}
-                  </TableCell>
-                  <TableCell>
-                    <Chip label={v.sex === 'M' ? 'Male' : 'Female'} size="small" variant="outlined"
-                      color={v.sex === 'M' ? 'info' : 'secondary'} />
-                  </TableCell>
-                   {!isConfiguring && (
-                    <TableCell>
-                      {v.is_blocked ? (
-                        <Chip label="Blocked" size="small" color="error" variant="filled" icon={<ShieldAlert size={14} />} />
-                      ) : v.has_voted ? (
-                        <Chip label="Voted" size="small" color="success" variant="filled" />
-                      ) : (
-                        <Chip label="Ready" size="small" color="primary" variant="outlined" />
-                      )}
+      {selectedElectionId && (
+        <>
+          {isFetching && <LinearProgress sx={{ height: 3, mb: -0.3, zIndex: 1, position: 'relative' }} />}
+          <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 700 }}>Admission No</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Class</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Division</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Gender</TableCell>
+                  {!isConfiguring && <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>}
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 8 }}><CircularProgress size={32} /></TableCell></TableRow>
+                ) : voters?.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 8, color: 'text.secondary' }}>No voters found</TableCell></TableRow>
+                ) : voters?.map((v: any) => (
+                  <TableRow key={v.id} hover>
+                    <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>
+                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {v.admission_no}
+                        {v.is_blocked === 1 && <Chip label="BLOCKED" size="small" color="error" sx={{ height: 18 }} />}
+                      </Box>
                     </TableCell>
-                  )}
+                    <TableCell sx={{ fontWeight: 500 }}>{v.name}</TableCell>
+                    <TableCell>{v.class_name}</TableCell>
+                    <TableCell>{v.division || '-'}</TableCell>
+                    <TableCell>{v.sex}</TableCell>
+                    {!isConfiguring && (
+                       <TableCell>
+                         <Chip 
+                            label={v.has_voted ? "Voted" : "Ready"} 
+                            color={v.has_voted ? "success" : "primary"} 
+                            size="small" 
+                            variant="outlined" 
+                          />
+                       </TableCell>
+                    )}
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                        <Tooltip title={v.is_blocked ? "Unblock Voter" : "Block Voter"}>
-                          <IconButton 
-                            onClick={() => {
-                              setSelectedVoter(v);
-                              setOpenBlockConfirm(true);
-                            }} 
-                            color={v.is_blocked ? "success" : "warning"} 
-                            size="small"
-                          >
-                            {v.is_blocked ? <Unlock size={16} /> : <Lock size={16} />}
-                          </IconButton>
-                        </Tooltip>
+                        <IconButton onClick={() => { setSelectedVoter(v); setOpenBlockConfirm(true); }} color={v.is_blocked ? "success" : "warning"} size="small">
+                          {v.is_blocked ? <Unlock size={16} /> : <Lock size={16} />}
+                        </IconButton>
                         {isConfiguring && (
                           <>
-                            <Tooltip title="Edit Voter">
-                              <IconButton onClick={() => handleEdit(v)} color="primary" size="small">
-                                <Edit size={16} />
-                              </IconButton>
-                            </Tooltip>
-                             <Tooltip title="Delete Voter">
-                               <IconButton onClick={() => {
-                                 setVoterToDelete(v);
-                                 setDeleteConfirmOpen(true);
-                               }} color="error" size="small">
-                                 <Trash2 size={16} />
-                               </IconButton>
-                             </Tooltip>
+                            <IconButton onClick={() => handleEdit(v)} color="primary" size="small"><Edit size={16} /></IconButton>
+                            <IconButton onClick={() => { setVoterToDelete(v); setDeleteConfirmOpen(true); }} color="error" size="small"><Trash2 size={16} /></IconButton>
                           </>
                         )}
                       </Box>
                     </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      ) : (
-        <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 3 }}>
-          <Settings size={48} color="lightgray" style={{ marginBottom: '16px' }} />
-          <Typography variant="h6" sx={{ mb: 1 }}>No Election Selected for Configuration</Typography>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
-            Please go to the Elections page and set an election to "Configuration Mode"
-          </Typography>
-          <Button variant="contained" component={NavLink} to="/school-admin/elections">
-            Go to Elections
-          </Button>
-        </Paper>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            count={totalCount}
+            page={page}
+            onPageChange={(_, p) => setPage(p)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[25, 50, 100]}
+          />
+        </>
       )}
 
       {/* Add Voter Dialog */}
-      <Dialog open={openAdd} onClose={() => { setError(null); setOpenAdd(false); }} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Add Individual Voter</DialogTitle>
-        <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField label="Admission Number" fullWidth required
-              value={voterForm.admission_no} onChange={e => setVoterForm(p => ({ ...p, admission_no: e.target.value.toUpperCase() }))} />
-            <TextField label="Student Full Name" fullWidth required
-              value={voterForm.name} onChange={e => setVoterForm(p => ({ ...p, name: e.target.value }))} />
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 8 }}>
-                <FormControl fullWidth required>
-                  <InputLabel>Class</InputLabel>
-                  <Select value={voterForm.class_id} label="Class"
-                    onChange={e => setVoterForm(p => ({ ...p, class_id: e.target.value }))}>
-                    {classes?.map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <TextField label="Division" fullWidth placeholder="e.g. A"
-                  value={voterForm.division} onChange={e => setVoterForm(p => ({ ...p, division: e.target.value.toUpperCase() }))} />
-              </Grid>
-            </Grid>
+      <Dialog open={openAdd} onClose={() => setOpenAdd(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Add New Voter</DialogTitle>
+        <DialogContent sx={{ mt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <TextField fullWidth label="Admission No" value={voterForm.admission_no} onChange={e => setVoterForm(p => ({ ...p, admission_no: e.target.value.toUpperCase() }))} required autoFocus />
+            <TextField fullWidth label="Full Name" value={voterForm.name} onChange={e => setVoterForm(p => ({ ...p, name: e.target.value }))} required />
             <FormControl fullWidth required>
-              <InputLabel>Sex</InputLabel>
-              <Select value={voterForm.sex} label="Sex"
-                onChange={e => setVoterForm(p => ({ ...p, sex: e.target.value }))}>
-                <MenuItem value="M">Male</MenuItem>
-                <MenuItem value="F">Female</MenuItem>
+              <InputLabel>Class</InputLabel>
+              <Select value={voterForm.class_id} label="Class" onChange={e => setVoterForm(p => ({ ...p, class_id: e.target.value }))}>
+                {classes?.map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <TextField fullWidth label="Division (Optional)" value={voterForm.division} onChange={e => setVoterForm(p => ({ ...p, division: e.target.value.toUpperCase() }))} />
+            <FormControl fullWidth>
+              <InputLabel>Gender</InputLabel>
+              <Select value={voterForm.sex} label="Gender" onChange={e => setVoterForm(p => ({ ...p, sex: e.target.value }))}>
+                <MenuItem value="M">Male (M)</MenuItem>
+                <MenuItem value="F">Female (F)</MenuItem>
               </Select>
             </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => { setError(null); setOpenAdd(false); }}>Cancel</Button>
-          <Button variant="contained" onClick={() => addVoterMutation.mutate(voterForm)}
-            disabled={addVoterMutation.isPending}>
+          <Button onClick={() => setOpenAdd(false)}>Cancel</Button>
+          <Button variant="contained" disabled={addVoterMutation.isPending} onClick={() => addVoterMutation.mutate(voterForm)}>
             {addVoterMutation.isPending ? <CircularProgress size={20} /> : 'Save Voter'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Voter Dialog */}
-      <Dialog open={openEdit} onClose={() => { setError(null); setOpenEdit(false); }} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Edit Voter</DialogTitle>
-        <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField label="Admission Number" fullWidth disabled
-              value={voterForm.admission_no} />
-            <TextField label="Student Full Name" fullWidth required
-              value={voterForm.name} onChange={e => setVoterForm(p => ({ ...p, name: e.target.value }))} />
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 8 }}>
-                <FormControl fullWidth required>
-                  <InputLabel>Class</InputLabel>
-                  <Select value={voterForm.class_id} label="Class"
-                    onChange={e => setVoterForm(p => ({ ...p, class_id: e.target.value }))}>
-                    {classes?.map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 4 }}>
-                <TextField label="Division" fullWidth placeholder="e.g. A"
-                  value={voterForm.division} onChange={e => setVoterForm(p => ({ ...p, division: e.target.value.toUpperCase() }))} />
-              </Grid>
-            </Grid>
+      <Dialog open={openEdit} onClose={() => setOpenEdit(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Edit Voter: {selectedVoter?.name}</DialogTitle>
+        <DialogContent sx={{ mt: 1 }}>
+           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <TextField fullWidth label="Admission No" value={voterForm.admission_no} onChange={e => setVoterForm(p => ({ ...p, admission_no: e.target.value.toUpperCase() }))} required />
+            <TextField fullWidth label="Full Name" value={voterForm.name} onChange={e => setVoterForm(p => ({ ...p, name: e.target.value }))} required />
             <FormControl fullWidth required>
-              <InputLabel>Sex</InputLabel>
-              <Select value={voterForm.sex} label="Sex"
-                onChange={e => setVoterForm(p => ({ ...p, sex: e.target.value }))}>
-                <MenuItem value="M">Male</MenuItem>
-                <MenuItem value="F">Female</MenuItem>
+              <InputLabel>Class</InputLabel>
+              <Select value={voterForm.class_id} label="Class" onChange={e => setVoterForm(p => ({ ...p, class_id: e.target.value }))}>
+                {classes?.map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+              </Select>
+            </FormControl>
+            <TextField fullWidth label="Division (Optional)" value={voterForm.division} onChange={e => setVoterForm(p => ({ ...p, division: e.target.value.toUpperCase() }))} />
+            <FormControl fullWidth>
+              <InputLabel>Gender</InputLabel>
+              <Select value={voterForm.sex} label="Gender" onChange={e => setVoterForm(p => ({ ...p, sex: e.target.value }))}>
+                <MenuItem value="M">Male (M)</MenuItem>
+                <MenuItem value="F">Female (F)</MenuItem>
               </Select>
             </FormControl>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => { setError(null); setOpenEdit(false); }}>Cancel</Button>
-          <Button variant="contained" onClick={() => updateVoterMutation.mutate(voterForm)}
-            disabled={updateVoterMutation.isPending}>
-            {updateVoterMutation.isPending ? <CircularProgress size={20} /> : 'Update Voter'}
+          <Button onClick={() => setOpenEdit(false)}>Cancel</Button>
+          <Button variant="contained" disabled={updateVoterMutation.isPending} onClick={() => updateVoterMutation.mutate(voterForm)}>
+            {updateVoterMutation.isPending ? <CircularProgress size={20} /> : 'Update Changes'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Bulk Upload Dialog */}
-      <Dialog open={openUpload} onClose={() => { setError(null); setOpenUpload(false); }} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Import Voters via Excel</DialogTitle>
+      {/* Delete Confirmation */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Confirm Deletion</DialogTitle>
         <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-          {uploadErrors.length > 0 && (
-            <Alert severity="warning" sx={{ mb: 2, borderRadius: 2, maxHeight: 200, overflow: 'auto' }} onClose={() => setUploadErrors([])}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Errors found in {uploadFile?.name || 'file'}:</Typography>
-              <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.85rem' }}>
-                {uploadErrors.map((err, idx) => <li key={idx}>{err}</li>)}
-              </ul>
-            </Alert>
-          )}
-          <Alert 
-            severity="info" 
-            sx={{ mt: 1, mb: 3 }}
-            action={
-              <Button color="inherit" size="small" variant="outlined" startIcon={<Download size={16} />} onClick={handleDownloadTemplate}>
-                Template
-              </Button>
-            }
-          >
-            Download the template for column names: <b>admission_no, name, section, class, division, sex</b>. Check the <b>'Valid Classes'</b> tab in the template for correct names.
-          </Alert>
-          <input type="file" ref={fileRef} accept=".xlsx" style={{ display: 'none' }}
-            onChange={e => setUploadFile(e.target.files?.[0] || null)} />
-          <Box
-            onClick={() => fileRef.current?.click()}
-            sx={{
-              border: '2px dashed',
-              borderColor: uploadFile ? 'success.main' : 'divider',
-              borderRadius: 3, p: 6, textAlign: 'center',
-              backgroundColor: 'background.default',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              '&:hover': { borderColor: 'primary.main', backgroundColor: 'action.hover' }
-            }}
-          >
-            <Upload size={48} color={uploadFile ? '#4caf50' : '#bdbdbd'} />
-            <Typography sx={{ mt: 2, fontWeight: 700 }}>
-              {uploadFile ? uploadFile.name : 'Click to select Excel file'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Only .xlsx files are supported
-            </Typography>
-          </Box>
+          <Typography variant="body1">Are you absolutely sure you want to delete <strong>{voterToDelete?.name}</strong> (Adm No: {voterToDelete?.admission_no})? This action cannot be undone.</Typography>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => { setError(null); setOpenUpload(false); }}>Cancel</Button>
-          <Button variant="contained" onClick={() => uploadMutation.mutate()}
-            disabled={!uploadFile || uploadMutation.isPending}>
-            {uploadMutation.isPending ? <CircularProgress size={20} /> : 'Confirm Import'}
-          </Button>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={() => deleteVoterMutation.mutate(voterToDelete?.id)}>Delete</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Block Confirmation Dialog */}
+      {/* Block/Unblock Confirmation */}
       <Dialog open={openBlockConfirm} onClose={() => setOpenBlockConfirm(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <ShieldAlert size={24} color="#f59e0b" />
-          {selectedVoter?.is_blocked ? 'Unblock Voter?' : 'Restrict Voter?'}
-        </DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>{selectedVoter?.is_blocked ? 'Unblock Voter' : 'Block Voter'}</DialogTitle>
         <DialogContent>
-          <Typography sx={{ mb: 2 }}>
+          <Typography variant="body1">
             {selectedVoter?.is_blocked 
-              ? `Are you sure you want to lift the restriction for this voter?`
-              : `This will prevent the voter from participating in the election until unblocked.`}
+              ? 'This student will be allowed to vote again. Proceed?' 
+              : 'This student will be completely blocked from voting. Proceed?'}
           </Typography>
-          <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>Voter Details</Typography>
-            <Typography variant="body1" sx={{ fontWeight: 800, mt: 0.5 }}>{selectedVoter?.name}</Typography>
-            <Grid container spacing={1} sx={{ mt: 0.5 }}>
-              <Grid size={{ xs: 6 }}>
-                <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>ID: {selectedVoter?.admission_no}</Typography>
-              </Grid>
-              <Grid size={{ xs: 6 }} sx={{ textAlign: 'right' }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {selectedVoter?.class_name} {selectedVoter?.division ? `(${selectedVoter.division})` : ''}
-                </Typography>
-              </Grid>
-            </Grid>
-          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
+        <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenBlockConfirm(false)}>Cancel</Button>
-          <Button 
-            variant="contained" 
-            color={selectedVoter?.is_blocked ? "success" : "warning"} 
-            onClick={() => updateVoterMutation.mutate({ is_blocked: selectedVoter?.is_blocked ? 0 : 1 })}
-            disabled={updateVoterMutation.isPending}
-            startIcon={selectedVoter?.is_blocked ? <Unlock size={18} /> : <Lock size={18} />}
-          >
-            {updateVoterMutation.isPending ? <CircularProgress size={20} /> : (selectedVoter?.is_blocked ? 'Confirm Unblock' : 'Confirm Block')}
+          <Button variant="contained" color={selectedVoter?.is_blocked ? 'success' : 'warning'} onClick={() => updateVoterMutation.mutate({ is_blocked: !selectedVoter?.is_blocked })}>
+            {selectedVoter?.is_blocked ? 'Yes, Unblock' : 'Yes, Block'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 2, fontWeight: 700 }}>
-          <AlertTriangle color="#ef4444" />
-          Confirm Deletion
-        </DialogTitle>
-        <DialogContent sx={{ pb: 3 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Are you sure you want to delete **{voterToDelete?.name}** (ID: {voterToDelete?.admission_no})?
-          </Typography>
-          
-          {!!voterToDelete?.is_candidate && (
-            <Alert 
-              severity="warning" 
-              icon={<ShieldAlert size={20} />}
-              sx={{ 
-                bgcolor: '#fff7ed', 
-                border: '1.5px solid', 
-                borderColor: '#ea580c',
-                color: '#9a3412',
-                fontWeight: 600,
-                borderRadius: 2.5,
-                '& .MuiAlert-icon': { color: '#ea580c' }
-              }}
-            >
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 0.5, letterSpacing: 0.5 }}>CANDIDACY ALERT</Typography>
-              <strong>{voterToDelete?.name}</strong> is a registered **CANDIDATE** for the post of **{voterToDelete?.candidate_post_name || 'N/A'}**. Deleting this voter will automatically disqualify them and remove their candidacy record.
-            </Alert>
+      {/* Upload Dialog */}
+      <Dialog open={openUpload} onClose={() => setOpenUpload(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Bulk Import Voters</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>Select an Excel/CSV file with Admission No, Name, Class ID, Division, and Sex.</Alert>
+          <input type="file" ref={fileRef} accept=".xlsx,.xls,.csv" onChange={e => setUploadFile(e.target.files?.[0] || null)} />
+          {uploadErrors.length > 0 && (
+            <Box sx={{ mt: 2, p: 1, bgcolor: 'error.lighter', borderRadius: 1 }}>
+              <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>Errors found: {uploadErrors.length}</Typography>
+            </Box>
           )}
-
-          <Typography variant="caption" sx={{ mt: 2, color: 'text.secondary', display: 'block' }}>
-            * This action cannot be undone. All voting history and related records for this voter will be permanently deleted.
-          </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => setDeleteConfirmOpen(false)} disabled={deleteVoterMutation.isPending}>
-            Cancel
-          </Button>
-          <Button 
-            variant="contained" 
-            color="error" 
-            onClick={() => deleteVoterMutation.mutate(voterToDelete.id)}
-            disabled={deleteVoterMutation.isPending}
-            startIcon={deleteVoterMutation.isPending ? <CircularProgress size={16} /> : <Trash2 size={18} />}
-          >
-            Delete Permanently
-          </Button>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenUpload(false)}>Cancel</Button>
+          <Button variant="contained" onClick={() => uploadMutation.mutate()} disabled={!uploadFile || uploadMutation.isPending}>Upload</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Clear Voters Confirmation */}
+      <Dialog open={openClearConfirm} onClose={() => { setOpenClearConfirm(false); setClearVotersInput(''); }} maxWidth="xs" fullWidth>
+        <Paper sx={{ p: 4 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, color: 'error.main' }}>
+             <AlertTriangle size={32} />
+             <Typography variant="h5" sx={{ fontWeight: 900 }}>CRITICAL ACTION</Typography>
+          </Box>
+          <Typography variant="body1" sx={{ mb: 2, fontWeight: 700 }}>Delete ALL voters for {selectedElectionName}?</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>Type <strong>DELETE ALL</strong> to verify.</Typography>
+          <TextField fullWidth value={clearVotersInput} onChange={e => setClearVotersInput(e.target.value.toUpperCase())} autoFocus />
+          <DialogActions sx={{ pt: 3 }}>
+            <Button onClick={() => setOpenClearConfirm(false)}>Cancel</Button>
+            <Button variant="contained" color="error" disabled={clearVotersInput !== 'DELETE ALL'} onClick={() => clearVotersMutation.mutate()}>Clear List</Button>
+          </DialogActions>
+        </Paper>
+      </Dialog>
+
+      {/* Processing Loader */}
+      <Dialog open={uploadMutation.isPending || clearVotersMutation.isPending} disableEscapeKeyDown>
+        <Paper sx={{ p: 5, textAlign: 'center' }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="h6">Processing Data...</Typography>
+          <Typography variant="caption" color="text.secondary">Do not refresh page</Typography>
+        </Paper>
+      </Dialog>
+      
+      <Snackbar open={!!success} autoHideDuration={3000} onClose={() => setSuccess(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert severity="success" variant="filled">{success}</Alert>
+      </Snackbar>
+      <Snackbar open={!!error} autoHideDuration={5000} onClose={() => setError(null)} anchorOrigin={{ vertical: 'top', horizontal: 'center' }}>
+        <Alert severity="error" variant="filled">{error}</Alert>
+      </Snackbar>
     </Box>
   );
 };

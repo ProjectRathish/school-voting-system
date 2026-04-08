@@ -109,4 +109,11 @@ router.delete(
   electionController.unassignOfficer
 );
 
-module.exports = router;
+router.post(
+  "/:id/duplicate",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  electionController.duplicateElection
+);
+
+module.exports = router;

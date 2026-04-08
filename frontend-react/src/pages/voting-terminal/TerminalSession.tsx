@@ -44,18 +44,26 @@ import { useQuery } from '@tanstack/react-query';
 import ThemeToggle from '../../components/common/ThemeToggle';
 
 // Simulated BEEP sound for tactile feedback
-const playBeep = () => {
+// EVM characteristic long beep sound
+const playBeep = (duration = 0.4, frequency = 880) => {
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
+    
     osc.connect(gain);
     gain.connect(audioCtx.destination);
+    
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(880, audioCtx.currentTime); 
-    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(frequency, audioCtx.currentTime); 
+    
+    // Fade in/out slightly to prevent harsh pops
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+    
     osc.start();
-    osc.stop(audioCtx.currentTime + 0.1);
+    osc.stop(audioCtx.currentTime + duration);
   } catch (e) {
     console.log("Audio failed", e);
   }
@@ -74,9 +82,23 @@ const TerminalSession = () => {
   const [isCasting, setIsCasting] = useState(false);
   const [successDialog, setSuccessDialog] = useState(false);
 
+  const getFullUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const baseUrl = axiosInstance.defaults.baseURL?.replace('/api', '') || '';
+    return `${baseUrl}${path}`;
+  };
+
   const handleSelectCandidate = (postId: number, candId: number) => {
-     playBeep();
+     if (selections[postId] === candId) return; // Prevent double-trigger
+     
+     playBeep(2.0, 880);
      setSelections(prev => ({ ...prev, [postId]: candId }));
+     
+     // Automatic transition to next post after a short delay (for the beep)
+     setTimeout(() => {
+        setStep(s => s + 1);
+     }, 1200);
   };
 
   // 1. Verify Machine Status (Polling)
@@ -146,6 +168,9 @@ const TerminalSession = () => {
         headers: { 'machine-token': token }
       });
       
+      // Characteristic final cast beep (Long, higher pitch)
+      playBeep(2.0, 1000);
+
       setSuccessDialog(true);
       setSelections({});
       setStep(0);
@@ -340,20 +365,35 @@ const TerminalSession = () => {
                                </Box>
 
                                {/* Candidate Info */}
-                               <Box sx={{ flexGrow: 1, px: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                               <Box sx={{ flexGrow: 1, px: { xs: 1, md: 3 }, display: 'flex', alignItems: 'center', gap: 2 }}>
                                   <Avatar 
-                                     src={c.photo} 
-                                     sx={{ width: { xs: 40, md: 60 }, height: { xs: 40, md: 60 }, border: '1px solid', borderColor: 'divider' }}
+                                     src={getFullUrl(c.photo)} 
+                                     sx={{ width: { xs: 50, md: 70 }, height: { xs: 50, md: 70 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
                                   >
                                      <User />
                                   </Avatar>
-                                  <Box>
-                                     <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1 }}>{c.candidate_name}</Typography>
-                                     <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', mt: 0.5, display: 'block' }}>
-                                        {c.symbol ? `Symbol: ${c.symbol}` : 'Independent'}
+                                  <Box sx={{ flexGrow: 1 }}>
+                                     <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1, fontSize: { xs: '1rem', md: '1.25rem' } }}>{c.candidate_name}</Typography>
+                                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mt: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        {c.symbol_name || 'Independent Candidate'}
                                      </Typography>
                                   </Box>
+                                  {/* Actual Symbol Image instead of just text */}
+                                  {c.symbol && (
+                                     <Box 
+                                        component="img" 
+                                        src={getFullUrl(c.symbol)} 
+                                        alt="Symbol"
+                                        sx={{ 
+                                           width: { xs: 45, md: 65 }, 
+                                           height: { xs: 45, md: 65 }, 
+                                           objectFit: 'contain',
+                                           filter: theme.palette.mode === 'dark' ? 'brightness(0.9) contrast(1.1)' : 'none'
+                                        }} 
+                                     />
+                                  )}
                                </Box>
+
 
                                {/* Lamp Column */}
                                <Box sx={{ width: 40, display: 'flex', justifyContent: 'center' }}>

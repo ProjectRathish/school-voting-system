@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
-  Chip, FormControl, InputLabel, Select, MenuItem, Tooltip
+  Chip, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar
 } from '@mui/material';
 import { Plus, Trash2, Edit, Sparkles, Settings, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ const Posts = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [postToDelete, setPostToDelete] = useState<any>(null);
   const queryClient = useQueryClient();
 
   // Helper to fetch class names for the table view
@@ -75,6 +76,7 @@ const Posts = () => {
     mutationFn: (id: number) => axiosInstance.delete(`/posts/${id}`),
     onSuccess: () => {
       setSuccess('Post deleted!');
+      setPostToDelete(null);
       queryClient.invalidateQueries({ queryKey: ['posts', selectedElectionId] });
     }
   });
@@ -168,9 +170,27 @@ const Posts = () => {
         </Box>
       </Box>
 
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
-      {error && !openPost && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={4000}
+        onClose={() => setSuccess(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" sx={{ width: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          {success}
+        </Alert>
+      </Snackbar>
 
+      <Snackbar
+        open={!!error && !openPost}
+        autoHideDuration={6000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" variant="filled" sx={{ width: '100%', borderRadius: 2 }}>
+          {error}
+        </Alert>
+      </Snackbar>
       {selectedElectionId ? (
         <TableContainer component={Paper}>
           <Table>
@@ -202,14 +222,14 @@ const Posts = () => {
                   </TableCell>
                   <TableCell sx={{ minWidth: 200 }}>
                     {Array.isArray(post.candidate_classes) && post.candidate_classes.length > 0
-                      ? post.candidate_classes.map((id: number) => (
+                      ? [...post.candidate_classes].sort((a,b) => getClassName(a).toString().localeCompare(getClassName(b).toString(), undefined, {numeric: true})).map((id: number) => (
                           <Chip key={id} label={getClassName(id)} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
                         ))
                       : '-'}
                   </TableCell>
                   <TableCell sx={{ minWidth: 200 }}>
                     {Array.isArray(post.voting_classes) && post.voting_classes.length > 0
-                      ? post.voting_classes.map((id: number) => (
+                      ? [...post.voting_classes].sort((a,b) => getClassName(a).toString().localeCompare(getClassName(b).toString(), undefined, {numeric: true})).map((id: number) => (
                           <Chip key={id} label={getClassName(id)} size="small" variant="outlined" sx={{ mr: 0.5, mb: 0.5 }} />
                         ))
                       : '-'}
@@ -222,7 +242,7 @@ const Posts = () => {
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete Post">
-                        <IconButton color="error" onClick={() => deletePostMutation.mutate(post.id)}>
+                        <IconButton color="error" onClick={() => setPostToDelete(post)}>
                           <Trash2 size={18} />
                         </IconButton>
                       </Tooltip>
@@ -353,8 +373,28 @@ const Posts = () => {
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => { setError(null); setOpenPost(false); setEditingPost(null); }}>Cancel</Button>
           <Button variant="contained" onClick={() => upsertPostMutation.mutate(postForm)}
-            disabled={upsertPostMutation.isPending || !postForm.name}>
+            disabled={upsertPostMutation.isPending || !postForm.name || postForm.candidate_classes.length === 0 || postForm.voting_classes.length === 0}>
             {upsertPostMutation.isPending ? <CircularProgress size={20} /> : (editingPost ? 'Update Post' : 'Create Post')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!postToDelete} onClose={() => setPostToDelete(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Confirm Delete</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete the post <strong>{postToDelete?.name}</strong>? 
+          This will also remove all candidate records associated with this post.
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setPostToDelete(null)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={() => deletePostMutation.mutate(postToDelete.id)}
+            disabled={deletePostMutation.isPending}
+          >
+            {deletePostMutation.isPending ? <CircularProgress size={20} /> : 'Delete Permanently'}
           </Button>
         </DialogActions>
       </Dialog>

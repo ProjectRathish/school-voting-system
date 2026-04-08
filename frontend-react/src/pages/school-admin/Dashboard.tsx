@@ -140,7 +140,7 @@ const SchoolAdminDashboard = () => {
         ))}
 
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: 3, borderRadius: 3, height: '100%' }}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 Election Overview
@@ -189,7 +189,7 @@ const SchoolAdminDashboard = () => {
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper sx={{ p: 3, borderRadius: 3, height: '100%' }}>
+          <Paper sx={{ p: 3, borderRadius: 2, height: '100%' }}>
             <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
               Quick Info
             </Typography>

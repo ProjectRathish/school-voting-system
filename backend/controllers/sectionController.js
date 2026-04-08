@@ -77,13 +77,17 @@ exports.getSections = async (req, res) => {
       `SELECT id, name, created_at
        FROM sections
        WHERE school_id = ?
-       AND election_id = ?
-       ORDER BY name`,
+       AND election_id = ?`,
       [school_id, election_id]
     );
 
-    res.json(rows);
+    // Natural sorting (e.g., Section 2 before Section 10)
+    const sortedRows = rows.sort((a, b) => 
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
 
+    res.json(sortedRows);
+ drum                  
   } catch (error) {
 
     console.error(error);

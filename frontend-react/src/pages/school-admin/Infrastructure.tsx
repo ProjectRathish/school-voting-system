@@ -5,15 +5,14 @@ import {
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton, Tooltip,
   Grid, Chip, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment
+  InputAdornment, Snackbar
 } from '@mui/material';
-import { Plus, Trash2, RefreshCw, Smartphone, Monitor, UserPlus, Unlink, CheckCircle2, Eye, EyeOff, Sparkles, Settings, Edit } from 'lucide-react';
+import { Plus, Trash2, Monitor, UserPlus, Unlink, Sparkles, Edit } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 
 const Infrastructure = () => {
-  const navigate = useNavigate();
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
   const [selectedElection, setSelectedElection] = useState(selectedElectionId || '');
   const [openAssign, setOpenAssign] = useState<any>(null); // For which booth we are assigning
@@ -172,9 +171,27 @@ const Infrastructure = () => {
         <Typography variant="h4" sx={{ fontWeight: 700 }}>Infrastructure Management</Typography>
       </Box>
 
-      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={4000}
+        onClose={() => setSuccess(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" sx={{ width: '100%', borderRadius: 1, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          {success}
+        </Alert>
+      </Snackbar>
 
+      <Snackbar
+        open={!!error}
+        autoHideDuration={6000}
+        onClose={() => setError(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="error" variant="filled" sx={{ width: '100%', borderRadius: 2 }}>
+          {error}
+        </Alert>
+      </Snackbar>
       {/* Current Context Banner */}
       <Box sx={{ 
         mb: 4, 
@@ -182,7 +199,7 @@ const Infrastructure = () => {
       }}>
         <Box sx={{ 
           p: '1.5px', 
-          borderRadius: '24px', 
+          borderRadius: '16px', 
           background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
           boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
           position: 'relative'
@@ -190,7 +207,7 @@ const Infrastructure = () => {
           <Box sx={{ 
             px: 3, 
             py: 2, 
-            borderRadius: '23px', 
+            borderRadius: '15px', 
             background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
             display: 'flex',
             alignItems: 'center',
@@ -258,7 +275,7 @@ const Infrastructure = () => {
         {selectedElection ? (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 4 }}>
-              <Paper sx={{ p: 3, borderRadius: 3 }}>
+              <Paper sx={{ p: 3, borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>Polling Booths</Typography>
                   <Button 
@@ -286,7 +303,7 @@ const Infrastructure = () => {
                         variant="outlined" 
                         sx={{ 
                           p: 2.5, 
-                          borderRadius: 3, 
+                          borderRadius: 1, 
                           display: 'flex', 
                           flexDirection: 'column', 
                           gap: 2,
@@ -303,7 +320,7 @@ const Infrastructure = () => {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Box sx={{ 
                               p: 1, 
-                              borderRadius: 2, 
+                              borderRadius: 1, 
                               bgcolor: 'primary.main', 
                               color: 'white',
                               display: 'flex'
@@ -394,7 +411,7 @@ const Infrastructure = () => {
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 8 }}>
-              <Paper sx={{ p: 3, borderRadius: 3 }}>
+              <Paper sx={{ p: 3, borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>Voting Machines</Typography>
                   <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)} disabled={isClosed}>

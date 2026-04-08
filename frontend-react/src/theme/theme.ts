@@ -34,7 +34,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     button: { textTransform: 'none' as const, fontWeight: 600 },
   },
   shape: {
-    borderRadius: 16,
+    borderRadius: 8,
   },
   components: {
     MuiCssBaseline: {
@@ -62,7 +62,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 8,
           padding: '10px 24px',
           boxShadow: 'none',
           fontSize: '0.95rem',
@@ -92,7 +92,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 24,
+          borderRadius: 12,
           border: `1px solid ${mode === 'light' ? '#e2e8f0' : '#334155'}`,
           backgroundColor: mode === 'light' ? '#ffffff' : 'rgba(30, 41, 59, 0.7)',
           backdropFilter: 'blur(12px)',
@@ -103,7 +103,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 12,
+            borderRadius: 8,
             backgroundColor: mode === 'light' ? '#f8fafc' : '#0f172a',
             '& fieldset': {
               borderColor: mode === 'light' ? '#e2e8f0' : '#334155',
@@ -118,7 +118,7 @@ const getDesignTokens = (mode: PaletteMode) => ({
     MuiListItemButton: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 8,
           margin: '4px 0',
         },
       },

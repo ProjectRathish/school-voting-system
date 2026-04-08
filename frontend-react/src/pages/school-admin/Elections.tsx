@@ -19,11 +19,11 @@ import {
   TextField,
   Tooltip
 } from '@mui/material';
-import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3 } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
-import { Alert, CircularProgress } from '@mui/material';
+import { Alert, CircularProgress, Snackbar } from '@mui/material';
 import { useElectionStore } from '../../store/electionStore';
 import { useEffect } from 'react';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
@@ -40,6 +40,7 @@ const Elections = () => {
     end_time: ''
   });
   const [editingElection, setEditingElection] = useState<any>(null);
+  const [duplicatingElectionId, setDuplicatingElectionId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [confirmStartId, setConfirmStartId] = useState<number | null>(null);
   const [confirmEndId, setConfirmEndId] = useState<number | null>(null);
@@ -107,6 +108,22 @@ const Elections = () => {
     }
   });
 
+  const duplicateElectionMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number, data: typeof formData }) => 
+      await axiosInstance.post(`/elections/${id}/duplicate`, data),
+    onSuccess: () => {
+      setSuccess('Election cloned successfully!');
+      setOpen(false);
+      setDuplicatingElectionId(null);
+      setFormData({ name: '', start_time: '', end_time: '' });
+      queryClient.invalidateQueries({ queryKey: ['elections'] });
+      setTimeout(() => setSuccess(null), 5000);
+    },
+    onError: (err: any) => {
+      setError(err.response?.data?.message || 'Failed to clone election');
+    }
+  });
+
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, confirmation_text }: { id: number, status: string, confirmation_text?: string }) => {
       return await axiosInstance.put(`/elections/${id}/status`, { status, confirmation_text });
@@ -117,14 +134,26 @@ const Elections = () => {
       const name = election?.name || 'Election';
 
       if (status === 'ACTIVE') {
-        setSuccess(`Election "${name}" is now LIVE! Switching context...`);
+        setSuccess(`Election "${name}" is now LIVE!`);
         setSelectedElection(String(id), name, status);
-        setTimeout(() => navigate('/school-admin/voters'), 1000);
       } else if (status === 'CLOSED') {
         setSuccess(`Election "${name}" has been CLOSED permanently.`);
-        clearSelection();
+        if (selectedElectionId === String(id)) {
+          clearSelection();
+        }
+      } else if (status === 'CONFIGURING') {
+        setSuccess(`Context switched to: ${name}`);
+        setSelectedElection(String(id), name, status);
+      } else if (status === 'DRAFT') {
+        setSuccess(`Election "${name}" set back to Draft.`);
+        if (selectedElectionId === String(id)) {
+          clearSelection();
+        }
       } else {
         setSuccess(`Status updated to ${status}`);
+        if (selectedElectionId === String(id)) {
+          setSelectedElection(String(id), name, status);
+        }
       }
       
       queryClient.invalidateQueries({ queryKey: ['elections'] });
@@ -140,16 +169,10 @@ const Elections = () => {
       setSuccess('Context reverted to latest draft/configuring election');
     } else {
       setSelectedElection(String(election.id), election.name, election.status);
-      setSuccess(`Context switched to: ${election.name} (Limited Access)`);
-      if (election.status === 'CLOSED') {
-        setTimeout(() => navigate('/school-admin/results'), 500);
-      } else {
-        setTimeout(() => navigate('/school-admin/classes'), 500);
-      }
+      setSuccess(`Context switched to: ${election.name} (Limited Access Mode)`);
     }
     setTimeout(() => setSuccess(null), 3000);
   };
-
 
 
   const handleUpsert = () => {
@@ -167,15 +190,19 @@ const Elections = () => {
       return;
     }
 
-    upsertElectionMutation.mutate(formData);
+    if (duplicatingElectionId) {
+      duplicateElectionMutation.mutate({ id: duplicatingElectionId, data: formData });
+    } else {
+      upsertElectionMutation.mutate(formData);
+    }
   };
 
   const handleEditClick = (election: any) => {
     setEditingElection(election);
     setFormData({
       name: election.name,
-      start_time: new Date(election.start_time).toISOString().slice(0, 16),
-      end_time: new Date(election.end_time).toISOString().slice(0, 16)
+      start_time: dayjs(election.start_time).format('YYYY-MM-DDTHH:mm'),
+      end_time: dayjs(election.end_time).format('YYYY-MM-DDTHH:mm')
     });
     setError(null);
     setOpen(true);
@@ -194,6 +221,16 @@ const Elections = () => {
   };
 
 
+  const handleDuplicateClick = (election: any) => {
+    setDuplicatingElectionId(election.id);
+    setFormData({
+      name: `Copy of ${election.name}`,
+      start_time: dayjs(election.start_time).format('YYYY-MM-DDTHH:mm'),
+      end_time: dayjs(election.end_time).format('YYYY-MM-DDTHH:mm')
+    });
+    setError(null);
+    setOpen(true);
+  };
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return 'success';
@@ -232,7 +269,16 @@ const Elections = () => {
         </Box>
       </Box>
 
-      {success && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>{success}</Alert>}
+      <Snackbar
+        open={!!success}
+        autoHideDuration={4000}
+        onClose={() => setSuccess(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" sx={{ width: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+          {success}
+        </Alert>
+      </Snackbar>
       
       {/* Current Context Banner */}
       <Box sx={{ 
@@ -346,124 +392,163 @@ const Elections = () => {
                     label={election.status}
                     color={getStatusColor(election.status) as any}
                     size="small"
+                    icon={election.status === 'ACTIVE' ? (
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        bgcolor: 'white', 
+                        borderRadius: '50%',
+                        ml: 1,
+                        animation: 'pulse 1.2s infinite ease-in-out',
+                        '@keyframes pulse': {
+                          '0%': { opacity: 1, transform: 'scale(0.8)', boxShadow: '0 0 0 0 rgba(255, 255, 255, 0.7)' },
+                          '70%': { opacity: 0, transform: 'scale(1.5)', boxShadow: '0 0 0 4px rgba(255, 255, 255, 0)' },
+                          '100%': { opacity: 0, transform: 'scale(1.5)', boxShadow: '0 0 0 0 rgba(255, 255, 255, 0)' }
+                        }
+                      }} />
+                    ) : undefined}
+                    sx={{ 
+                      fontWeight: 700,
+                      px: 0.5,
+                      ...(election.status === 'ACTIVE' && {
+                        boxShadow: '0 0 10px rgba(76, 175, 80, 0.3)'
+                      })
+                    }}
                   />
                 </TableCell>
                 <TableCell align="right">
-                  {/* View/Manage Election Data (Available in ACTIVE, PAUSED, or CLOSED states) */}
-                  {(election.status === 'ACTIVE' || election.status === 'PAUSED' || election.status === 'CLOSED') && (
-                    <Tooltip title={isSelected ? (election.status === 'CLOSED' ? "View Results" : "Quit limited access") : (election.status === 'CLOSED' ? "View Results" : "Configure with limited access")}>
-                      <IconButton 
-                        color={isSelected ? "primary" : "secondary"} 
-                        onClick={() => {
-                          if (election.status === 'CLOSED') {
-                            navigate('/school-admin/results', { state: { electionId: election.id } });
-                          } else {
-                            handleContextSwitch(election, isSelected);
-                          }
-                        }}
-                        disabled={updateStatusMutation.isPending}
-                        sx={{
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          ...(isSelected && election.status !== 'CLOSED' ? {
-                            backgroundColor: 'primary.main',
-                            color: 'white',
-                            '&:hover': {
-                              backgroundColor: 'primary.dark',
-                              transform: 'scale(1.05)',
-                            },
-                            boxShadow: '0 0 12px rgba(99, 102, 241, 0.5)',
-                          } : {
-                            backgroundColor: 'transparent',
-                            '&:hover': {
-                              backgroundColor: 'action.hover',
-                            },
-                            '&:focus': {
-                              outline: 'none',
-                              backgroundColor: 'transparent',
-                            }
-                          })
-                        }}
-                      >
-                        {election.status === 'CLOSED' ? <BarChart3 size={18} /> : <Eye size={18} />}
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                  <Box sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'center' }}>
+                    {/* View/Manage/Copy Election Data (Available in ACTIVE, PAUSED, or CLOSED states) */}
+                    {(election.status === 'ACTIVE' || election.status === 'PAUSED' || election.status === 'CLOSED') && (
+                      <>
+                        <Tooltip title={isSelected ? (election.status === 'CLOSED' ? "View Results" : "Quit limited access") : (election.status === 'CLOSED' ? "View Results" : "Configure with limited access")}>
+                          <IconButton 
+                            color={isSelected ? "primary" : "secondary"} 
+                            onClick={() => {
+                              if (election.status === 'CLOSED') {
+                                navigate('/school-admin/results', { state: { electionId: election.id } });
+                              } else {
+                                handleContextSwitch(election, isSelected);
+                              }
+                            }}
+                            disabled={updateStatusMutation.isPending}
+                            sx={{
+                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              ...(isSelected && election.status !== 'CLOSED' ? {
+                                backgroundColor: 'primary.main',
+                                color: 'white',
+                                '&:hover': {
+                                  backgroundColor: 'primary.dark',
+                                  transform: 'scale(1.05)',
+                                },
+                                boxShadow: '0 0 12px rgba(99, 102, 241, 0.5)',
+                              } : {
+                                backgroundColor: 'transparent',
+                                '&:hover': {
+                                  backgroundColor: 'action.hover',
+                                },
+                                '&:focus': {
+                                  outline: 'none',
+                                  backgroundColor: 'transparent',
+                                }
+                              })
+                            }}
+                          >
+                            {election.status === 'CLOSED' ? <BarChart3 size={18} /> : <Eye size={18} />}
+                          </IconButton>
+                        </Tooltip>
 
-                  {/* Configuration Toggle (Available in DRAFT or CONFIGURING) */}
-                  {(election.status === 'DRAFT' || election.status === 'CONFIGURING') && (
-                    <Tooltip title={election.status === 'CONFIGURING' ? "Active Configuration" : "Set to Configuration Mode"}>
-                      <IconButton
-                        color={election.status === 'CONFIGURING' ? 'primary' : 'default'}
-                        onClick={() => handleConfigure(election)}
-                        disabled={updateStatusMutation.isPending}
-                      >
-                        <Settings size={18} fill={election.status === 'CONFIGURING' ? "currentColor" : "none"} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                        {election.status === 'CLOSED' && (
+                          <Tooltip title="Copy Election Structure (Clone)">
+                            <IconButton 
+                              color="info" 
+                              disabled={duplicateElectionMutation.isPending}
+                              onClick={() => handleDuplicateClick(election)}
+                              sx={{ mt: 0 }}
+                            >
+                              {duplicateElectionMutation.isPending ? <CircularProgress size={16} /> : <Copy size={18} />}
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </>
+                    )}
 
-                  {/* Ready Toggle (Available in CONFIGURING) */}
-                  {election.status === 'CONFIGURING' && (
-                    <Tooltip title="Mark Configuration as Ready">
-                      <IconButton color="info" onClick={() => changeStatus(election.id, 'READY')} disabled={updateStatusMutation.isPending}>
-                        <CheckSquare size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                    {/* Configuration Toggle (Available in DRAFT or CONFIGURING) */}
+                    {(election.status === 'DRAFT' || election.status === 'CONFIGURING') && (
+                      <Tooltip title={election.status === 'CONFIGURING' ? "Active Configuration" : "Set to Configuration Mode"}>
+                        <IconButton
+                          color={(election.status === 'CONFIGURING' && isSelected) ? 'primary' : 'default'}
+                          onClick={() => handleConfigure(election)}
+                          disabled={updateStatusMutation.isPending}
+                        >
+                          <Settings size={18} fill={(election.status === 'CONFIGURING' && isSelected) ? "currentColor" : "none"} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
 
-                  {/* Back to Draft (Available in READY) */}
-                  {election.status === 'READY' && (
-                    <Tooltip title="Unlock Configuration (Back to Draft)">
-                      <IconButton color="default" onClick={() => changeStatus(election.id, 'CONFIGURING')} disabled={updateStatusMutation.isPending}>
-                        <Settings size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                    {/* Ready Toggle (Available in CONFIGURING) */}
+                    {election.status === 'CONFIGURING' && (
+                      <Tooltip title="Mark Configuration as Ready">
+                        <IconButton color="info" onClick={() => changeStatus(election.id, 'READY')} disabled={updateStatusMutation.isPending}>
+                          <CheckSquare size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
 
-                  {/* Start Election (Available in READY or PAUSED) */}
-                  {(election.status === 'READY' || election.status === 'PAUSED') && (
-                    <Tooltip title="Start Election">
-                      <IconButton color="success" onClick={() => setConfirmStartId(election.id)} disabled={updateStatusMutation.isPending}>
-                        <Play size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                    {/* Back to Draft (Available in READY) */}
+                    {election.status === 'READY' && (
+                      <Tooltip title="Unlock Configuration (Back to Draft)">
+                        <IconButton color="default" onClick={() => changeStatus(election.id, 'CONFIGURING')} disabled={updateStatusMutation.isPending}>
+                          <Settings size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
 
-                  {/* Pause Election (Available in ACTIVE) */}
-                  {election.status === 'ACTIVE' && (
-                    <Tooltip title="Pause Election">
-                      <IconButton color="warning" onClick={() => changeStatus(election.id, 'PAUSED')} disabled={updateStatusMutation.isPending}>
-                        <Pause size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                    {/* Start Election (Available in READY or PAUSED) */}
+                    {(election.status === 'READY' || election.status === 'PAUSED') && (
+                      <Tooltip title="Start Election">
+                        <IconButton color="success" onClick={() => setConfirmStartId(election.id)} disabled={updateStatusMutation.isPending}>
+                          <Play size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
 
-                  {/* End Election (Available in ACTIVE or PAUSED) */}
-                  {(election.status === 'ACTIVE' || election.status === 'PAUSED') && (
-                    <Tooltip title="End Election Permanently">
-                      <IconButton color="error" onClick={() => setConfirmEndId(election.id)} disabled={updateStatusMutation.isPending}>
-                        <Square size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                    {/* Pause Election (Available in ACTIVE) */}
+                    {election.status === 'ACTIVE' && (
+                      <Tooltip title="Pause Election">
+                        <IconButton color="warning" onClick={() => changeStatus(election.id, 'PAUSED')} disabled={updateStatusMutation.isPending}>
+                          <Pause size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
 
-                  {/* Edit Election Specs (Draft, Config, Ready) */}
-                  {(election.status === 'DRAFT' || election.status === 'CONFIGURING' || election.status === 'READY') && (
-                    <Tooltip title="Edit Details">
-                      <IconButton color="primary" onClick={() => handleEditClick(election)} disabled={updateStatusMutation.isPending}>
-                        <Edit size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                    {/* End Election (Available ONLY in ACTIVE) */}
+                    {election.status === 'ACTIVE' && (
+                      <Tooltip title="End Election Permanently">
+                        <IconButton color="error" onClick={() => setConfirmEndId(election.id)} disabled={updateStatusMutation.isPending}>
+                          <Square size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
 
-                  {/* Delete Election (Not allowed once active) */}
-                  {(election.status !== 'ACTIVE' && election.status !== 'PAUSED') && (
-                    <Tooltip title="Delete Election">
-                      <IconButton color="error" onClick={() => setDeleteId(election.id)} disabled={updateStatusMutation.isPending}>
-                        <Trash2 size={18} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
+                    {/* Edit Election Specs (Draft, Config, Ready) */}
+                    {(election.status === 'DRAFT' || election.status === 'CONFIGURING' || election.status === 'READY') && (
+                      <Tooltip title="Edit Details">
+                        <IconButton color="primary" onClick={() => handleEditClick(election)} disabled={updateStatusMutation.isPending}>
+                          <Edit size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+
+                    {/* Delete Election (Not allowed once active) */}
+                    {(election.status !== 'ACTIVE' && election.status !== 'PAUSED') && (
+                      <Tooltip title="Delete Election">
+                        <IconButton color="error" onClick={() => setDeleteId(election.id)} disabled={updateStatusMutation.isPending}>
+                          <Trash2 size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
                 </TableCell>
               </TableRow>
             );})}
@@ -471,14 +556,26 @@ const Elections = () => {
         </Table>
       </TableContainer>
 
-      {/* Create/Edit Election Dialog */}
-      <Dialog open={open} onClose={() => { setOpen(false); setEditingElection(null); }} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingElection ? 'Edit Election' : 'Create New Election'}</DialogTitle>
+      {/* Create/Edit/Clone Election Dialog */}
+      <Dialog 
+        open={open} 
+        onClose={() => { 
+          setOpen(false); 
+          setEditingElection(null); 
+          setDuplicatingElectionId(null);
+          setFormData({ name: '', start_time: '', end_time: '' });
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          {editingElection ? 'Edit Election' : duplicatingElectionId ? 'Clone Election Structure' : 'Create New Election'}
+        </DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             <TextField
-              label="Election Name"
+              label={duplicatingElectionId ? "New Election Name" : "Election Name"}
               fullWidth
               placeholder="e.g. Student Council 2025"
               value={formData.name}
@@ -505,14 +602,17 @@ const Elections = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => { setOpen(false); setEditingElection(null); }}>Cancel</Button>
+          <Button onClick={() => { setOpen(false); setEditingElection(null); setDuplicatingElectionId(null); setFormData({ name: '', start_time: '', end_time: '' }); }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleUpsert}
-            disabled={upsertElectionMutation.isPending}
-            startIcon={upsertElectionMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <Save size={20} />}
+            disabled={upsertElectionMutation.isPending || duplicateElectionMutation.isPending}
+            sx={{ fontWeight: 700 }}
+            startIcon={(upsertElectionMutation.isPending || duplicateElectionMutation.isPending) ? <CircularProgress size={20} color="inherit" /> : (duplicatingElectionId ? <Copy size={20} /> : <Save size={20} />)}
           >
-            {upsertElectionMutation.isPending ? (editingElection ? 'Updating...' : 'Creating...') : (editingElection ? 'Update Election' : 'Create Election')}
+            {upsertElectionMutation.isPending || duplicateElectionMutation.isPending 
+              ? (editingElection ? 'Updating...' : duplicatingElectionId ? 'Cloning...' : 'Creating...') 
+              : (editingElection ? 'Update Election' : duplicatingElectionId ? 'Clone & Create' : 'Create Election')}
           </Button>
         </DialogActions>
       </Dialog>

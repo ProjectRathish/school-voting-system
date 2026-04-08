@@ -28,46 +28,53 @@ exports.uploadVoters = async (req, res) => {
 
     let inserted = 0;
     const errors = [];
+    const valuesList = [];
+    const batchSize = 100;
     
     for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      // Look for section and class in the row
-      const sectionName = (row.section || "").toString().trim();
-      const className = (row.class || "").toString().trim();
-      const key = `${sectionName} | ${className}`.toLowerCase();
-      
-      const class_id = classMap[key];
-      if (!class_id) {
-        errors.push(`Row ${i + 2}: Combination of "${sectionName}" and "${className}" not found. Please refer to the 'Valid Classes' reference sheet.`);
-        continue;
-      }
+        const row = rows[i];
+        const sectionName = (row.section || "").toString().trim();
+        const className = (row.class || "").toString().trim();
+        const key = `${sectionName} | ${className}`.toLowerCase();
+        
+        const class_id = classMap[key];
+        if (!class_id) {
+            errors.push(`Row ${i + 2}: Combination of "${sectionName}" and "${className}" not found. Please refer to the 'Valid Classes' reference sheet.`);
+            continue;
+        }
 
-      try {
-        await db.execute(
-          `INSERT IGNORE INTO voters
-           (school_id, election_id, admission_no, name, class_id, division, sex, is_blocked)
-           VALUES (?,?,?,?,?,?,?,?)`,
-          [
+        valuesList.push([
             school_id,
             election_id,
-            row.admission_no,
-            row.name,
+            (row.admission_no || "").toString().trim().toUpperCase(),
+            (row.name || "").toString().trim(),
             class_id,
-            row.division || null,
+            (row.division || null),
             row.sex ? row.sex.toString().toUpperCase().charAt(0) : 'M',
             0
-          ]
-        );
-        inserted++;
-      } catch (dbErr) {
-        errors.push(`Row ${i + 2}: DB Error - ${dbErr.message}`);
-      }
+        ]);
+    }
+
+    if (valuesList.length > 0) {
+        for (let i = 0; i < valuesList.length; i += batchSize) {
+            const batch = valuesList.slice(i, i + batchSize);
+            const placeholders = batch.map(() => "(?,?,?,?,?,?,?,?)").join(",");
+            const flatValues = batch.flat();
+            
+            await db.execute(
+                `INSERT IGNORE INTO voters
+                 (school_id, election_id, admission_no, name, class_id, division, sex, is_blocked)
+                 VALUES ${placeholders}`,
+                flatValues
+            );
+            inserted += batch.length;
+        }
     }
 
     res.json({
-      message: errors.length > 0 ? "Upload completed with errors" : "Voters uploaded successfully",
-      inserted,
-      errors
+        message: errors.length > 0 ? "Upload completed with errors" : "Voters uploaded successfully",
+        inserted,
+        errors
     });
 
   } catch (error) {
@@ -148,10 +155,23 @@ exports.getVoters = async (req, res) => {
  try {
 
   const school_id = req.user.school_id;
-  const { election_id } = req.query;
+  const { 
+    election_id, 
+    page = 1, 
+    limit = 1000, 
+    search = '', 
+    class_id = '',
+    sex = 'ANY',
+    status = 'ANY',
+        is_candidate = 'ANY',
+    section_id = '',
+    division = ''
 
-  const [rows] = await db.execute(
-   `SELECT 
+  } = req.query;
+  const offset = (parseInt(page) - 1) * parseInt(limit);
+
+  let query = `
+    SELECT 
       voters.id,
       voters.admission_no,
       voters.name,
@@ -168,11 +188,54 @@ exports.getVoters = async (req, res) => {
     JOIN classes ON voters.class_id = classes.id
     JOIN sections ON classes.section_id = sections.id
     WHERE voters.school_id=? AND voters.election_id=?
-    ORDER BY voters.admission_no`,
-   [school_id, election_id]
-  );
+  `;
+  const params = [school_id, election_id];
 
-  res.json(rows);
+  if (search) {
+    query += ` AND (voters.name LIKE ? OR voters.admission_no LIKE ?)`;
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  if (class_id) {
+    query += ` AND voters.class_id = ?`;
+    params.push(class_id);
+  }
+
+  if (sex && sex !== 'ANY') {
+    query += ` AND voters.sex = ?`;
+    params.push(sex);
+  }
+
+  if (status && status !== 'ANY') {
+    if (status === 'READY') query += ` AND voters.has_voted = 0 AND voters.is_blocked = 0`;
+    else if (status === 'VOTED') query += ` AND voters.has_voted = 1`;
+    else if (status === 'BLOCKED') query += ` AND voters.is_blocked = 1`;
+  }
+
+  if (is_candidate && is_candidate !== 'ANY') {
+    if (is_candidate === 'YES') {
+        query += ` AND EXISTS (SELECT 1 FROM candidates WHERE candidates.voter_id = voters.id)`;
+    } else {
+        query += ` AND NOT EXISTS (SELECT 1 FROM candidates WHERE candidates.voter_id = voters.id)`;
+    }
+  }
+
+  // Count total voters with current filters
+  const countQuery = `SELECT COUNT(*) as total FROM (${query}) as sub`;
+  const [countRows] = await db.execute(countQuery, params);
+  const total = countRows[0].total;
+
+  query += ` ORDER BY voters.admission_no LIMIT ? OFFSET ?`;
+  params.push(parseInt(limit), offset);
+
+  const [rows] = await db.execute(query, params);
+
+  res.json({
+    data: rows,
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit)
+  });
 
  } catch (error) {
 
@@ -427,7 +490,7 @@ exports.verifyVoter = async (req, res) => {
     }
 
     const [rows] = await db.execute(
-       `SELECT v.*, c.name as class_name 
+       `SELECT v.*, c.name as class_name, (SELECT p.name FROM posts p JOIN candidates can ON p.id = can.post_id WHERE can.voter_id = v.id LIMIT 1) AS candidate_post_name 
         FROM voters v
         JOIN classes c ON v.class_id = c.id
         WHERE v.admission_no=? AND v.election_id=? AND v.school_id=?`,
@@ -447,7 +510,11 @@ exports.verifyVoter = async (req, res) => {
           id: voter.id,
           name: voter.name,
           admission_no: voter.admission_no,
+          class_id: voter.class_id,
           class_name: voter.class_name,
+          sex: voter.sex,
+          is_candidate: !!voter.candidate_post_name,
+          candidate_post_name: voter.candidate_post_name,
           has_voted: voter.has_voted,
           is_active: voter.is_active,
           is_blocked: voter.is_blocked
@@ -457,5 +524,17 @@ exports.verifyVoter = async (req, res) => {
   } catch (error) {
     console.error("Error verifying voter:", error);
     res.status(500).json({ message: "Server error during verification" });
+  }
+};
+exports.clearVoters = async (req, res) => {
+  try {
+    const school_id = req.user.school_id;
+    const { election_id } = req.body;
+    const db = require('../config/db');
+    await db.execute('DELETE FROM voters WHERE school_id=? AND election_id=?', [school_id, election_id]);
+    res.json({ message: 'All voters for this election have been cleared.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
   }
 };

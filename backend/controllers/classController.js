@@ -62,12 +62,16 @@ exports.getClasses = async (req, res) => {
        FROM classes
        JOIN sections ON classes.section_id = sections.id
        WHERE classes.school_id = ?
-       AND classes.election_id = ?
-       ORDER BY classes.name`,
+       AND classes.election_id = ?`,
       [school_id, election_id]
     );
 
-    res.json(rows);
+    // Natural sorting to handle "Grade 2" vs "Grade 10" correctly
+    const sortedRows = rows.sort((a, b) => 
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
+
+    res.json(sortedRows);
 
   } catch (error) {
 

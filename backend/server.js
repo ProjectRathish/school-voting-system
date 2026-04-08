@@ -21,7 +21,8 @@ const reportRoutes = require("./routes/reportRoutes");
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -38,6 +39,20 @@ app.use("/api/polling-booths", pollingBoothRoutes);
 app.use("/api/machines", votingMachineRoutes);
 app.use("/api/schools", schoolRoutes);
 app.use("/api/reports", reportRoutes);
+
+// Global Error Handler for JSON responses (including Multer errors)
+app.use((err, req, res, next) => {
+  console.error("Global Error:", err);
+  
+  if (err instanceof require("multer").MulterError) {
+    return res.status(400).json({ message: "File upload error: " + err.message });
+  }
+
+  res.status(err.status || 500).json({ 
+    message: err.message || "Something went wrong on the server",
+    error: process.env.NODE_ENV === "development" ? err : {}
+  });
+});
 
 
 const http = require("http");

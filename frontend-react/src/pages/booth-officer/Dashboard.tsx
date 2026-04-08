@@ -58,6 +58,29 @@ const BoothOfficerDashboard = () => {
     assignMachineMutation.mutate({ admission_no: admissionNo.toUpperCase(), machine_id: machineId });
   };
 
+  if (!user?.booth_id) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+          Booth Control Panel
+        </Typography>
+        <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 3, mt: 4, bgcolor: 'rgba(255, 152, 0, 0.05)', border: '1px dashed orange' }}>
+          <Smartphone size={64} color="orange" style={{ marginBottom: 24, opacity: 0.5 }} />
+          <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
+            No Active Assignment Found
+          </Typography>
+          <Typography color="text.secondary" variant="body1" sx={{ maxWidth: 500, mx: 'auto', mb: 4, fontWeight: 500 }}>
+             You are currently logged in as {user?.username} but you haven't been assigned to an active election booth yet. 
+             Please contact the school administrator to finalize your assignment.
+          </Typography>
+          <Button variant="outlined" color="primary" onClick={() => window.location.reload()}>
+             Check for Assignment
+          </Button>
+        </Paper>
+      </Box>
+    );
+  }
+
   return (
     <Box>
       <Box sx={{ mb: 4 }}>

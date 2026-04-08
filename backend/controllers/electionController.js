@@ -386,11 +386,6 @@ exports.getResults = async (req, res) => {
 
     const election = electionResults[0];
 
-    // Enforce After-Election-Only Results for Schools
-    if (election.status !== 'CLOSED') {
-      return res.status(403).json({ message: "Results can only be generated after the election status is marked as CLOSED." });
-    }
-
     // Get Voter Turnout Stats
     const [turnout] = await db.execute(
       `SELECT COUNT(*) as total_voters, SUM(CASE WHEN has_voted = 1 THEN 1 ELSE 0 END) as voted_count
@@ -444,7 +439,7 @@ exports.getResults = async (req, res) => {
           candidate_name: row.candidate_name,
           photo: row.photo,
           symbol: row.symbol,
-          votes: row.vote_count
+          vote_count: row.vote_count
         });
         postEntry.total_votes += row.vote_count;
       }
@@ -459,9 +454,9 @@ exports.getResults = async (req, res) => {
         name: election.name,
         status: election.status
       },
-      statistics: {
+      turnout: {
         total_voters: totalVoters,
-        voted_count: votedCount,
+        votes_cast: votedCount,
         turnout_percentage: parseFloat(turnoutPercentage)
       },
       results: resultsByPost
@@ -548,11 +543,6 @@ exports.getDetailedResults = async (req, res) => {
     }
 
     const election = electionResults[0];
-
-    // Enforce After-Election-Only Results for Schools
-    if (election.status !== 'CLOSED') {
-      return res.status(403).json({ message: "Detailed analytics can only be generated after the election status is marked as CLOSED." });
-    }
 
     // Get voting breakdowns per candidate
     const [rawResults] = await db.execute(
@@ -641,10 +631,24 @@ exports.getDetailedResults = async (req, res) => {
        };
     });
 
+    // NEW: Get school-wide demographic breakdown for the charts
+    const [overallStats] = await db.execute(
+      `SELECT cl.name as class_name, 
+              SUM(CASE WHEN v.sex = 'M' THEN 1 ELSE 0 END) as male_votes,
+              SUM(CASE WHEN v.sex = 'F' THEN 1 ELSE 0 END) as female_votes
+       FROM voters v
+       JOIN classes cl ON v.class_id = cl.id
+       WHERE v.election_id = ? AND v.school_id = ? AND v.has_voted = 1
+       GROUP BY cl.id, cl.name
+       ORDER BY cl.id ASC`,
+      [id, school_id]
+    );
+
     res.json({
       message: "Detailed election analytics retrieved successfully",
-      election: electionResults[0],
-      analytics: formattedResults
+      election: { id: election.id, name: election.name },
+      demographics: overallStats, // Flat array for the bar chart
+      post_breakdown: formattedResults // Detailed per-candidate/post data
     });
 
   } catch (error) {
@@ -829,5 +833,121 @@ exports.unassignOfficer = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.duplicateElection = async (req, res) => {
+  let connection;
+  try {
+    const { id: originalElectionId } = req.params;
+    const school_id = req.user.school_id;
+    const created_by = req.user.id;
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Get original election
+    const [originalRows] = await connection.execute(
+      "SELECT name, start_time, end_time FROM elections WHERE id = ? AND school_id = ?",
+      [originalElectionId, school_id]
+    );
+
+    if (originalRows.length === 0) {
+      if (connection) await connection.rollback();
+      return res.status(404).json({ message: "Original election not found" });
+    }
+
+    const original = originalRows[0];
+    const { name: newName, start_time: newStartTime, end_time: newEndTime } = req.body || {};
+
+    // 2. Count existing elections to generate new code
+    const [countRows] = await connection.execute(
+      "SELECT COUNT(*) as count FROM elections WHERE school_id = ?",
+      [school_id]
+    );
+    const [schoolRows] = await connection.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
+    const school_code = schoolRows[0].code;
+    const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
+    const election_code = `${school_code}-EL${nextNumber}`;
+
+    // 3. Create new election (Status: DRAFT)
+    const [elecResult] = await connection.execute(
+      `INSERT INTO elections (school_id, name, start_time, end_time, created_by, election_code, status) 
+       VALUES (?, ?, ?, ?, ?, ?, 'DRAFT')`,
+      [
+        school_id, 
+        newName || `Copy of ${original.name}`, 
+        newStartTime || original.start_time, 
+        newEndTime || original.end_time, 
+        created_by, 
+        election_code
+      ]
+    );
+    const newElectionId = elecResult.insertId;
+
+    // 4. Duplicate Voters
+    const voterMap = new Map();
+    const [voterRows] = await connection.execute(
+      "SELECT id, admission_no, name, class_id, sex, division, is_blocked FROM voters WHERE election_id = ? AND school_id = ?",
+      [originalElectionId, school_id]
+    );
+
+    for (const v of voterRows) {
+      const [voterResult] = await connection.execute(
+        `INSERT INTO voters (school_id, election_id, admission_no, name, class_id, sex, division, is_blocked) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [school_id, newElectionId, v.admission_no, v.name, v.class_id, v.sex, v.division || null, v.is_blocked || 0]
+      );
+      voterMap.set(v.id, voterResult.insertId);
+    }
+
+    // 5. Duplicate Posts
+    const postMap = new Map();
+    const [postRows] = await connection.execute(
+      "SELECT id, name, candidate_classes, voting_classes, gender_rule FROM posts WHERE election_id = ? AND school_id = ?",
+      [originalElectionId, school_id]
+    );
+
+    for (const p of postRows) {
+      const [postResult] = await connection.execute(
+        `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule) 
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [school_id, newElectionId, p.name, p.candidate_classes, p.voting_classes, p.gender_rule]
+      );
+      postMap.set(p.id, postResult.insertId);
+    }
+
+    // 6. Duplicate Candidates
+    const [candRows] = await connection.execute(
+      "SELECT voter_id, post_id, photo, symbol, symbol_name FROM candidates WHERE election_id = ? AND school_id = ?",
+      [originalElectionId, school_id]
+    );
+
+    for (const c of candRows) {
+      const newVoterId = voterMap.get(c.voter_id);
+      const newPostId = postMap.get(c.post_id);
+
+      if (newVoterId && newPostId) {
+        await connection.execute(
+          `INSERT INTO candidates (school_id, election_id, voter_id, post_id, photo, symbol, symbol_name) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [school_id, newElectionId, newVoterId, newPostId, c.photo, c.symbol, c.symbol_name]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ 
+      message: "Election duplicated successfully", 
+      election_id: newElectionId,
+      election_code: election_code
+    });
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error("Duplicate Error:", error);
+    res.status(500).json({ message: "Server error duplicating election", error: error.message });
+  } finally {
+    if (connection) connection.release();
   }
 };
