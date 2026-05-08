@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton, Tooltip,
-  Chip, InputAdornment, Snackbar
+  Chip, InputAdornment, Snackbar, alpha
 } from '@mui/material';
 import { Plus, Trash2, RefreshCw, Eye, EyeOff, CheckCircle2, UserSquare2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -98,11 +98,11 @@ const Staff = () => {
       <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
         <Table>
           <TableHead>
-            <TableRow sx={{ backgroundColor: 'rgba(99, 102, 241, 0.04)' }}>
-              <TableCell sx={{ fontWeight: 700 }}>Staff Name / Username</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Created At</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+            <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+              <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Staff Name / Username</TableCell>
+              <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Status</TableCell>
+              <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Created At</TableCell>
+              <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

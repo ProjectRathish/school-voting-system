@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
-  Chip, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar
+  Chip, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar, alpha
 } from '@mui/material';
 import { Plus, Trash2, Edit, Sparkles, Settings, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -195,12 +195,12 @@ const Posts = () => {
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Post Name</TableCell>
-                <TableCell>Gender Rule</TableCell>
-                <TableCell>Candidate Classes</TableCell>
-                <TableCell>Voting Classes</TableCell>
-                {isConfiguring && <TableCell align="right">Actions</TableCell>}
+              <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Post Name</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Gender Rule</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Candidate Classes</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Voting Classes</TableCell>
+                {isConfiguring && <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>

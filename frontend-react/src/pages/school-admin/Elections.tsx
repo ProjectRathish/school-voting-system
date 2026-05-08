@@ -17,7 +17,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Tooltip
+  Tooltip,
+  alpha
 } from '@mui/material';
 import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -345,13 +346,13 @@ const Elections = () => {
       <TableContainer component={Paper}>
         <Table>
             <TableHead>
-              <TableRow sx={{ backgroundColor: 'rgba(99, 102, 241, 0.04)' }}>
-                <TableCell sx={{ fontWeight: 700 }}>Election Name</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Code</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Start Time</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>End Time</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+              <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Election Name</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Code</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Start Time</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>End Time</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Status</TableCell>
+                <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
           <TableBody>

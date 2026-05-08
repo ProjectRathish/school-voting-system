@@ -125,7 +125,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 onClick={() => navigate(item.path)}
                 selected={isActive}
                 sx={{
-                  borderRadius: 3,
+                  borderRadius: 12, // Increased border-radius for pill shape
                   py: 1.25,
                   transition: 'all 0.2s',
                   position: 'relative',

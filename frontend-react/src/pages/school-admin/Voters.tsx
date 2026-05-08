@@ -4,7 +4,7 @@ import {
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
   FormControl, InputLabel, Select, MenuItem, InputAdornment,
-  Chip, Grid, Tooltip, Snackbar, TablePagination, LinearProgress
+  Chip, Grid, Tooltip, Snackbar, TablePagination, LinearProgress, alpha
 } from '@mui/material';
 import { Plus, Upload, Search, Trash2, Download, Edit, Settings, Lock, Unlock, AlertTriangle } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -148,6 +148,23 @@ const Voters = () => {
     onError: (err: any) => setError(err.response?.data?.message || 'Error clearing voters')
   });
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await axiosInstance.get(`/voters/download-template?election_id=${selectedElectionId}`, {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Voter_Import_Template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error('Failed to download template', err);
+    }
+  };
+
   const handleEdit = (voter: any) => {
     setSelectedVoter(voter);
     setVoterForm({
@@ -268,6 +285,9 @@ const Voters = () => {
             <>
               <Button color="error" variant="outlined" startIcon={<Trash2 size={20} />} onClick={() => setOpenClearConfirm(true)} disabled={!selectedElectionId || !voters?.length}>
                 Clear List
+              </Button>
+              <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleDownloadTemplate}>
+                Download Voter List Template
               </Button>
               <Button variant="outlined" startIcon={<Upload size={20} />} onClick={() => { setUploadErrors([]); setOpenUpload(true); }}>
                 Bulk Upload
@@ -403,14 +423,14 @@ const Voters = () => {
           <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
             <Table>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700 }}>Admission No</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Class</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Division</TableCell>
-                  <TableCell sx={{ fontWeight: 700 }}>Gender</TableCell>
-                  {!isConfiguring && <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>}
-                  <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
+                <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                  <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Admission No</TableCell>
+                  <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Name</TableCell>
+                  <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Class</TableCell>
+                  <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Division</TableCell>
+                  <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Gender</TableCell>
+                  {!isConfiguring && <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Status</TableCell>}
+                  <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -562,11 +582,20 @@ const Voters = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Upload Dialog */}
       <Dialog open={openUpload} onClose={() => setOpenUpload(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Bulk Import Voters</DialogTitle>
         <DialogContent>
-          <Alert severity="info" sx={{ mb: 2 }}>Select an Excel/CSV file with Admission No, Name, Class ID, Division, and Sex.</Alert>
+          <Alert 
+            severity="info" 
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={handleDownloadTemplate} startIcon={<Download size={16} />}>
+                Download Template
+              </Button>
+            }
+          >
+            Select an Excel/CSV file with Admission No, Name, Class ID, Division, and Sex.
+          </Alert>
           <input type="file" ref={fileRef} accept=".xlsx,.xls,.csv" onChange={e => setUploadFile(e.target.files?.[0] || null)} />
           {uploadErrors.length > 0 && (
             <Box sx={{ mt: 2, p: 1, bgcolor: 'error.lighter', borderRadius: 1 }}>

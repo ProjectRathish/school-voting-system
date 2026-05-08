@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
-  FormControl, InputLabel, Select, MenuItem, Tabs, Tab, Snackbar
+  FormControl, InputLabel, Select, MenuItem, Tabs, Tab, Snackbar, alpha
 } from '@mui/material';
 import { Plus, Trash2, Edit, Settings, Sparkles, Search } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -207,10 +207,10 @@ const ClassesAndSections = () => {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Section Name</TableCell>
-                      <TableCell>Created At</TableCell>
-                      {isConfiguring && <TableCell align="right">Actions</TableCell>}
+                    <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                      <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Section Name</TableCell>
+                      <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Created At</TableCell>
+                      {isConfiguring && <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -264,11 +264,11 @@ const ClassesAndSections = () => {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Class Name</TableCell>
-                      <TableCell>Section</TableCell>
-                      <TableCell>Created At</TableCell>
-                      {isConfiguring && <TableCell align="right">Actions</TableCell>}
+                    <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                      <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Class Name</TableCell>
+                      <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Section</TableCell>
+                      <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Created At</TableCell>
+                      {isConfiguring && <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>

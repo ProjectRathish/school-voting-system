@@ -5,7 +5,7 @@ import {
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton, Tooltip,
   Grid, Chip, FormControl, InputLabel, Select, MenuItem,
-  InputAdornment, Snackbar
+  InputAdornment, Snackbar, alpha
 } from '@mui/material';
 import { Plus, Trash2, Monitor, UserPlus, Unlink, Sparkles, Edit } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
@@ -421,12 +421,12 @@ const Infrastructure = () => {
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
-                      <TableRow>
-                        <TableCell>Machine Name</TableCell>
-                        <TableCell>Code</TableCell>
-                        <TableCell>Booth</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell align="right">Actions</TableCell>
+                      <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                        <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Machine Name</TableCell>
+                        <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Code</TableCell>
+                        <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Booth</TableCell>
+                        <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Status</TableCell>
+                        <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>

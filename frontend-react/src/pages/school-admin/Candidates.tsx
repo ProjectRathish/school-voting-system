@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, Alert, CircularProgress, IconButton,
-  FormControl, InputLabel, Select, MenuItem, Avatar, Chip, Autocomplete, TextField, Tooltip, Grid, Snackbar
+  FormControl, InputLabel, Select, MenuItem, Avatar, Chip, Autocomplete, TextField, Tooltip, Grid, Snackbar, alpha
 } from '@mui/material';
 import { Plus, Trash2, User, Sparkles, Edit, Camera, Image, Download, Upload, Search, X } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
@@ -736,15 +736,15 @@ const Candidates = () => {
         <TableContainer component={Paper} sx={{ borderRadius: 1, overflow: 'hidden' }}>
           <Table>
             <TableHead>
-              <TableRow>
-                <TableCell>Candidate</TableCell>
-                <TableCell>Admission No</TableCell>
-                <TableCell>Class</TableCell>
-                 <TableCell>Post</TableCell>
-                <TableCell>Gender</TableCell>
-                <TableCell>Symbol</TableCell>
-                <TableCell>Symbol Name</TableCell>
-                <TableCell align="right">Actions</TableCell>
+              <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Candidate</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Admission No</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Class</TableCell>
+                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Post</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Gender</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Symbol</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Symbol Name</TableCell>
+                <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
