@@ -329,6 +329,17 @@ exports.deleteElection = async (req, res) => {
     const [schoolRows] = await db.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
     const school_code = schoolRows.length > 0 ? schoolRows[0].code : null;
 
+    // Manual cascade deletion to avoid ER_ROW_IS_REFERENCED_2
+    await db.execute("DELETE FROM votes WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM candidates WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM voters WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM posts WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM classes WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM sections WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM election_officer_assignments WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM voting_machines WHERE election_id = ?", [id]);
+    await db.execute("DELETE FROM polling_booths WHERE election_id = ?", [id]);
+
     await db.execute(
       `DELETE FROM elections WHERE id = ? AND school_id = ?`,
       [id, school_id]
