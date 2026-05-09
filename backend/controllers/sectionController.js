@@ -2,102 +2,63 @@ const db = require("../config/db");
 
 
 exports.createSection = async (req, res) => {
-
   try {
-
     const { election_id, name } = req.body;
-
     const school_id = req.user.school_id;
 
-    if (!election_id || !name) {
-      return res.status(400).json({
-        message: "election_id and name required"
-      });
+    if (!name) {
+      return res.status(400).json({ message: "Section name required" });
     }
 
-    // verify election belongs to this school
-    const [election] = await db.execute(
-      `SELECT id FROM elections
-       WHERE id = ? AND school_id = ?`,
-      [election_id, school_id]
-    );
-
-    if (election.length === 0) {
-      return res.status(403).json({
-        message: "Invalid election for this school"
-      });
+    // Verify election if provided
+    if (election_id) {
+      const [election] = await db.execute("SELECT id FROM elections WHERE id = ? AND school_id = ?", [election_id, school_id]);
+      if (election.length === 0) {
+        return res.status(403).json({ message: "Invalid election for this school" });
+      }
     }
 
+    // Check for duplicate name in school context (or election context if provided)
     const [existingName] = await db.execute(
-      `SELECT id FROM sections WHERE name = ? AND election_id = ? AND school_id = ?`,
-      [name, election_id, school_id]
+      `SELECT id FROM sections WHERE name = ? AND school_id = ? ${election_id ? "AND election_id = ?" : "AND (election_id IS NULL OR election_id != ?)"}`,
+      [name, school_id, election_id || 0]
     );
 
     if (existingName.length > 0) {
-      return res.status(400).json({ message: "A section with this name already exists in this election" });
+      return res.status(400).json({ message: "A section with this name already exists" });
     }
 
     const [result] = await db.execute(
-      `INSERT INTO sections
-       (school_id, election_id, name)
-       VALUES (?,?,?)`,
-      [school_id, election_id, name]
+      `INSERT INTO sections (school_id, election_id, name) VALUES (?,?,?)`,
+      [school_id, election_id || null, name]
     );
 
-    res.json({
-      message: "Section created successfully",
-      section_id: result.insertId
-    });
-
+    res.json({ message: "Section created successfully", section_id: result.insertId });
   } catch (error) {
-
     console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
+    res.status(500).json({ message: "Server error" });
   }
-
 };
 exports.getSections = async (req, res) => {
-
   try {
-
     const { election_id } = req.query;
     const school_id = req.user.school_id;
 
-    if (!election_id) {
-      return res.status(400).json({
-        message: "election_id required"
-      });
+    let query = "SELECT id, name, election_id, created_at FROM sections WHERE school_id = ?";
+    let params = [school_id];
+
+    if (election_id && election_id !== 'undefined' && election_id !== 'null') {
+      query += " AND (election_id = ? OR election_id IS NULL)";
+      params.push(election_id);
     }
 
-    const [rows] = await db.execute(
-      `SELECT id, name, created_at
-       FROM sections
-       WHERE school_id = ?
-       AND election_id = ?`,
-      [school_id, election_id]
-    );
-
-    // Natural sorting (e.g., Section 2 before Section 10)
-    const sortedRows = rows.sort((a, b) => 
-      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-    );
-
+    const [rows] = await db.execute(query, params);
+    const sortedRows = rows.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
     res.json(sortedRows);
- drum                  
   } catch (error) {
-
     console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
+    res.status(500).json({ message: "Server error" });
   }
-
 };
 
 exports.getSection = async (req, res) => {

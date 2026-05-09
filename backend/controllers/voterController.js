@@ -15,7 +15,7 @@ exports.uploadVoters = async (req, res) => {
       `SELECT classes.id, classes.name, sections.name AS section_name
        FROM classes
        JOIN sections ON classes.section_id = sections.id
-       WHERE classes.school_id = ? AND classes.election_id = ?`,
+       WHERE classes.school_id = ? AND (classes.election_id = ? OR classes.election_id IS NULL)`,
       [school_id, election_id]
     );
 
@@ -185,8 +185,8 @@ exports.getVoters = async (req, res) => {
       CASE WHEN (SELECT 1 FROM candidates WHERE candidates.voter_id = voters.id LIMIT 1) THEN 1 ELSE 0 END AS is_candidate,
       (SELECT p.name FROM posts p JOIN candidates c ON p.id = c.post_id WHERE c.voter_id = voters.id LIMIT 1) AS candidate_post_name
     FROM voters
-    JOIN classes ON voters.class_id = classes.id
-    JOIN sections ON classes.section_id = sections.id
+    LEFT JOIN classes ON voters.class_id = classes.id
+    LEFT JOIN sections ON classes.section_id = sections.id
     WHERE voters.school_id=? AND voters.election_id=?
   `;
   const params = [school_id, election_id];
@@ -218,6 +218,16 @@ exports.getVoters = async (req, res) => {
     } else {
         query += ` AND NOT EXISTS (SELECT 1 FROM candidates WHERE candidates.voter_id = voters.id)`;
     }
+  }
+
+  if (section_id) {
+    query += ` AND classes.section_id = ?`;
+    params.push(section_id);
+  }
+
+  if (division) {
+    query += ` AND voters.division = ?`;
+    params.push(division);
   }
 
   // Count total voters with current filters
@@ -268,8 +278,8 @@ exports.getVoter = async (req, res) => {
       classes.name AS class_name,
       sections.name AS section_name
     FROM voters
-    JOIN classes ON voters.class_id = classes.id
-    JOIN sections ON classes.section_id = sections.id
+    LEFT JOIN classes ON voters.class_id = classes.id
+    LEFT JOIN sections ON classes.section_id = sections.id
     WHERE voters.id=? AND voters.school_id=?`,
    [voter_id, school_id]
   );
@@ -432,7 +442,7 @@ exports.downloadTemplate = async (req, res) => {
         `SELECT classes.name AS class_name, sections.name AS section_name
          FROM classes
          JOIN sections ON classes.section_id = sections.id
-         WHERE classes.school_id = ? AND classes.election_id = ?`,
+         WHERE classes.school_id = ? AND (classes.election_id = ? OR classes.election_id IS NULL)`,
         [school_id, election_id]
       );
 
@@ -455,7 +465,7 @@ exports.downloadTemplate = async (req, res) => {
           admission_no: '1001',
           name: 'Sample Student Name',
           section: classes[0].section_name,
-          class: classes[0].name,
+          class: classes[0].class_name,
           division: 'A',
           sex: 'M'
         });
@@ -492,7 +502,7 @@ exports.verifyVoter = async (req, res) => {
     const [rows] = await db.execute(
        `SELECT v.*, c.name as class_name, (SELECT p.name FROM posts p JOIN candidates can ON p.id = can.post_id WHERE can.voter_id = v.id LIMIT 1) AS candidate_post_name 
         FROM voters v
-        JOIN classes c ON v.class_id = c.id
+        LEFT JOIN classes c ON v.class_id = c.id
         WHERE v.admission_no=? AND v.election_id=? AND v.school_id=?`,
        [admission_no, election_id, school_id]
     );

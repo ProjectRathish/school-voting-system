@@ -116,4 +116,20 @@ router.post(
   electionController.duplicateElection
 );
 
-module.exports = router;
+router.put(
+  "/:id/toggle-nominations",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  electionController.toggleNominations
+);
+
+router.post(
+  "/:target_election_id/import-posts",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  electionController.importPostStructure
+);
+
+router.get('/public/:code', electionController.getPublicElection);
+
+module.exports = router;

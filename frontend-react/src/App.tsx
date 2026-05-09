@@ -11,6 +11,7 @@ import DashboardLayout from './components/layout/DashboardLayout';
 // Auth Pages
 import Login from './pages/auth/Login';
 import ForcePasswordChange from './components/ForcePasswordChange';
+import NominationPortal from './pages/nomination/NominationPortal';
 
 // Super Admin Pages
 import SuperAdminDashboard from './pages/super-admin/Dashboard';
@@ -28,6 +29,7 @@ import ClassesAndSections from './pages/school-admin/ClassesAndSections';
 import Infrastructure from './pages/school-admin/Infrastructure';
 import Results from './pages/school-admin/Results';
 import Profile from './pages/school-admin/Profile';
+import NominationManagement from './pages/school-admin/NominationManagement';
 
 // Booth Officer Pages
 import BoothOfficerDashboard from './pages/booth-officer/Dashboard';
@@ -48,6 +50,7 @@ function App() {
         <CssBaseline />
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/nominate/:code" element={<NominationPortal />} />
           <Route path="/terminal" element={<TerminalSession />} />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
@@ -100,6 +103,7 @@ function App() {
                 <Route path="/school-admin/infrastructure" element={<Infrastructure />} />
                 <Route path="/school-admin/results" element={<Results />} />
                 <Route path="/school-admin/profile" element={<Profile />} />
+                <Route path="/school-admin/nominations" element={<NominationManagement />} />
                 <Route path="*" element={<Navigate to="/school-admin" />} />
               </>
             )}

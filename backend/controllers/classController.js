@@ -1,21 +1,18 @@
 const db = require("../config/db");
 
 exports.createClass = async (req, res) => {
-
   try {
-
     const { election_id, section_id, name } = req.body;
     const school_id = req.user.school_id;
 
-    if (!election_id || !section_id || !name) {
-      return res.status(400).json({
-        message: "Required fields missing"
-      });
+    if (!section_id || !name) {
+      return res.status(400).json({ message: "Required fields missing" });
     }
 
+    // Check duplicate in the same section
     const [existing] = await db.execute(
-      `SELECT id FROM classes WHERE name = ? AND section_id = ? AND school_id = ? AND election_id = ?`,
-      [name, section_id, school_id, election_id]
+      `SELECT id FROM classes WHERE name = ? AND section_id = ? AND school_id = ?`,
+      [name, section_id, school_id]
     );
 
     if (existing.length > 0) {
@@ -23,66 +20,41 @@ exports.createClass = async (req, res) => {
     }
 
     const [result] = await db.execute(
-      `INSERT INTO classes
-       (school_id, election_id, section_id, name)
-       VALUES (?,?,?,?)`,
-      [school_id, election_id, section_id, name]
+      `INSERT INTO classes (school_id, election_id, section_id, name) VALUES (?,?,?,?)`,
+      [school_id, election_id || null, section_id, name]
     );
 
-    res.json({
-      message: "Class created successfully",
-      class_id: result.insertId
-    });
-
+    res.json({ message: "Class created successfully", class_id: result.insertId });
   } catch (error) {
-
     console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
+    res.status(500).json({ message: "Server error" });
   }
-
 };
 exports.getClasses = async (req, res) => {
-
   try {
-
     const { election_id } = req.query;
     const school_id = req.user.school_id;
 
-    const [rows] = await db.execute(
-      `SELECT 
-        classes.id,
-        classes.name,
-        classes.section_id,
-        classes.created_at,
-        sections.name AS section_name
-       FROM classes
-       JOIN sections ON classes.section_id = sections.id
-       WHERE classes.school_id = ?
-       AND classes.election_id = ?`,
-      [school_id, election_id]
-    );
+    let query = `
+      SELECT classes.id, classes.name, classes.section_id, classes.created_at, sections.name AS section_name
+      FROM classes
+      LEFT JOIN sections ON classes.section_id = sections.id
+      WHERE classes.school_id = ?
+    `;
+    let params = [school_id];
 
-    // Natural sorting to handle "Grade 2" vs "Grade 10" correctly
-    const sortedRows = rows.sort((a, b) => 
-      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
-    );
+    if (election_id && election_id !== 'undefined' && election_id !== 'null') {
+       query += " AND (classes.election_id = ? OR classes.election_id IS NULL)";
+       params.push(election_id);
+    }
 
+    const [rows] = await db.execute(query, params);
+    const sortedRows = rows.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
     res.json(sortedRows);
-
   } catch (error) {
-
     console.error(error);
-
-    res.status(500).json({
-      message: "Server error"
-    });
-
+    res.status(500).json({ message: "Server error" });
   }
-
 };
 
 exports.getClass = async (req, res) => {

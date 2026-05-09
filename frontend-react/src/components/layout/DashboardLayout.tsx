@@ -35,6 +35,7 @@ import {
   UserSquare2,
   BookOpen,
   Award,
+  FileText
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,6 +64,7 @@ const navItems: NavItem[] = [
   { text: 'Posts', icon: <Award size={22} />, path: '/school-admin/posts', roles: ['SCHOOL_ADMIN'] },
   { text: 'Voters', icon: <Users size={22} />, path: '/school-admin/voters', roles: ['SCHOOL_ADMIN'] },
   { text: 'Candidates', icon: <UserSquare2 size={22} />, path: '/school-admin/candidates', roles: ['SCHOOL_ADMIN'] },
+  { text: 'Nominations', icon: <FileText size={22} />, path: '/school-admin/nominations', roles: ['SCHOOL_ADMIN'] },
   { text: 'Booth Officers', icon: <UserSquare2 size={22} />, path: '/school-admin/staff', roles: ['SCHOOL_ADMIN'] },
   { text: 'Infrastructure', icon: <Monitor size={22} />, path: '/school-admin/infrastructure', roles: ['SCHOOL_ADMIN'] },
   { text: 'Results', icon: <BarChart3 size={22} />, path: '/school-admin/results', roles: ['SCHOOL_ADMIN'] },

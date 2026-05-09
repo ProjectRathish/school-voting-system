@@ -5,7 +5,7 @@ import {
   DialogActions, TextField, Alert, CircularProgress, IconButton,
   Chip, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar, alpha
 } from '@mui/material';
-import { Plus, Trash2, Edit, Sparkles, Settings, Search } from 'lucide-react';
+import { Plus, Trash2, Edit, Sparkles, Settings, Search, Copy } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useElectionStore } from '../../store/electionStore';
@@ -23,6 +23,8 @@ const Posts = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [postToDelete, setPostToDelete] = useState<any>(null);
+  const [openImport, setOpenImport] = useState(false);
+  const [sourceElection, setSourceElection] = useState('');
   const queryClient = useQueryClient();
 
   // Helper to fetch class names for the table view
@@ -42,6 +44,22 @@ const Posts = () => {
     queryKey: ['classes', selectedElectionId],
     enabled: !!selectedElectionId,
     queryFn: async () => (await axiosInstance.get(`/classes/get-classes?election_id=${selectedElectionId}`)).data
+  });
+
+  const { data: elections } = useQuery({
+    queryKey: ['elections'],
+    queryFn: async () => (await axiosInstance.get('/elections/get-elections')).data
+  });
+
+  const importPostsMutation = useMutation({
+    mutationFn: (from_election_id: string) => axiosInstance.post(`/elections/${selectedElectionId}/import-posts`, { from_election_id }),
+    onSuccess: (res) => {
+      setSuccess(res.data.message);
+      setOpenImport(false);
+      setSourceElection('');
+      queryClient.invalidateQueries({ queryKey: ['posts', selectedElectionId] });
+    },
+    onError: (err: any) => setError(err.response?.data?.message || 'Error importing positions')
   });
 
   const upsertPostMutation = useMutation({
@@ -96,9 +114,19 @@ const Posts = () => {
             }}
           />
           {isConfiguring && (
-            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', gender_rule: 'ANY', candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} disabled={!selectedElectionId}>
-              Add Post
-            </Button>
+            <>
+              <Button 
+                variant="outlined" 
+                startIcon={<Copy size={18} />} 
+                onClick={() => setOpenImport(true)} 
+                disabled={!selectedElectionId}
+              >
+                Import Structure
+              </Button>
+              <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', gender_rule: 'ANY', candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} disabled={!selectedElectionId}>
+                Add Post
+              </Button>
+            </>
           )}
         </Box>
       </Box>
@@ -395,6 +423,44 @@ const Posts = () => {
             disabled={deletePostMutation.isPending}
           >
             {deletePostMutation.isPending ? <CircularProgress size={20} /> : 'Delete Permanently'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Positions Dialog */}
+      <Dialog open={openImport} onClose={() => setOpenImport(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Import Position Structure</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
+            Choose a previous election to copy its position names and eligibility rules.
+          </Typography>
+          <FormControl fullWidth>
+            <InputLabel>Select Source Election</InputLabel>
+            <Select 
+              value={sourceElection} 
+              label="Select Source Election" 
+              onChange={e => setSourceElection(e.target.value as string)}
+            >
+              {elections?.filter((e: any) => String(e.id) !== String(selectedElectionId)).map((e: any) => (
+                <MenuItem key={e.id} value={e.id}>
+                  {e.name} ({new Date(e.created_at).getFullYear()})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Alert severity="info" sx={{ mt: 3, borderRadius: 2 }}>
+            This only copies the list of positions (e.g., President, Secretary). Candidates and Votes are not copied.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenImport(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            startIcon={<Copy size={18} />}
+            disabled={!sourceElection || importPostsMutation.isPending}
+            onClick={() => importPostsMutation.mutate(sourceElection)}
+          >
+            {importPostsMutation.isPending ? <CircularProgress size={20} /> : 'Import Now'}
           </Button>
         </DialogActions>
       </Dialog>

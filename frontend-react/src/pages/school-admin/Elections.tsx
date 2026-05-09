@@ -20,7 +20,7 @@ import {
   Tooltip,
   alpha
 } from '@mui/material';
-import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3, Copy } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
@@ -31,6 +31,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import dayjs from 'dayjs';
+import { QRCodeSVG } from 'qrcode.react';
+import { QrCode } from 'lucide-react';
 
 const Elections = () => {
   const navigate = useNavigate();
@@ -109,21 +111,8 @@ const Elections = () => {
     }
   });
 
-  const duplicateElectionMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number, data: typeof formData }) => 
-      await axiosInstance.post(`/elections/${id}/duplicate`, data),
-    onSuccess: () => {
-      setSuccess('Election cloned successfully!');
-      setOpen(false);
-      setDuplicatingElectionId(null);
-      setFormData({ name: '', start_time: '', end_time: '' });
-      queryClient.invalidateQueries({ queryKey: ['elections'] });
-      setTimeout(() => setSuccess(null), 5000);
-    },
-    onError: (err: any) => {
-      setError(err.response?.data?.message || 'Failed to clone election');
-    }
-  });
+
+
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status, confirmation_text }: { id: number, status: string, confirmation_text?: string }) => {
@@ -191,11 +180,7 @@ const Elections = () => {
       return;
     }
 
-    if (duplicatingElectionId) {
-      duplicateElectionMutation.mutate({ id: duplicatingElectionId, data: formData });
-    } else {
-      upsertElectionMutation.mutate(formData);
-    }
+    upsertElectionMutation.mutate(formData);
   };
 
   const handleEditClick = (election: any) => {
@@ -222,16 +207,7 @@ const Elections = () => {
   };
 
 
-  const handleDuplicateClick = (election: any) => {
-    setDuplicatingElectionId(election.id);
-    setFormData({
-      name: `Copy of ${election.name}`,
-      start_time: dayjs(election.start_time).format('YYYY-MM-DDTHH:mm'),
-      end_time: dayjs(election.end_time).format('YYYY-MM-DDTHH:mm')
-    });
-    setError(null);
-    setOpen(true);
-  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'ACTIVE': return 'success';
@@ -459,18 +435,7 @@ const Elections = () => {
                           </IconButton>
                         </Tooltip>
 
-                        {election.status === 'CLOSED' && (
-                          <Tooltip title="Copy Election Structure (Clone)">
-                            <IconButton 
-                              color="info" 
-                              disabled={duplicateElectionMutation.isPending}
-                              onClick={() => handleDuplicateClick(election)}
-                              sx={{ mt: 0 }}
-                            >
-                              {duplicateElectionMutation.isPending ? <CircularProgress size={16} /> : <Copy size={18} />}
-                            </IconButton>
-                          </Tooltip>
-                        )}
+
                       </>
                     )}
 
@@ -534,11 +499,13 @@ const Elections = () => {
 
                     {/* Edit Election Specs (Draft, Config, Ready) */}
                     {(election.status === 'DRAFT' || election.status === 'CONFIGURING' || election.status === 'READY') && (
-                      <Tooltip title="Edit Details">
-                        <IconButton color="primary" onClick={() => handleEditClick(election)} disabled={updateStatusMutation.isPending}>
-                          <Edit size={18} />
-                        </IconButton>
-                      </Tooltip>
+                      <>
+                        <Tooltip title="Edit Details">
+                          <IconButton color="primary" onClick={() => handleEditClick(election)} disabled={updateStatusMutation.isPending}>
+                            <Edit size={18} />
+                          </IconButton>
+                        </Tooltip>
+                      </>
                     )}
 
                     {/* Delete Election (Not allowed once active) */}
@@ -570,13 +537,13 @@ const Elections = () => {
         fullWidth
       >
         <DialogTitle>
-          {editingElection ? 'Edit Election' : duplicatingElectionId ? 'Clone Election Structure' : 'Create New Election'}
+          {editingElection ? 'Edit Election' : 'Create New Election'}
         </DialogTitle>
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             <TextField
-              label={duplicatingElectionId ? "New Election Name" : "Election Name"}
+              label="Election Name"
               fullWidth
               placeholder="e.g. Student Council 2025"
               value={formData.name}
@@ -607,13 +574,13 @@ const Elections = () => {
           <Button
             variant="contained"
             onClick={handleUpsert}
-            disabled={upsertElectionMutation.isPending || duplicateElectionMutation.isPending}
+            disabled={upsertElectionMutation.isPending}
             sx={{ fontWeight: 700 }}
-            startIcon={(upsertElectionMutation.isPending || duplicateElectionMutation.isPending) ? <CircularProgress size={20} color="inherit" /> : (duplicatingElectionId ? <Copy size={20} /> : <Save size={20} />)}
+            startIcon={upsertElectionMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <Save size={20} />}
           >
-            {upsertElectionMutation.isPending || duplicateElectionMutation.isPending 
-              ? (editingElection ? 'Updating...' : duplicatingElectionId ? 'Cloning...' : 'Creating...') 
-              : (editingElection ? 'Update Election' : duplicatingElectionId ? 'Clone & Create' : 'Create Election')}
+            {upsertElectionMutation.isPending 
+              ? (editingElection ? 'Updating...' : 'Creating...') 
+              : (editingElection ? 'Update Election' : 'Create Election')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -49,6 +49,13 @@ try {
 }
 
 router.get(
+ "/get-nominations",
+ requireAuth,
+ requireRole("SCHOOL_ADMIN"),
+ candidateController.getNominations
+);
+
+router.get(
  "/get-candidates",
  requireAuth,
  requireRole("SCHOOL_ADMIN"),
@@ -68,5 +75,25 @@ router.delete(
  requireRole("SCHOOL_ADMIN"),
  candidateController.deleteCandidate
 );
+
+router.patch(
+ "/:candidate_id/status",
+ requireAuth,
+ requireRole("SCHOOL_ADMIN"),
+ candidateController.updateCandidateStatus
+);
+
+router.get("/public/eligible-posts", candidateController.getEligiblePosts);
+router.post("/public/self-nominate", (req, res, next) => {
+ try {
+  const upload = require("../middleware/uploadCandidate");
+  upload.fields([
+   { name: 'photo', maxCount: 1 },
+   { name: 'symbol', maxCount: 1 }
+  ])(req, res, next);
+ } catch (err) {
+  next();
+ }
+}, candidateController.selfNominate);
 
 module.exports = router;

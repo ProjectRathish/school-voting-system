@@ -113,13 +113,13 @@ exports.createCandidate = async (req, res) => {
       post_id || null, 
       photoPath || null, 
       symbolPath || null, 
-      symbol_name || null
+      symbol_name || null, 'APPROVED'
     ];
 
     console.log("Candidate Insert Params:", insertParams);
 
     const [result] = await db.execute(
-      `INSERT INTO candidates (school_id, election_id, voter_id, post_id, photo, symbol, symbol_name) VALUES (?,?,?,?,?,?,?)`,
+      `INSERT INTO candidates (school_id, election_id, voter_id, post_id, photo, symbol, symbol_name, status) VALUES (?,?,?,?,?,?,?,?)`,
       insertParams
     );
 
@@ -156,21 +156,44 @@ exports.getCandidates = async (req, res) => {
         voters.is_blocked,
         classes.id AS class_id,
         classes.name AS class_name,
-        posts.name AS post_name,
+        sections.name AS section_name,
         candidates.photo,
         candidates.symbol,
-        candidates.symbol_name
+        candidates.symbol_name,
+        candidates.status
       FROM candidates
       JOIN voters ON candidates.voter_id = voters.id
-      JOIN classes ON voters.class_id = classes.id
+      LEFT JOIN classes ON voters.class_id = classes.id
+      LEFT JOIN sections ON classes.section_id = sections.id
       JOIN posts ON candidates.post_id = posts.id
       WHERE candidates.school_id=? AND candidates.election_id=?`;
     
-    const params = [school_id, election_id];
+    const { status } = req.query;
+    if (status) {
+      query += ` AND candidates.status=?`;
+      params.push(status);
+    } else {
+      // Default to approved for the main candidates list
+      query += ` AND candidates.status='APPROVED'`;
+    }
 
     if (post_id && !isNaN(post_id)) {
       query += ` AND candidates.post_id=?`;
       params.push(post_id);
+    }
+
+    const { class_id, section_id, division } = req.query;
+    if (class_id) {
+      query += ` AND voters.class_id=?`;
+      params.push(class_id);
+    }
+    if (section_id) {
+      query += ` AND classes.section_id=?`;
+      params.push(section_id);
+    }
+    if (division) {
+      query += ` AND voters.division=?`;
+      params.push(division);
     }
 
     query += ` ORDER BY candidate_name ASC`;
@@ -204,7 +227,8 @@ exports.getCandidate = async (req, res) => {
         candidates.election_id
       FROM candidates
       JOIN voters ON candidates.voter_id = voters.id
-      JOIN classes ON voters.class_id = classes.id
+      LEFT JOIN classes ON voters.class_id = classes.id
+      LEFT JOIN sections ON classes.section_id = sections.id
       JOIN posts ON candidates.post_id = posts.id
       WHERE candidates.id=? AND candidates.school_id=?`,
       [candidate_id, school_id]
@@ -354,5 +378,190 @@ exports.deleteCandidate = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+exports.getEligiblePosts = async (req, res) => {
+  try {
+    const { election_id, admission_no } = req.query;
+
+    if (!election_id || !admission_no) {
+      return res.status(400).json({ message: "Election ID and Admission No are required" });
+    }
+
+    const [electionRows] = await db.execute(
+      "SELECT nomination_open, status FROM elections WHERE id = ?",
+      [election_id]
+    );
+
+    if (electionRows.length === 0) {
+      return res.status(404).json({ message: "Election not found" });
+    }
+
+    if (!electionRows[0].nomination_open) {
+      return res.status(403).json({ message: "Nominations are currently closed for this election." });
+    }
+
+    const [voterRows] = await db.execute(
+      "SELECT id, class_id, sex, name FROM voters WHERE election_id = ? AND admission_no = ?",
+      [election_id, admission_no]
+    );
+
+    if (voterRows.length === 0) {
+      return res.status(404).json({ message: "Student record not found for this election." });
+    }
+
+    const voter = voterRows[0];
+
+    const [postRows] = await db.execute(
+      "SELECT id, name, gender_rule, candidate_classes FROM posts WHERE election_id = ?",
+      [election_id]
+    );
+
+    const eligiblePosts = postRows.filter(post => {
+      let classes = [];
+      try {
+        classes = JSON.parse(post.candidate_classes || "[]").map(Number);
+      } catch (e) {
+        classes = [];
+      }
+      const classMatch = classes.includes(Number(voter.class_id));
+      const genderMatch = post.gender_rule === "ANY" || post.gender_rule === voter.sex;
+      return classMatch && genderMatch;
+    });
+
+    res.json({
+      student_name: voter.name,
+      voter_id: voter.id,
+      posts: eligiblePosts
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.selfNominate = async (req, res) => {
+  try {
+    const { election_id, admission_no, post_id, symbol_name } = req.body;
+
+    const [electionRows] = await db.execute(
+      "SELECT nomination_open, school_id FROM elections WHERE id = ?",
+      [election_id]
+    );
+
+    if (electionRows.length === 0 || !electionRows[0].nomination_open) {
+      return res.status(403).json({ message: "Nomination window is closed." });
+    }
+
+    const school_id = electionRows[0].school_id;
+
+    const [voterRows] = await db.execute(
+      "SELECT id, name FROM voters WHERE election_id = ? AND admission_no = ?",
+      [election_id, admission_no]
+    );
+
+    if (voterRows.length === 0) {
+      return res.status(404).json({ message: "Voter not found" });
+    }
+
+    const voter_id = voterRows[0].id;
+
+    const [existing] = await db.execute(
+      "SELECT id FROM candidates WHERE voter_id = ? AND election_id = ?",
+      [voter_id, election_id]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "You have already submitted a nomination." });
+    }
+
+    let photoPath = null;
+    let symbolPath = null;
+    
+    const [sRows] = await db.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
+    const school_code = sRows[0].code;
+
+    if (req.files) {
+      if (req.files.photo) {
+        photoPath = `/uploads/candidates/${school_code}/${election_id}/photos/photo-${admission_no}.jpg`;
+      }
+      if (req.files.symbol) {
+        symbolPath = `/uploads/candidates/${school_code}/${election_id}/symbols/symbol-${admission_no}.png`;
+      }
+    }
+
+    await db.execute(
+      `INSERT INTO candidates (school_id, election_id, voter_id, post_id, photo, symbol, symbol_name, status) 
+       VALUES (?,?,?,?,?,?,?, 'PENDING')`,
+      [school_id, election_id, voter_id, post_id, photoPath, symbolPath, symbol_name]
+    );
+
+    res.json({ message: "Nomination submitted successfully! It is now pending approval." });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateCandidateStatus = async (req, res) => {
+  try {
+    const { candidate_id } = req.params;
+    const { status } = req.body;
+    const school_id = req.user.school_id;
+
+    if (!['APPROVED', 'REJECTED', 'PENDING'].includes(status)) {
+       return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const [result] = await db.execute(
+      `UPDATE candidates SET status = ? WHERE id = ? AND school_id = ?`,
+      [status, candidate_id, school_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Candidate not found" });
+    }
+
+    res.json({ message: `Candidate ${status.toLowerCase()} successfully` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+exports.getNominations = async (req, res) => {
+  try {
+    const school_id = req.user.school_id;
+    const { election_id } = req.query;
+
+    if (!election_id) {
+       return res.status(400).json({ message: "Election ID required" });
+    }
+
+    const [rows] = await db.execute(`
+      SELECT 
+        candidates.id,
+        voters.name AS candidate_name,
+        voters.admission_no,
+        posts.name AS post_name,
+        candidates.created_at,
+        candidates.status,
+        candidates.photo,
+        candidates.symbol_name,
+        classes.name AS class_name,
+        sections.name AS section_name
+      FROM candidates
+      JOIN voters ON candidates.voter_id = voters.id
+      JOIN posts ON candidates.post_id = posts.id
+      LEFT JOIN classes ON voters.class_id = classes.id
+      LEFT JOIN sections ON classes.section_id = sections.id
+      WHERE candidates.school_id = ? AND candidates.election_id = ? AND candidates.status = 'PENDING'
+      ORDER BY candidates.created_at DESC
+    `, [school_id, election_id]);
+
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
