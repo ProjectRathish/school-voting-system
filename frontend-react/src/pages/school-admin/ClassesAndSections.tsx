@@ -98,7 +98,7 @@ const ClassesAndSections = () => {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 4 }}>Classes & Sections</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 4 }}>Classes & Sections</Typography>
 
       <Snackbar
         open={!!success}
@@ -122,8 +122,8 @@ const ClassesAndSections = () => {
         display: 'flex'
       }}>
         <Box sx={{ 
-          p: '1.5px', // Slightly thicker for better visibility
-          borderRadius: '24px', 
+          p: '1.5px', 
+          borderRadius: '16px', 
           background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
           boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
           position: 'relative'
@@ -131,10 +131,11 @@ const ClassesAndSections = () => {
           <Box sx={{ 
             px: 3, 
             py: 2, 
-            borderRadius: '23px', // Matched to outer border radius
+            borderRadius: '15px', 
             background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
             gap: 2.5
           }}>
             <Box sx={{ 
@@ -188,23 +189,25 @@ const ClassesAndSections = () => {
           {/* Sections Tab */}
           {tab === 0 && (
             <Box sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
                 <TextField
                   size="small"
                   placeholder="Search sections..."
                   value={searchSection}
                   onChange={(e) => setSearchSection(e.target.value)}
+                  sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: 2 }}
                   InputProps={{
-                    startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />
+                    startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />,
+                    sx: { borderRadius: 2 }
                   }}
                 />
                 {isConfiguring && (
-                  <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenSection(true); }}>
+                  <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenSection(true); }} sx={{ borderRadius: 2, height: { xs: 44, sm: 40 }, px: 3, fontWeight: 700 }}>
                     Add Section
                   </Button>
                 )}
               </Box>
-              <TableContainer>
+              <TableContainer sx={{ overflowX: 'auto' }}>
                 <Table>
                   <TableHead>
                     <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
@@ -245,23 +248,25 @@ const ClassesAndSections = () => {
           {/* Classes Tab */}
           {tab === 1 && (
             <Box sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mb: 3 }}>
                 <TextField
                   size="small"
                   placeholder="Search classes..."
                   value={searchClass}
                   onChange={(e) => setSearchClass(e.target.value)}
+                  sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: 2 }}
                   InputProps={{
-                    startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />
+                    startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />,
+                    sx: { borderRadius: 2 }
                   }}
                 />
                 {isConfiguring && (
-                  <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenClass(true); }}>
+                  <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpenClass(true); }} sx={{ borderRadius: 2, height: { xs: 44, sm: 40 }, px: 3, fontWeight: 700 }}>
                     Add Class
                   </Button>
                 )}
               </Box>
-              <TableContainer>
+              <TableContainer sx={{ overflowX: 'auto' }}>
                 <Table>
                   <TableHead>
                     <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>

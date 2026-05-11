@@ -41,6 +41,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../store/authStore';
 import ThemeToggle from '../common/ThemeToggle';
+import { useElectionSync } from '../../hooks/useElectionSync';
 
 const drawerWidth = 280;
 
@@ -56,6 +57,7 @@ const navItems: NavItem[] = [
   { text: 'Dashboard', icon: <LayoutDashboard size={22} />, path: '/super-admin', roles: ['SUPER_ADMIN'] },
   { text: 'Schools', icon: <School size={22} />, path: '/super-admin/schools', roles: ['SUPER_ADMIN'] },
   { text: 'Enquiries', icon: <HelpCircle size={22} />, path: '/super-admin/enquiries', roles: ['SUPER_ADMIN'] },
+  { text: 'Plans', icon: <FileText size={22} />, path: '/super-admin/plans', roles: ['SUPER_ADMIN'] },
   
   // School Admin
   { text: 'Dashboard', icon: <LayoutDashboard size={22} />, path: '/school-admin', roles: ['SCHOOL_ADMIN'] },
@@ -63,8 +65,8 @@ const navItems: NavItem[] = [
   { text: 'Classes & Sections', icon: <BookOpen size={22} />, path: '/school-admin/classes', roles: ['SCHOOL_ADMIN'] },
   { text: 'Posts', icon: <Award size={22} />, path: '/school-admin/posts', roles: ['SCHOOL_ADMIN'] },
   { text: 'Voters', icon: <Users size={22} />, path: '/school-admin/voters', roles: ['SCHOOL_ADMIN'] },
-  { text: 'Candidates', icon: <UserSquare2 size={22} />, path: '/school-admin/candidates', roles: ['SCHOOL_ADMIN'] },
   { text: 'Nominations', icon: <FileText size={22} />, path: '/school-admin/nominations', roles: ['SCHOOL_ADMIN'] },
+  { text: 'Candidates', icon: <UserSquare2 size={22} />, path: '/school-admin/candidates', roles: ['SCHOOL_ADMIN'] },
   { text: 'Booth Officers', icon: <UserSquare2 size={22} />, path: '/school-admin/staff', roles: ['SCHOOL_ADMIN'] },
   { text: 'Infrastructure', icon: <Monitor size={22} />, path: '/school-admin/infrastructure', roles: ['SCHOOL_ADMIN'] },
   { text: 'Results', icon: <BarChart3 size={22} />, path: '/school-admin/results', roles: ['SCHOOL_ADMIN'] },
@@ -83,6 +85,9 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  
+  // Keep election context in sync globally
+  useElectionSync();
 
   const handleDrawerToggle = () => setOpen(!open);
   const handleMenuOpen = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
@@ -106,7 +111,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         }}>
           <Vote color="white" size={24} />
         </Box>
-        <Typography variant="h6" noWrap sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.5px' }}>
+        <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.5px', fontSize: '0.95rem' }}>
           {user?.role === 'SUPER_ADMIN' ? 'E-Vote Platform' : (user?.school_name || 'E-Vote School')}
         </Typography>
         {isMobile && (
@@ -236,11 +241,32 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
             >
               <MenuIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            <Typography variant="h6" sx={{ 
+              fontWeight: 700, 
+              display: 'flex', 
+              alignItems: 'center', 
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: { xs: '180px', sm: '300px', md: 'auto' }
+            }}>
               {filteredNavItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
               {user?.role !== 'SUPER_ADMIN' && user?.school_name && (
-                <Typography component="span" variant="subtitle2" sx={{ ml: 2, color: 'text.secondary', fontWeight: 500, opacity: 0.8 }}>
-                  — {user.school_name}
+                <Typography 
+                  component="span" 
+                  variant="caption" 
+                  sx={{ 
+                    ml: 1, 
+                    color: 'text.secondary', 
+                    fontWeight: 600, 
+                    opacity: 0.7,
+                    display: { xs: 'none', sm: 'inline' },
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  | {user.school_name}
                 </Typography>
               )}
             </Typography>

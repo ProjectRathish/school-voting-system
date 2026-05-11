@@ -13,6 +13,8 @@ import {
 import { useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
 
 const Schools = () => {
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -25,7 +27,8 @@ const Schools = () => {
     code: '',
     location: '',
     admin_password: 'admin@123',
-    admin_username: ''
+    admin_username: '',
+    plan_id: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [viewingCredential, setViewingCredential] = useState<any>(null);
@@ -54,6 +57,11 @@ const Schools = () => {
   const { data: schools, isLoading } = useQuery({
     queryKey: ['schools'],
     queryFn: async () => (await axiosInstance.get('/platform/schools')).data
+  });
+
+  const { data: plans } = useQuery({
+    queryKey: ['plans'],
+    queryFn: async () => (await axiosInstance.get('/plans')).data
   });
 
   const filteredSchools = useMemo(() => {
@@ -99,7 +107,8 @@ const Schools = () => {
         code: '',
         location: '',
         admin_password: 'admin@123',
-        admin_username: ''
+        admin_username: '',
+        plan_id: ''
       });
       queryClient.invalidateQueries({ queryKey: ['schools'] });
       queryClient.invalidateQueries({ queryKey: ['super-admin-stats'] });
@@ -200,6 +209,7 @@ const Schools = () => {
               <TableCell sx={{ fontWeight: 700 }}>School Name</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Code</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Plan</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Registered On</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
             </TableRow>
@@ -213,7 +223,15 @@ const Schools = () => {
               <TableRow key={s.id} hover>
                 <TableCell sx={{ fontWeight: 600 }}>{s.name}</TableCell>
                 <TableCell><Chip label={s.code} size="small" variant="outlined" color="primary" sx={{ fontWeight: 600 }} /></TableCell>
-                <TableCell>{s.location || '—'}</TableCell>
+                 <TableCell>{s.location || '—'}</TableCell>
+                <TableCell>
+                  <Chip 
+                    label={s.plan_name || 'No Plan'} 
+                    size="small" 
+                    color={s.plan_name === 'Premium' ? 'primary' : s.plan_name === 'Standard' ? 'info' : 'default'}
+                    sx={{ fontWeight: 700 }}
+                  />
+                </TableCell>
                 <TableCell>{new Date(s.created_at).toLocaleDateString()}</TableCell>
                 <TableCell align="right">
                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
@@ -344,6 +362,20 @@ const Schools = () => {
               value={createForm.location}
               onChange={e => setCreateForm(p => ({ ...p, location: e.target.value }))}
             />
+            <Select
+              fullWidth
+              value={createForm.plan_id}
+              onChange={e => setCreateForm(p => ({ ...p, plan_id: e.target.value as string }))}
+              displayEmpty
+              required
+            >
+              <MenuItem value="" disabled>Select Subscription Plan</MenuItem>
+              {plans?.map((p: any) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.name} - ₹{p.price} ({p.max_voters} Voters, {p.max_elections} Elections)
+                </MenuItem>
+              ))}
+            </Select>
             <TextField
               label="School Code (Username)"
               fullWidth
@@ -624,6 +656,58 @@ const Schools = () => {
             </Box>
             <TextField label="Contact Email" fullWidth type="email" value={editingSchool?.email} onChange={e => setEditingSchool({...editingSchool, email: e.target.value})} />
             <TextField label="Location" fullWidth value={editingSchool?.location} onChange={e => setEditingSchool({...editingSchool, location: e.target.value})} />
+            
+            <Divider sx={{ my: 1 }}><Typography variant="caption" fontWeight={700}>SUBSCRIPTION & LIMITS</Typography></Divider>
+            
+            <Select
+              fullWidth
+              value={editingSchool?.plan_id || ''}
+              onChange={e => setEditingSchool({...editingSchool, plan_id: e.target.value})}
+              sx={{ mb: 1 }}
+            >
+              {plans?.map((p: any) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.name} (Max: {p.max_voters}v, {p.max_elections}e)
+                </MenuItem>
+              ))}
+            </Select>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <TextField 
+                label="Custom Max Voters" 
+                type="number" 
+                fullWidth 
+                helperText="Leave empty to use plan limit"
+                value={editingSchool?.custom_max_voters || ''} 
+                onChange={e => setEditingSchool({...editingSchool, custom_max_voters: e.target.value ? parseInt(e.target.value) : null})} 
+              />
+              <TextField 
+                label="Custom Max Elections" 
+                type="number" 
+                fullWidth 
+                helperText="Leave empty to use plan limit"
+                value={editingSchool?.custom_max_elections || ''} 
+                onChange={e => setEditingSchool({...editingSchool, custom_max_elections: e.target.value ? parseInt(e.target.value) : null})} 
+              />
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <Select
+                fullWidth
+                value={editingSchool?.subscription_status || 'ACTIVE'}
+                onChange={e => setEditingSchool({...editingSchool, subscription_status: e.target.value})}
+              >
+                <MenuItem value="ACTIVE">ACTIVE</MenuItem>
+                <MenuItem value="TRIAL">TRIAL</MenuItem>
+                <MenuItem value="EXPIRED">EXPIRED</MenuItem>
+              </Select>
+              <DatePicker
+                label="Expiry Date"
+                value={editingSchool?.subscription_expiry ? dayjs(editingSchool.subscription_expiry) : null}
+                onChange={(newValue) => setEditingSchool({...editingSchool, subscription_expiry: newValue ? newValue.toISOString() : null})}
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>

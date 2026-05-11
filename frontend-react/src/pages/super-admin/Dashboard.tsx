@@ -53,16 +53,16 @@ const SuperAdminDashboard = () => {
   }
 
   const statCards = [
-    { title: 'Total Schools', value: stats?.totalSchools || 0, icon: <School size={24} />, color: '#3f51b5' },
-    { title: 'Pending Enquiries', value: stats?.pendingEnquiries || 0, icon: <HelpCircle size={24} />, color: '#f50057' },
-    { title: 'Active Elections', value: stats?.activeElections || 0, icon: <Vote size={24} />, color: '#4caf50' },
-    { title: 'Expiring Soon', value: stats?.expiringSoon || 0, icon: <Clock size={24} />, color: '#ff9800' },
+    { title: 'Total Schools', value: stats?.totalSchools || 0, icon: <School size={24} />, color: '#3f51b5', bg: '/assets/dashboard/bg_blue.png' },
+    { title: 'Pending Enquiries', value: stats?.pendingEnquiries || 0, icon: <HelpCircle size={24} />, color: '#f50057', bg: '/assets/dashboard/bg_red.png' },
+    { title: 'Active Elections', value: stats?.activeElections || 0, icon: <Vote size={24} />, color: '#4caf50', bg: '/assets/dashboard/bg_green.png' },
+    { title: 'Expiring Soon', value: stats?.expiringSoon || 0, icon: <Clock size={24} />, color: '#ff9800', bg: '/assets/dashboard/bg_orange.png' },
   ];
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary' }}>
           Super Admin Dashboard
         </Typography>
         <IconButton onClick={() => refetch()} disabled={isFetching}>
@@ -73,23 +73,58 @@ const SuperAdminDashboard = () => {
       <Grid container spacing={3}>
         {statCards.map((stat, index) => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
-            <Card sx={{ height: '100%', borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Card sx={{ 
+              height: '100%', 
+              borderRadius: 4,
+              position: 'relative',
+              overflow: 'hidden',
+              background: `linear-gradient(135deg, ${stat.color} 0%, ${stat.color}dd 100%)`,
+              color: '#fff',
+              border: 'none',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              cursor: 'pointer',
+              '&:hover': {
+                transform: 'translateY(-8px)',
+                boxShadow: `0 12px 24px -10px ${stat.color}88`,
+                '& .card-bg': {
+                  transform: 'scale(1.1) rotate(5deg)',
+                }
+              }
+            }}>
+              <Box 
+                className="card-bg"
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  backgroundImage: `url(${stat.bg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  opacity: 0.4,
+                  transition: 'transform 0.6s ease',
+                  zIndex: 0
+                }} 
+              />
+              <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <Box sx={{ 
                     p: 1.5, 
-                    borderRadius: 2, 
-                    backgroundColor: `${stat.color}15`, 
-                    color: stat.color,
-                    display: 'flex'
+                    borderRadius: '12px', 
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+                    color: '#fff',
+                    display: 'flex',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}>
                     {stat.icon}
                   </Box>
                 </Box>
-                <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.5, letterSpacing: '-0.5px' }}>
                   {stat.value}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body1" sx={{ fontWeight: 600, opacity: 0.9 }}>
                   {stat.title}
                 </Typography>
               </CardContent>

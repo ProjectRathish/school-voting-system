@@ -63,21 +63,15 @@ const Elections = () => {
     }
   });
 
-  // Auto-sync global store natively but allow manual override
-  useEffect(() => {
-    if (elections && Array.isArray(elections)) {
-      const configElection = elections.find((e: any) => e.status === 'CONFIGURING');
-
-      if (configElection && !selectedElectionId) {
-        setSelectedElection(String(configElection.id), configElection.name, configElection.status);
-      } else if (selectedElectionId) {
-        const synced = elections.find((e: any) => String(e.id) === selectedElectionId);
-        if (synced && synced.status !== selectedElectionStatus) {
-          setSelectedElection(String(synced.id), synced.name, synced.status);
-        }
-      }
+  const { data: stats } = useQuery({
+    queryKey: ['school-admin-stats'],
+    queryFn: async () => {
+      const res = await axiosInstance.get('/elections/get-stats');
+      return res.data;
     }
-  }, [elections, selectedElectionId, selectedElectionStatus, setSelectedElection]);
+  });
+
+
 
   const upsertElectionMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -91,6 +85,9 @@ const Elections = () => {
       setOpen(false);
       setEditingElection(null);
       setFormData({ name: '', start_time: '', end_time: '' });
+      if (editingElection && String(editingElection.id) === selectedElectionId) {
+        setSelectedElection(selectedElectionId, formData.name, selectedElectionStatus);
+      }
       queryClient.invalidateQueries({ queryKey: ['elections'] });
       queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
       setTimeout(() => setSuccess(null), 5000);
@@ -226,21 +223,31 @@ const Elections = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-          Elections
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+        <Box>
+          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px' }}>
+            Elections
+          </Typography>
+          <Typography variant="body2" color="text.secondary">Create and manage your school voting events</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', md: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
           <TextField
             size="small"
             placeholder="Search elections..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: 2 }}
             InputProps={{
-              startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />
+              startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />,
+              sx: { borderRadius: 2 }
             }}
           />
-          <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setOpen(true); }}>
+          <Button 
+            variant="contained" 
+            startIcon={<Plus size={20} />} 
+            onClick={() => { setError(null); setOpen(true); }}
+            sx={{ borderRadius: 2, height: { xs: 44, sm: 40 }, px: 3, fontWeight: 700 }}
+          >
             Create Election
           </Button>
         </Box>
@@ -264,7 +271,7 @@ const Elections = () => {
       }}>
         <Box sx={{ 
           p: '1.5px', 
-          borderRadius: '24px', 
+          borderRadius: '16px', 
           background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
           boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
           position: 'relative'
@@ -272,10 +279,11 @@ const Elections = () => {
           <Box sx={{ 
             px: 3, 
             py: 2, 
-            borderRadius: '23px', 
+            borderRadius: '15px', 
             background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
             gap: 2.5
           }}>
             <Box sx={{ 
@@ -540,6 +548,18 @@ const Elections = () => {
           {editingElection ? 'Edit Election' : 'Create New Election'}
         </DialogTitle>
         <DialogContent>
+          {!editingElection && stats?.plan && (
+            <Alert severity={(stats.totalElections >= (stats.plan.custom_max_elections || stats.plan.max_elections)) ? "error" : "info"} sx={{ mb: 3, borderRadius: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                Plan Usage: {stats.totalElections} / {stats.plan.custom_max_elections || stats.plan.max_elections} Elections
+              </Typography>
+              {stats.totalElections >= (stats.plan.custom_max_elections || stats.plan.max_elections) && (
+                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                  You have reached your election limit. Please upgrade your plan or delete an existing election.
+                </Typography>
+              )}
+            </Alert>
+          )}
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
             <TextField
@@ -574,7 +594,7 @@ const Elections = () => {
           <Button
             variant="contained"
             onClick={handleUpsert}
-            disabled={upsertElectionMutation.isPending}
+            disabled={upsertElectionMutation.isPending || (!editingElection && stats?.plan && stats.totalElections >= (stats.plan.custom_max_elections || stats.plan.max_elections))}
             sx={{ fontWeight: 700 }}
             startIcon={upsertElectionMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <Save size={20} />}
           >

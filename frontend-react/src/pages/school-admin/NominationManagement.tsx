@@ -14,9 +14,11 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useElectionStore } from '../../store/electionStore';
+import { useAuthStore } from '../../store/authStore';
 
 const NominationManagement = () => {
   const { selectedElectionId, selectedElectionName } = useElectionStore();
+  const { user } = useAuthStore();
   const [selectedNomination, setSelectedNomination] = useState<any>(null);
   const [openView, setOpenView] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -63,6 +65,87 @@ const NominationManagement = () => {
     onError: (err: any) => setError(err.response?.data?.message || 'Error updating status')
   });
 
+  const handleDownloadNominationForm = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const style = `
+      @page { size: A4; margin: 20mm; }
+      body { font-family: 'Inter', sans-serif; color: #1e1e28; line-height: 1.6; }
+      .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+      .school-name { font-size: 1.1rem; font-weight: 700; color: #1e1e28; text-transform: uppercase; margin-bottom: 5px; }
+      .election-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 10px; }
+      .form-title { font-size: 1.5rem; font-weight: 900; text-decoration: underline; margin-top: 10px; }
+      .field-container { margin-bottom: 25px; }
+      .field-row { display: flex; margin-bottom: 20px; align-items: flex-end; }
+      .field-label { font-weight: 700; min-width: 180px; font-size: 1.1rem; }
+      .field-value { border-bottom: 1px dotted #000; flex-grow: 1; height: 1.2rem; margin-left: 10px; }
+      .witness-section { margin-top: 40px; border: 1px solid #ccc; padding: 20px; border-radius: 8px; }
+      .witness-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 15px; }
+      .signature-section { margin-top: 60px; display: flex; justify-content: space-between; }
+      .signature-box { text-align: center; width: 200px; }
+      .sig-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 5px; font-weight: 700; font-size: 0.9rem; }
+      .instructions { margin-top: 50px; font-size: 0.85rem; color: #666; font-style: italic; }
+    `;
+
+    let html = `<html><head><title>Nomination Form - ${selectedElectionName}</title><style>${style}</style></head><body>`;
+    html += `
+      <div class="header">
+        <div class="school-name">${user?.school_name || 'School Voting System'}</div>
+        <div class="election-name">${selectedElectionName}</div>
+        <div class="form-title">NOMINATION FORM</div>
+      </div>
+
+      <div class="field-container">
+        <div class="field-row"><div class="field-label">Admission Number:</div><div class="field-value"></div></div>
+        <div class="field-row"><div class="field-label">Full Name:</div><div class="field-value"></div></div>
+        <div class="field-row">
+          <div class="field-label">Class:</div><div class="field-value"></div>
+          <div class="field-label" style="min-width: 100px; margin-left: 20px;">Division:</div><div class="field-value"></div>
+        </div>
+        <div class="field-row"><div class="field-label">Post Nominated For:</div><div class="field-value"></div></div>
+      </div>
+
+      <div class="witness-section">
+        <div style="font-weight: 800; font-size: 1.1rem; margin-bottom: 10px;">Proposed/Witnessed By:</div>
+        <div class="witness-grid">
+          <div>
+            <div style="font-weight: 600;">Witness 1:</div>
+            <div style="border-bottom: 1px dotted #000; height: 30px; margin: 10px 0;"></div>
+            <div style="font-size: 0.8rem;">(Name & Signature)</div>
+          </div>
+          <div>
+            <div style="font-weight: 600;">Witness 2:</div>
+            <div style="border-bottom: 1px dotted #000; height: 30px; margin: 10px 0;"></div>
+            <div style="font-size: 0.8rem;">(Name & Signature)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="signature-section">
+        <div class="signature-box">
+          <div class="sig-line">Signature of Candidate</div>
+        </div>
+        <div class="signature-box">
+          <div class="sig-line">Signature of Class Teacher</div>
+        </div>
+      </div>
+
+      <div class="instructions">
+        Note: This form must be filled clearly and submitted to the Election Commission before the deadline. 
+        Incomplete forms will be rejected.
+      </div>
+
+      <div style="margin-top: 40px; text-align: right; font-size: 0.8rem; color: #999;">
+        Generated on ${new Date().toLocaleDateString()} | E-Vote Management System
+      </div>
+    `;
+    html += `</body><script>window.onload = () => { window.print(); window.close(); };</script></html>`;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   if (!selectedElectionId) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -73,76 +156,106 @@ const NominationManagement = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'flex-start' }, flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
         <Box>
             <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 1 }}>Nomination Management</Typography>
             
-            {/* Context Banner */}
+            {/* Current Context Banner */}
             <Box sx={{ 
-              p: '1.5px', 
-              borderRadius: '20px', 
-              background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
-              display: 'inline-block',
-              boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
-              mt: 1
+              mb: 1, 
+              display: 'flex'
             }}>
               <Box sx={{ 
-                px: 2.5, 
-                py: 1.5, 
-                borderRadius: '19px', 
-                background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 2
+                p: '1.5px', 
+                borderRadius: '16px', 
+                background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
+                boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
+                position: 'relative'
               }}>
                 <Box sx={{ 
-                  width: 32, 
-                  height: 32, 
-                  borderRadius: '10px', 
-                  background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  color: 'white',
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                  px: 3, 
+                  py: 2, 
+                  borderRadius: '15px', 
+                  background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
+                  display: 'flex',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  gap: 2.5
                 }}>
-                  <Sparkles size={16} />
-                </Box>
-                <Box>
-                  <Typography variant="caption" sx={{ 
-                    color: 'text.secondary', 
-                    fontWeight: 800, 
-                    textTransform: 'uppercase', 
-                    letterSpacing: 1,
-                    fontSize: '0.6rem',
-                    display: 'block',
-                    lineHeight: 1
+                  <Box sx={{ 
+                    width: 45, 
+                    height: 45, 
+                    borderRadius: '12px', 
+                    background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    color: 'white',
+                    boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
                   }}>
-                    Context: {election?.status || 'Active'}
-                  </Typography>
-                  <Typography variant="subtitle2" sx={{ 
-                    fontWeight: 800, 
-                    color: 'text.primary',
-                    lineHeight: 1.2
-                  }}>
-                    {selectedElectionName}
-                  </Typography>
+                    <Sparkles size={22} />
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ 
+                      color: 'text.secondary', 
+                      fontWeight: 800, 
+                      textTransform: 'uppercase', 
+                      letterSpacing: 1.5,
+                      fontSize: '0.65rem',
+                      display: 'block',
+                      mb: 0.5
+                    }}>
+                      {election?.status ? `STAGE: ${election.status}` : 'Active Configuration'}
+                    </Typography>
+                    <Typography variant="h6" sx={{ 
+                      fontWeight: 900, 
+                      color: 'text.primary', 
+                      lineHeight: 1.1,
+                      background: 'linear-gradient(45deg, #6366f1, #a855f7)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      fontSize: '1.25rem'
+                    }}>
+                      {selectedElectionName || 'None Selected'}
+                    </Typography>
+            </Box>
                 </Box>
               </Box>
             </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'flex-start' }}>
+            <Button
+                variant="contained"
+                startIcon={<Printer size={20} />}
+                onClick={handleDownloadNominationForm}
+                sx={{ 
+                    borderRadius: 3, 
+                    fontWeight: 900,
+                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    boxShadow: '0 8px 20px rgba(99, 102, 241, 0.3)',
+                    px: 3,
+                    height: { sm: 60 },
+                    width: { xs: '100%', sm: 'auto' },
+                    '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 12px 25px rgba(99, 102, 241, 0.4)',
+                    }
+                }}
+            >
+                DOWNLOAD NOMINATION FORM
+            </Button>
+
             <Button
                 variant="outlined"
                 startIcon={<QrCode size={20} />}
                 onClick={() => setQrOpen(true)}
-                sx={{ borderRadius: 3, fontWeight: 700 }}
+                sx={{ borderRadius: 3, fontWeight: 700, height: { sm: 60 }, width: { xs: '100%', sm: 'auto' } }}
             >
                 Portal QR
             </Button>
 
-            <Paper sx={{ p: 1, px: 3, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 3, border: '1px solid', borderColor: 'divider' }}>
+            <Paper sx={{ p: 1, px: 3, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 3, border: '1px solid', borderColor: 'divider', height: { sm: 60 }, width: { xs: '100%', sm: 'auto' }, justifyContent: 'space-between' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Box sx={{ 
                         width: 10, height: 10, borderRadius: '50%', 
@@ -172,7 +285,7 @@ const NominationManagement = () => {
       {success && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
 
       <Paper sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <TableContainer>
+        <TableContainer sx={{ overflowX: 'auto' }}>
           <Table>
             <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>

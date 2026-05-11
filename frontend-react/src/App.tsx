@@ -4,6 +4,8 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { getTheme } from './theme/theme';
 import { useThemeStore } from './store/themeStore';
 import { useAuthStore } from './store/authStore';
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
 // Layout
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -17,6 +19,7 @@ import NominationPortal from './pages/nomination/NominationPortal';
 import SuperAdminDashboard from './pages/super-admin/Dashboard';
 import Enquiries from './pages/super-admin/Enquiries';
 import Schools from './pages/super-admin/Schools';
+import Plans from './pages/super-admin/Plans';
 
 // School Admin Pages
 import SchoolAdminDashboard from './pages/school-admin/Dashboard';
@@ -46,7 +49,8 @@ function App() {
 
   if (!isAuthenticated && location.pathname !== '/terminal') {
     return (
-      <ThemeProvider theme={theme}>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <ThemeProvider theme={theme}>
         <CssBaseline />
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -55,21 +59,25 @@ function App() {
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       </ThemeProvider>
+      </LocalizationProvider>
     );
   }
 
   // Mandatory Password Reset Trap
   if (user?.must_change_password) {
     return (
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <ForcePasswordChange onSuccess={() => {}} />
-      </ThemeProvider>
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+          <ForcePasswordChange onSuccess={() => {}} />
+        </ThemeProvider>
+      </LocalizationProvider>
     );
   }
 
   return (
-    <ThemeProvider theme={theme}>
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <ThemeProvider theme={theme}>
       <CssBaseline />
       {location.pathname === '/terminal' ? (
         <Routes>
@@ -85,6 +93,7 @@ function App() {
                 <Route path="/super-admin" element={<SuperAdminDashboard />} />
                 <Route path="/super-admin/schools" element={<Schools />} />
                 <Route path="/super-admin/enquiries" element={<Enquiries />} />
+                <Route path="/super-admin/plans" element={<Plans />} />
                 <Route path="*" element={<Navigate to="/super-admin" />} />
               </>
             )}
@@ -120,6 +129,7 @@ function App() {
         </DashboardLayout>
       )}
     </ThemeProvider>
+    </LocalizationProvider>
   );
 }
 

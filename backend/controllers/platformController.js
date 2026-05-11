@@ -94,7 +94,7 @@ exports.getPlatformStats = async (req, res) => {
 
 exports.approveSchool = async (req, res) => {
   try {
-    const { enquiry_id, admin_password: custom_password } = req.body;
+    const { enquiry_id, admin_password: custom_password, plan_id } = req.body;
     const [rows] = await db.execute("SELECT * FROM school_enquiries WHERE id=?", [enquiry_id]);
 
     if (rows.length === 0) return res.status(404).json({ message: "Enquiry not found" });
@@ -106,8 +106,16 @@ exports.approveSchool = async (req, res) => {
     const admin_username = school_code;
 
     const [schoolResult] = await db.execute(
-      "INSERT INTO schools (name, contact_person, email, phone, code, location) VALUES (?,?,?,?,?,?)",
-      [enquiry.school_name, enquiry.contact_person, enquiry.contact_email, enquiry.contact_phone, school_code, enquiry.location]
+      "INSERT INTO schools (name, contact_person, email, phone, code, location, plan_id) VALUES (?,?,?,?,?,?,?)",
+      [
+        enquiry.school_name, 
+        enquiry.contact_person, 
+        enquiry.contact_email, 
+        enquiry.contact_phone, 
+        school_code, 
+        enquiry.location, 
+        plan_id || (await db.execute("SELECT id FROM subscription_plans WHERE name='Free' LIMIT 1"))[0][0].id
+      ]
     );
 
     const school_id = schoolResult.insertId;
@@ -132,9 +140,9 @@ exports.approveSchool = async (req, res) => {
 
 exports.createSchool = async (req, res) => {
   try {
-    const { name, contact_person, contact_email, contact_phone, location, admin_password } = req.body;
+    const { name, contact_person, contact_email, contact_phone, location, admin_password, plan_id, custom_max_voters, custom_max_elections } = req.body;
 
-    if (!name || !contact_person || !contact_email || !contact_phone || !admin_password) {
+    if (!name || !contact_person || !contact_email || !contact_phone || !admin_password || !plan_id) {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
@@ -151,8 +159,8 @@ exports.createSchool = async (req, res) => {
 
     const admin_username = code;
     const [schoolResult] = await db.execute(
-      "INSERT INTO schools (name, contact_person, email, phone, code, location) VALUES (?,?,?,?,?,?)",
-      [name, contact_person, contact_email, contact_phone, code, location]
+      "INSERT INTO schools (name, contact_person, email, phone, code, location, plan_id, custom_max_voters, custom_max_elections) VALUES (?,?,?,?,?,?,?,?,?)",
+      [name, contact_person, contact_email, contact_phone, code, location, plan_id, custom_max_voters || null, custom_max_elections || null]
     );
 
     const school_id = schoolResult.insertId;
@@ -184,7 +192,12 @@ exports.getSuggestedSchoolCode = async (req, res) => {
 
 exports.getSchools = async (req, res) => {
   try {
-    const [rows] = await db.execute(`SELECT * FROM schools ORDER BY created_at DESC`);
+    const [rows] = await db.execute(`
+      SELECT s.*, p.name as plan_name, p.max_voters, p.max_elections 
+      FROM schools s
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      ORDER BY s.created_at DESC
+    `);
     res.json({ data: rows });
   } catch (error) {
     console.error(error);
@@ -207,7 +220,7 @@ exports.getSchool = async (req, res) => {
 exports.updateSchool = async (req, res) => {
   try {
     const { school_id } = req.params;
-    const { name, location, contact_person, email, phone } = req.body;
+    const { name, location, contact_person, email, phone, plan_id, custom_max_voters, custom_max_elections, subscription_status, subscription_expiry } = req.body;
 
     const [existing] = await db.execute(`SELECT id FROM schools WHERE id = ?`, [school_id]);
     if (existing.length === 0) return res.status(404).json({ message: "School not found" });
@@ -220,6 +233,11 @@ exports.updateSchool = async (req, res) => {
     if (contact_person) { updateFields.push("contact_person = ?"); updateValues.push(contact_person); }
     if (email) { updateFields.push("email = ?"); updateValues.push(email); }
     if (phone) { updateFields.push("phone = ?"); updateValues.push(phone); }
+    if (plan_id) { updateFields.push("plan_id = ?"); updateValues.push(plan_id); }
+    if (custom_max_voters !== undefined) { updateFields.push("custom_max_voters = ?"); updateValues.push(custom_max_voters); }
+    if (custom_max_elections !== undefined) { updateFields.push("custom_max_elections = ?"); updateValues.push(custom_max_elections); }
+    if (subscription_status) { updateFields.push("subscription_status = ?"); updateValues.push(subscription_status); }
+    if (subscription_expiry !== undefined) { updateFields.push("subscription_expiry = ?"); updateValues.push(subscription_expiry); }
 
     if (updateFields.length === 0) return res.status(400).json({ message: "No fields to update" });
 

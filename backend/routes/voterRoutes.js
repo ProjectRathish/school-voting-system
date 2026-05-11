@@ -65,6 +65,13 @@ router.post(
   voterController.clearVoters
 );
 
+router.post(
+  "/bulk-delete",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  voterController.bulkDeleteVoters
+);
+
 router.get(
  "/verify/:admission_no",
  requireAuth,

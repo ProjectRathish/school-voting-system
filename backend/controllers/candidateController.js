@@ -160,7 +160,8 @@ exports.getCandidates = async (req, res) => {
         candidates.photo,
         candidates.symbol,
         candidates.symbol_name,
-        candidates.status
+        candidates.status,
+        posts.name AS post_name
       FROM candidates
       JOIN voters ON candidates.voter_id = voters.id
       LEFT JOIN classes ON voters.class_id = classes.id
@@ -169,6 +170,8 @@ exports.getCandidates = async (req, res) => {
       WHERE candidates.school_id=? AND candidates.election_id=?`;
     
     const { status } = req.query;
+    const params = [school_id, election_id];
+
     if (status) {
       query += ` AND candidates.status=?`;
       params.push(status);

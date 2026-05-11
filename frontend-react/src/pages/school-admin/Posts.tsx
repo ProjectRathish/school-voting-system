@@ -101,32 +101,41 @@ const Posts = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>Post Management</Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px' }}>Post Management</Typography>
+        <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', md: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
           <TextField
             size="small"
             placeholder="Search posts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: 2 }}
             InputProps={{
-              startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />
+              startAdornment: <Search size={18} style={{ marginRight: 8, color: 'gray' }} />,
+              sx: { borderRadius: 2 }
             }}
           />
           {isConfiguring && (
-            <>
+            <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', sm: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
               <Button 
                 variant="outlined" 
                 startIcon={<Copy size={18} />} 
                 onClick={() => setOpenImport(true)} 
                 disabled={!selectedElectionId}
+                sx={{ borderRadius: 2, height: { xs: 44, sm: 40 } }}
               >
                 Import Structure
               </Button>
-              <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', gender_rule: 'ANY', candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} disabled={!selectedElectionId}>
+              <Button 
+                variant="contained" 
+                startIcon={<Plus size={20} />} 
+                onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', gender_rule: 'ANY', candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} 
+                disabled={!selectedElectionId}
+                sx={{ borderRadius: 2, height: { xs: 44, sm: 40 }, fontWeight: 700 }}
+              >
                 Add Post
               </Button>
-            </>
+            </Box>
           )}
         </Box>
       </Box>
@@ -143,7 +152,7 @@ const Posts = () => {
       }}>
         <Box sx={{ 
           p: '1.5px', 
-          borderRadius: '24px', 
+          borderRadius: '16px', 
           background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
           boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
           position: 'relative'
@@ -151,10 +160,11 @@ const Posts = () => {
           <Box sx={{ 
             px: 3, 
             py: 2, 
-            borderRadius: '23px', 
+            borderRadius: '15px', 
             background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
             gap: 2.5
           }}>
             <Box sx={{ 

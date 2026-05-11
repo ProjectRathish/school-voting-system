@@ -16,6 +16,7 @@ const pollingBoothRoutes = require("./routes/pollingBoothRoutes");
 const votingMachineRoutes = require("./routes/votingMachineRoutes");
 const schoolRoutes = require("./routes/schoolRoutes");
 const reportRoutes = require("./routes/reportRoutes");
+const planRoutes = require("./routes/planRoutes");
 
 
 const app = express();
@@ -39,6 +40,7 @@ app.use("/api/polling-booths", pollingBoothRoutes);
 app.use("/api/machines", votingMachineRoutes);
 app.use("/api/schools", schoolRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/plans", planRoutes);
 
 // Global Error Handler for JSON responses (including Multer errors)
 app.use((err, req, res, next) => {

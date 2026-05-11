@@ -18,19 +18,19 @@ exports.createSection = async (req, res) => {
       }
     }
 
-    // Check for duplicate name in school context (or election context if provided)
+    // Check for duplicate name in the same election context
     const [existingName] = await db.execute(
-      `SELECT id FROM sections WHERE name = ? AND school_id = ? ${election_id ? "AND election_id = ?" : "AND (election_id IS NULL OR election_id != ?)"}`,
-      [name, school_id, election_id || 0]
+      `SELECT id FROM sections WHERE name = ? AND school_id = ? AND election_id = ?`,
+      [name, school_id, election_id]
     );
-
+    
     if (existingName.length > 0) {
-      return res.status(400).json({ message: "A section with this name already exists" });
+      return res.status(400).json({ message: "A section with this name already exists in this election" });
     }
 
     const [result] = await db.execute(
       `INSERT INTO sections (school_id, election_id, name) VALUES (?,?,?)`,
-      [school_id, election_id || null, name]
+      [school_id, election_id, name]
     );
 
     res.json({ message: "Section created successfully", section_id: result.insertId });
@@ -48,8 +48,10 @@ exports.getSections = async (req, res) => {
     let params = [school_id];
 
     if (election_id && election_id !== 'undefined' && election_id !== 'null') {
-      query += " AND (election_id = ? OR election_id IS NULL)";
+      query += " AND election_id = ?";
       params.push(election_id);
+    } else {
+      query += " AND election_id IS NULL";
     }
 
     const [rows] = await db.execute(query, params);

@@ -11,7 +11,8 @@ import {
   ListItemText,
   Chip,
   Divider,
-  Skeleton
+  Skeleton,
+  Tooltip
 } from '@mui/material';
 import { 
   Plus, 
@@ -23,8 +24,6 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Sparkles } from 'lucide-react';
-import { useElectionStore } from '../../store/electionStore';
 import axiosInstance from '../../api/axiosInstance';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -32,7 +31,6 @@ import { useAuthStore } from '../../store/authStore';
 const SchoolAdminDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['school-admin-stats'],
@@ -85,10 +83,10 @@ const SchoolAdminDashboard = () => {
   }
 
   const statCards = [
-    { title: 'Total Elections', value: stats?.totalElections || 0, icon: <Vote size={24} />, color: '#3f51b5' },
-    { title: 'Total Voters', value: stats?.totalVoters || 0, icon: <Users size={24} />, color: '#4caf50' },
-    { title: 'Total Candidates', value: stats?.totalCandidates || 0, icon: <UserCheck size={24} />, color: '#f50057' },
-    { title: 'Active Booths', value: stats?.activeBooths || 0, icon: <Monitor size={24} />, color: '#ff9800' },
+    { title: 'Total Elections', value: stats?.totalElections || 0, icon: <Vote size={24} />, color: '#3f51b5', bg: '/assets/dashboard/bg_blue.png' },
+    { title: 'Total Voters', value: stats?.totalVoters || 0, icon: <Users size={24} />, color: '#4caf50', bg: '/assets/dashboard/bg_green.png' },
+    { title: 'Total Candidates', value: stats?.totalCandidates || 0, icon: <UserCheck size={24} />, color: '#f50057', bg: '/assets/dashboard/bg_red.png' },
+    { title: 'Active Booths', value: stats?.activeBooths || 0, icon: <Monitor size={24} />, color: '#ff9800', bg: '/assets/dashboard/bg_orange.png' },
   ];
 
   return (
@@ -102,36 +100,76 @@ const SchoolAdminDashboard = () => {
             Administration Panel • {user?.username}
           </Typography>
         </Box>
-        <Button 
-          variant="contained" 
-          startIcon={<Plus size={20} />}
-          onClick={() => navigate('/school-admin/elections')}
-        >
-          New Election
-        </Button>
+        <Tooltip title={stats?.plan && stats.totalElections >= (stats.plan.custom_max_elections || stats.plan.max_elections) ? "Subscription limit reached" : ""}>
+          <span>
+            <Button 
+              variant="contained" 
+              startIcon={<Plus size={20} />}
+              onClick={() => navigate('/school-admin/elections')}
+              disabled={stats?.plan && stats.totalElections >= (stats.plan.custom_max_elections || stats.plan.max_elections)}
+              sx={{ borderRadius: 2, px: 3 }}
+            >
+              New Election
+            </Button>
+          </span>
+        </Tooltip>
       </Box>
-
 
       <Grid container spacing={3}>
         {statCards.map((stat, index) => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
-            <Card sx={{ height: '100%', borderRadius: 3 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Card sx={{ 
+              height: '100%', 
+              borderRadius: 4,
+              position: 'relative',
+              overflow: 'hidden',
+              background: `linear-gradient(135deg, ${stat.color} 0%, ${stat.color}dd 100%)`,
+              color: '#fff',
+              border: 'none',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              cursor: 'pointer',
+              '&:hover': {
+                transform: 'translateY(-8px)',
+                boxShadow: `0 12px 24px -10px ${stat.color}88`,
+                '& .card-bg': {
+                  transform: 'scale(1.1) rotate(5deg)',
+                }
+              }
+            }}>
+              <Box 
+                className="card-bg"
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  backgroundImage: `url(${stat.bg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  opacity: 0.4,
+                  transition: 'transform 0.6s ease',
+                  zIndex: 0
+                }} 
+              />
+              <CardContent sx={{ position: 'relative', zIndex: 1, p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <Box sx={{ 
                     p: 1.5, 
-                    borderRadius: 2, 
-                    backgroundColor: `${stat.color}15`, 
-                    color: stat.color,
-                    display: 'flex'
+                    borderRadius: '12px', 
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
+                    color: '#fff',
+                    display: 'flex',
+                    backdropFilter: 'blur(8px)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                   }}>
                     {stat.icon}
                   </Box>
                 </Box>
-                <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                <Typography variant="h3" sx={{ fontWeight: 800, mb: 0.5, letterSpacing: '-0.5px' }}>
                   {stat.value}
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body1" sx={{ fontWeight: 600, opacity: 0.9 }}>
                   {stat.title}
                 </Typography>
               </CardContent>
@@ -189,32 +227,79 @@ const SchoolAdminDashboard = () => {
         </Grid>
 
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper sx={{ p: 3, borderRadius: 2, height: '100%' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
-              Quick Info
-            </Typography>
+          <Paper sx={{ p: 3, borderRadius: 3, height: '100%', position: 'relative', overflow: 'hidden' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                Subscription Plan
+              </Typography>
+              <Chip 
+                label={stats?.plan?.plan_name || 'Free'} 
+                size="small" 
+                color="primary"
+                sx={{ fontWeight: 800, px: 1 }}
+              />
+            </Box>
+
+            <Box sx={{ mb: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>Voters Usage</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                  {stats?.totalVoters} / {stats?.plan?.custom_max_voters || stats?.plan?.max_voters || 0}
+                </Typography>
+              </Box>
+              <Box sx={{ height: 8, bgcolor: 'action.hover', borderRadius: 4, overflow: 'hidden' }}>
+                <Box sx={{ 
+                  height: '100%', 
+                  width: `${Math.min(100, (stats?.totalVoters / (stats?.plan?.custom_max_voters || stats?.plan?.max_voters || 1)) * 100)}%`,
+                  bgcolor: (stats?.totalVoters / (stats?.plan?.custom_max_voters || stats?.plan?.max_voters || 1)) > 0.9 ? 'error.main' : 'primary.main',
+                  borderRadius: 4
+                }} />
+              </Box>
+            </Box>
+
+            <Box sx={{ mb: 4 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>Elections Usage</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                  {stats?.totalElections} / {stats?.plan?.custom_max_elections || stats?.plan?.max_elections || 0}
+                </Typography>
+              </Box>
+              <Box sx={{ height: 8, bgcolor: 'action.hover', borderRadius: 4, overflow: 'hidden' }}>
+                <Box sx={{ 
+                  height: '100%', 
+                  width: `${Math.min(100, (stats?.totalElections / (stats?.plan?.custom_max_elections || stats?.plan?.max_elections || 1)) * 100)}%`,
+                  bgcolor: (stats?.totalElections / (stats?.plan?.custom_max_elections || stats?.plan?.max_elections || 1)) > 0.9 ? 'error.main' : 'primary.main',
+                  borderRadius: 4
+                }} />
+              </Box>
+            </Box>
+
+            <Divider sx={{ mb: 3 }} />
+
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <TrendingUp size={20} color="#4caf50" />
-                <Typography variant="body2">
-                  System health is optimal
-                </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Status</Typography>
+                <Chip 
+                  label={stats?.plan?.subscription_status || 'ACTIVE'} 
+                  size="small" 
+                  color={stats?.plan?.subscription_status === 'ACTIVE' ? 'success' : 'warning'} 
+                  variant="outlined"
+                  sx={{ fontWeight: 700, height: 20 }}
+                />
               </Box>
-              <Divider />
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <UserCheck size={20} color="#3f51b5" />
-                <Typography variant="body2">
-                  Ready to start new elections
-                </Typography>
-              </Box>
-              <Divider />
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <Monitor size={20} color="#ff9800" />
-                <Typography variant="body2">
-                  Monitor booth connectivity
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Valid Until</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 800 }}>
+                  {stats?.plan?.subscription_expiry ? new Date(stats.plan.subscription_expiry).toLocaleDateString() : 'Lifetime'}
                 </Typography>
               </Box>
             </Box>
+
+            {(stats?.totalVoters / (stats?.plan?.custom_max_voters || stats?.plan?.max_voters || 1)) > 0.8 && (
+              <Alert severity="warning" sx={{ mt: 3, borderRadius: 2, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
+                You are approaching your resource limit. Contact support to upgrade.
+              </Alert>
+            )}
           </Paper>
         </Grid>
       </Grid>

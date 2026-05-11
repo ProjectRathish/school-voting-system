@@ -15,7 +15,7 @@ const Enquiries = () => {
   const [openView, setOpenView] = useState(false);
   const [openApprove, setOpenApprove] = useState(false);
   const [openReject, setOpenReject] = useState(false);
-  const [approveForm, setApproveForm] = useState({ school_code: '', admin_username: '', admin_password: '' });
+  const [approveForm, setApproveForm] = useState({ school_code: '', admin_username: '', admin_password: '', plan_id: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -26,6 +26,11 @@ const Enquiries = () => {
   const { data: enquiries, isLoading } = useQuery({
     queryKey: ['enquiries'],
     queryFn: async () => (await axiosInstance.get('/platform/enquiries')).data
+  });
+
+  const { data: plans } = useQuery({
+    queryKey: ['plans'],
+    queryFn: async () => (await axiosInstance.get('/plans')).data
   });
 
   const filteredEnquiries = useMemo(() => {
@@ -44,7 +49,7 @@ const Enquiries = () => {
     onSuccess: (res) => {
       setSuccess('School account created and approved!');
       setOpenApprove(false);
-      setApproveForm({ school_code: '', admin_username: '', admin_password: '' });
+      setApproveForm({ school_code: '', admin_username: '', admin_password: '', plan_id: '' });
       setSuccessCredentials({
         code: res.data.code,
         username: res.data.admin_username,
@@ -76,12 +81,13 @@ const Enquiries = () => {
       setApproveForm({ 
         school_code: resp.data.suggestedCode, 
         admin_username: 'admin', 
-        admin_password: 'admin@123' 
+        admin_password: 'admin@123',
+        plan_id: plans?.[0]?.id || ''
       });
     } catch (err) {
       // Fallback to name-based suggestion if API fails
       const code = enquiry.school_name?.replace(/\s+/g, '').substring(0, 6).toUpperCase() || '';
-      setApproveForm({ school_code: code, admin_username: 'admin', admin_password: 'admin@123' });
+      setApproveForm({ school_code: code, admin_username: 'admin', admin_password: 'admin@123', plan_id: plans?.[0]?.id || '' });
     }
   };
 
@@ -252,6 +258,29 @@ const Enquiries = () => {
                 ),
               }}
             />
+          </Box>
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Assign Subscription Plan</Typography>
+            <select 
+              style={{ 
+                width: '100%', 
+                padding: '12px', 
+                borderRadius: '8px', 
+                border: '1px solid #ddd',
+                fontSize: '1rem',
+                outline: 'none'
+              }}
+              value={approveForm.plan_id}
+              onChange={e => setApproveForm(p => ({ ...p, plan_id: e.target.value }))}
+              required
+            >
+              <option value="" disabled>Select a plan</option>
+              {plans?.map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} - ₹{p.price} ({p.max_voters}v, {p.max_elections}e)
+                </option>
+              ))}
+            </select>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>

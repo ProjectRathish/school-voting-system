@@ -1,28 +1,41 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
   FormControl, InputLabel, Select, MenuItem, InputAdornment,
-  Chip, Grid, Tooltip, Snackbar, TablePagination, LinearProgress, alpha
+  Chip, Grid, Tooltip, Snackbar, TablePagination, LinearProgress, alpha,
+  List, ListItem, ListItemText, Divider, Checkbox
 } from '@mui/material';
-import { Plus, Upload, Search, Trash2, Download, Edit, Settings, Lock, Unlock, AlertTriangle } from 'lucide-react';
+import { Plus, Upload, Search, Trash2, Download, Edit, Settings, Lock, Unlock, AlertTriangle, Sparkles, FileText, ChevronDown } from 'lucide-react';
+import { Menu } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useElectionStore } from '../../store/electionStore';
 import { NavLink } from 'react-router-dom';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useAuthStore } from '../../store/authStore';
 
 const Voters = () => {
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
+  const { user } = useAuthStore();
   const isConfiguring = selectedElectionStatus === 'DRAFT' || selectedElectionStatus === 'CONFIGURING';
+
+  const { data: stats } = useQuery({
+    queryKey: ['school-admin-stats'],
+    queryFn: async () => {
+      const res = await axiosInstance.get('/elections/get-stats');
+      return res.data;
+    }
+  });
+
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 500);
-  const [selectedClass, setSelectedClass] = useState('');
-  const [selectedSection, setSelectedSection] = useState('');
-  const [selectedDivision, setSelectedDivision] = useState('');
-  const [selectedSex, setSelectedSex] = useState('ANY');
-  const [selectedStatus, setSelectedStatus] = useState('ANY');
+  const [selectedClass, setSelectedClass] = useState<string[]>([]);
+  const [selectedSection, setSelectedSection] = useState<string[]>([]);
+  const [selectedDivision, setSelectedDivision] = useState<string[]>([]);
+  const [selectedSex, setSelectedSex] = useState<string[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string[]>([]);
   const [selectedIsCandidate, setSelectedIsCandidate] = useState('ANY');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -40,6 +53,10 @@ const Voters = () => {
   const [uploadErrors, setUploadErrors] = useState<string[]>([]);
   const [openClearConfirm, setOpenClearConfirm] = useState(false);
   const [clearVotersInput, setClearVotersInput] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [signatureMenuAnchor, setSignatureMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedVoterIds, setSelectedVoterIds] = useState<number[]>([]);
+  const [openBulkDeleteConfirm, setOpenBulkDeleteConfirm] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -65,11 +82,11 @@ const Voters = () => {
           page: page + 1,
           limit: rowsPerPage,
           search: debouncedSearch,
-          class_id: selectedClass,
-          section_id: selectedSection,
-          division: selectedDivision,
-          sex: selectedSex,
-          status: selectedStatus,
+          class_id: selectedClass.join(','),
+          section_id: selectedSection.join(','),
+          division: selectedDivision.join(','),
+          sex: selectedSex.join(','),
+          status: selectedStatus.join(','),
           is_candidate: selectedIsCandidate
         }
       });
@@ -82,7 +99,7 @@ const Voters = () => {
 
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, selectedClass, selectedDivision, selectedSex, selectedStatus, selectedIsCandidate]);
+  }, [debouncedSearch, selectedClass, selectedSection, selectedDivision, selectedSex, selectedStatus, selectedIsCandidate]);
 
   const addVoterMutation = useMutation({
     mutationFn: (data: any) => axiosInstance.post('/voters/create', { ...data, election_id: selectedElectionId }),
@@ -109,10 +126,16 @@ const Voters = () => {
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
+      setUploadProgress(0);
       const formData = new FormData();
       formData.append('file', uploadFile!);
       formData.append('election_id', selectedElectionId!);
-      return axiosInstance.post('/voters/upload', formData);
+      return axiosInstance.post('/voters/upload', formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          setUploadProgress(percentCompleted);
+        }
+      });
     },
     onSuccess: (resp: any) => {
       if (resp.data.errors?.length) {
@@ -122,19 +145,35 @@ const Voters = () => {
         setSuccess('Imported successfully!');
         setOpenUpload(false);
       }
+      setUploadProgress(0);
       queryClient.invalidateQueries({ queryKey: ['voters'] });
     },
-    onError: (err: any) => setError(err.response?.data?.message || 'Upload failed')
+    onError: (err: any) => {
+      setUploadProgress(0);
+      setError(err.response?.data?.message || 'Upload failed');
+    }
   });
 
   const deleteVoterMutation = useMutation({
     mutationFn: (id: number) => axiosInstance.delete(`/voters/${id}`),
     onSuccess: () => {
-      setSuccess('Voter deleted!');
+      setSuccess('Voter deleted successfully');
       setDeleteConfirmOpen(false);
+      setVoterToDelete(null);
       queryClient.invalidateQueries({ queryKey: ['voters'] });
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error deleting voter')
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: number[]) => axiosInstance.post('/voters/bulk-delete', { election_id: selectedElectionId, voter_ids: ids }),
+    onSuccess: (resp: any) => {
+      setSuccess(resp.data.message || 'Selected voters deleted successfully');
+      setOpenBulkDeleteConfirm(false);
+      setSelectedVoterIds([]);
+      queryClient.invalidateQueries({ queryKey: ['voters'] });
+    },
+    onError: (err: any) => setError(err.response?.data?.message || 'Error deleting voters')
   });
 
   const clearVotersMutation = useMutation({
@@ -246,6 +285,7 @@ const Voters = () => {
       groupKeys.forEach((key, index) => {
         html += `<div class="voter-group ${index > 0 ? 'page-break' : ''}">`;
         html += `<div class="header">
+                   <div style="font-weight: 800; font-size: 1.2rem; color: #4338ca; margin-bottom: 5px;">${user?.school_name || 'School Voting System'}</div>
                    <h1>${selectedElectionName}</h1>
                    <h2>VOTER SIGNATURE SHEET - ${key}</h2>
                  </div>`;
@@ -276,126 +316,311 @@ const Voters = () => {
     } catch (err) { setError('Failed to generate PDF signature sheet'); }
   };
 
+  const handleExportSignatureExcel = async () => {
+    try {
+      setError(null);
+      const resp = await axiosInstance.get(`/voters/get-voters`, { 
+        params: { election_id: selectedElectionId, limit: 10000, class_id: selectedClass, division: selectedDivision, sex: selectedSex, search: debouncedSearch } 
+      });
+      const data = resp.data.data;
+      if (!data?.length) return;
+
+      const csv = "Admission No,Name,Class,Division,Signature\n" + 
+        data.map((v: any) => `"${v.admission_no}","${v.name}","${v.class_name}","${v.division || ''}","_________________"`).join("\n");
+      
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Signature_Sheet_${selectedElectionName}.csv`;
+      link.click();
+      setSignatureMenuAnchor(null);
+    } catch (err) { setError('Failed to export Excel'); }
+  };
+
+  const handleExportSignatureWord = async () => {
+    try {
+      setError(null);
+      const resp = await axiosInstance.get(`/voters/get-voters`, { 
+        params: { election_id: selectedElectionId, limit: 10000, class_id: selectedClass, division: selectedDivision, sex: selectedSex, search: debouncedSearch } 
+      });
+      const data = resp.data.data;
+      if (!data?.length) return;
+
+      const style = `
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #f0f0f0; border: 1px solid #000; padding: 5px; }
+        td { border: 1px solid #000; padding: 5px; }
+      `;
+
+      let html = `<html><head><style>${style}</style></head><body>`;
+      html += `<h1>${user?.school_name}</h1>`;
+      html += `<h2>${selectedElectionName} - Signature Sheet</h2>`;
+      html += `<table><thead><tr><th>#</th><th>Admission No</th><th>Name</th><th>Class</th><th>Signature</th></tr></thead><tbody>`;
+      data.forEach((v: any, i: number) => {
+        html += `<tr><td>${i+1}</td><td>${v.admission_no}</td><td>${v.name}</td><td>${v.class_name} ${v.division || ''}</td><td></td></tr>`;
+      });
+      html += `</tbody></table></body></html>`;
+
+      const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Signature_Sheet_${selectedElectionName}.doc`;
+      link.click();
+      setSignatureMenuAnchor(null);
+    } catch (err) { setError('Failed to export Word'); }
+  };
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>Voter Management</Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px' }}>Voter Management</Typography>
+        <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', md: 'auto' }, flexWrap: 'wrap' }}>
           {isConfiguring && (
             <>
-              <Button color="error" variant="outlined" startIcon={<Trash2 size={20} />} onClick={() => setOpenClearConfirm(true)} disabled={!selectedElectionId || !voters?.length}>
+              <Button color="error" variant="outlined" startIcon={<Trash2 size={20} />} onClick={() => setOpenClearConfirm(true)} disabled={!selectedElectionId || !voters?.length} sx={{ borderRadius: 2, flexGrow: { xs: 1, sm: 0 } }}>
                 Clear List
               </Button>
-              <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleDownloadTemplate}>
-                Download Voter List Template
-              </Button>
-              <Button variant="outlined" startIcon={<Upload size={20} />} onClick={() => { setUploadErrors([]); setOpenUpload(true); }}>
+              <Button variant="outlined" startIcon={<Upload size={20} />} onClick={() => { setUploadErrors([]); setOpenUpload(true); }} sx={{ borderRadius: 2, flexGrow: { xs: 1, sm: 0 } }}>
                 Bulk Upload
               </Button>
             </>
           )}
           {selectedElectionStatus !== 'CLOSED' && (
-            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => setOpenAdd(true)}>
+            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => setOpenAdd(true)} sx={{ borderRadius: 2, flexGrow: { xs: 1, sm: 1 }, py: 1, fontWeight: 700 }}>
               Add Voter
             </Button>
           )}
         </Box>
       </Box>
 
+      {/* Current Context Banner */}
+      <Box sx={{ 
+        mb: 4, 
+        display: 'flex'
+      }}>
+        <Box sx={{ 
+          p: '1.5px', 
+          borderRadius: '16px', 
+          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
+          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
+          position: 'relative'
+        }}>
+          <Box sx={{ 
+            px: 3, 
+            py: 2, 
+            borderRadius: '15px', 
+            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            gap: 2.5
+          }}>
+            <Box sx={{ 
+              width: 45, 
+              height: 45, 
+              borderRadius: '12px', 
+              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'white',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
+            }}>
+              <Sparkles size={22} />
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ 
+                color: 'text.secondary', 
+                fontWeight: 800, 
+                textTransform: 'uppercase', 
+                letterSpacing: 1.5,
+                fontSize: '0.65rem',
+                display: 'block',
+                mb: 0.5
+              }}>
+                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
+              </Typography>
+              <Typography variant="h6" sx={{ 
+                fontWeight: 900, 
+                color: 'text.primary', 
+                lineHeight: 1.1,
+                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontSize: '1.25rem'
+              }}>
+                {selectedElectionName || 'None Selected'}
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+
       <Paper sx={{ mb: 3, borderRadius: 1, overflow: 'hidden' }}>
         {/* EXPORT & TOOLS */}
-        <Box sx={{ p: 2, bgcolor: 'background.default', display: 'flex', gap: 2, justifyContent: 'flex-end', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ 
+          p: 2, 
+          bgcolor: 'background.default', 
+          display: 'flex', 
+          gap: 2, 
+          alignItems: 'center',
+          justifyContent: { xs: 'center', sm: 'flex-end' }, 
+          flexDirection: { xs: 'column', sm: 'row' },
+          borderBottom: '1px solid', 
+          borderColor: 'divider' 
+        }}>
           <Typography variant="body2" color="text.secondary" sx={{ mr: 'auto', display: 'flex', alignItems: 'center', fontWeight: 700 }}>
              <Settings size={14} style={{ marginRight: 8 }} /> EXPORT & TOOLS
           </Typography>
            <Button variant="outlined" size="small" startIcon={<Download size={18} />} onClick={handleExport} disabled={!voters?.length}>Export CSV</Button>
-           <Button variant="contained" size="small" color="secondary" startIcon={<Download size={18} />} onClick={handlePrintSignatureSheet} disabled={!voters?.length}>Print Signature Sheet (PDF)</Button>
+           <Button 
+            variant="contained" 
+            size="small" 
+            color="secondary" 
+            startIcon={<FileText size={18} />} 
+            endIcon={<ChevronDown size={14} />}
+            onClick={(e) => setSignatureMenuAnchor(e.currentTarget)} 
+            disabled={!voters?.length}
+           >
+            Signature Sheet Options
+           </Button>
+           <Menu
+            anchorEl={signatureMenuAnchor}
+            open={Boolean(signatureMenuAnchor)}
+            onClose={() => setSignatureMenuAnchor(null)}
+            PaperProps={{ sx: { borderRadius: 2, mt: 1, minWidth: 200 } }}
+           >
+             <MenuItem onClick={handlePrintSignatureSheet} sx={{ gap: 1.5 }}>
+               <FileText size={16} /> Print / Save as PDF
+             </MenuItem>
+             <MenuItem onClick={handleExportSignatureExcel} sx={{ gap: 1.5 }}>
+               <Download size={16} /> Download as Excel (CSV)
+             </MenuItem>
+             <MenuItem onClick={handleExportSignatureWord} sx={{ gap: 1.5 }}>
+               <Download size={16} /> Download as Word (.doc)
+             </MenuItem>
+           </Menu>
          </Box>
 
         <Box sx={{ p: 4, bgcolor: 'background.paper' }}>
-          {/* Section 1: Broad Search Interface - FULL WIDTH */}
-          <Box sx={{ mb: 4 }}>
-            <TextField
-              fullWidth
-              placeholder="Search by name or admission number..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              InputProps={{ 
-                startAdornment: <InputAdornment position="start"><Search size={22} color="#666" /></InputAdornment>,
-                sx: { 
-                  height: 60,
-                  bgcolor: 'background.default',
-                  borderRadius: 2,
-                  fontSize: '1rem',
-                  fontWeight: 800
-                }
-              }}
-            />
+        <Box sx={{ mb: 3, display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' } }}>
+          <TextField
+            placeholder="Search Voters (Name / Admission No)..."
+            fullWidth
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ flexGrow: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search size={20} />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', width: { xs: '100%', md: 'auto' } }}>
+            <FormControl sx={{ minWidth: { xs: 'calc(50% - 8px)', sm: 180 } }} size="small">
+              <InputLabel>Section</InputLabel>
+              <Select 
+                multiple
+                value={selectedSection} 
+                label="Section" 
+                onChange={(e) => setSelectedSection(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[])}
+                renderValue={(selected) => selected.map(id => sections?.find((s: any) => String(s.id) === String(id))?.name).join(', ')}
+              >
+                {sections?.map((s: any) => (
+                  <MenuItem key={s.id} value={s.id}>
+                    <Checkbox checked={selectedSection.indexOf(s.id) > -1} size="small" />
+                    <ListItemText primary={s.name} primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: 'calc(50% - 8px)', sm: 150 } }} size="small">
+              <InputLabel>Class</InputLabel>
+              <Select 
+                multiple
+                value={selectedClass} 
+                label="Class" 
+                onChange={(e) => setSelectedClass(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[])}
+                renderValue={(selected) => selected.map(id => classes?.find((c: any) => String(c.id) === String(id))?.name).join(', ')}
+              >
+                {classes?.filter((c: any) => selectedSection.length === 0 || selectedSection.some(sid => String(c.section_id) === String(sid))).map((c: any) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    <Checkbox checked={selectedClass.indexOf(c.id) > -1} size="small" />
+                    <ListItemText primary={c.name} primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: 'calc(50% - 8px)', sm: 110 } }} size="small">
+              <InputLabel>Division</InputLabel>
+              <Select 
+                multiple
+                value={selectedDivision} 
+                label="Division" 
+                onChange={(e) => setSelectedDivision(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[])}
+                renderValue={(selected) => selected.join(', ')}
+              >
+                {['A', 'B', 'C', 'D', 'E', 'F'].map(div => (
+                  <MenuItem key={div} value={div}>
+                    <Checkbox checked={selectedDivision.indexOf(div) > -1} size="small" />
+                    <ListItemText primary={div} primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: 'calc(50% - 8px)', sm: 110 } }} size="small">
+              <InputLabel>Sex</InputLabel>
+              <Select 
+                multiple
+                value={selectedSex} 
+                label="Sex" 
+                onChange={(e) => setSelectedSex(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[])}
+                renderValue={(selected) => selected.map(s => s === 'M' ? 'Male' : 'Female').join(', ')}
+              >
+                <MenuItem value="M">
+                  <Checkbox checked={selectedSex.indexOf('M') > -1} size="small" />
+                  <ListItemText primary="Male" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                </MenuItem>
+                <MenuItem value="F">
+                  <Checkbox checked={selectedSex.indexOf('F') > -1} size="small" />
+                  <ListItemText primary="Female" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                </MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl sx={{ minWidth: { xs: '100%', sm: 150 } }} size="small">
+              <InputLabel>Status</InputLabel>
+              <Select 
+                multiple
+                value={selectedStatus} 
+                label="Status" 
+                onChange={(e) => setSelectedStatus(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value as string[])}
+                renderValue={(selected) => selected.map(s => {
+                   if (s === 'READY') return 'Ready';
+                   if (s === 'VOTED') return 'Voted';
+                   if (s === 'BLOCKED') return 'Blocked';
+                   return s;
+                }).join(', ')}
+              >
+                <MenuItem value="READY">
+                  <Checkbox checked={selectedStatus.indexOf('READY') > -1} size="small" />
+                  <ListItemText primary="Ready to Vote" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                </MenuItem>
+                <MenuItem value="VOTED">
+                  <Checkbox checked={selectedStatus.indexOf('VOTED') > -1} size="small" />
+                  <ListItemText primary="Voted" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                </MenuItem>
+                <MenuItem value="BLOCKED">
+                  <Checkbox checked={selectedStatus.indexOf('BLOCKED') > -1} size="small" />
+                  <ListItemText primary="Blocked" primaryTypographyProps={{ fontSize: '0.875rem' }} />
+                </MenuItem>
+              </Select>
+            </FormControl>
           </Box>
-
-          {/* Section 2: Refined Filters Grid - FORCED FULL WIDTH FOR FIRST TWO */}
-          <Grid container spacing={2}>
-            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
-               <FormControl fullWidth>
-                <InputLabel sx={{ fontWeight: 800 }}>Section</InputLabel>
-                <Select value={selectedSection} label="Section" onChange={e => setSelectedSection(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
-                  <MenuItem value="">All Sections</MenuItem>
-                  {sections?.map((s: any) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
-               <FormControl fullWidth>
-                <InputLabel sx={{ fontWeight: 800 }}>Class</InputLabel>
-                <Select value={selectedClass} label="Class" onChange={e => setSelectedClass(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
-                  <MenuItem value="">All Classes</MenuItem>
-                  {classes?.map((c: any) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
-               <FormControl fullWidth>
-                <InputLabel sx={{ fontWeight: 800 }}>Division</InputLabel>
-                <Select value={selectedDivision} label="Division" onChange={e => setSelectedDivision(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
-                  <MenuItem value="">All Divisions</MenuItem>
-                  {Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map(div => (
-                    <MenuItem key={div} value={div}>Division {div}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 3, lg: 2 }}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ fontWeight: 800 }}>Gender</InputLabel>
-                <Select value={selectedSex} label="Gender" onChange={e => setSelectedSex(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
-                   <MenuItem value="ANY">Any Gender</MenuItem>
-                   <MenuItem value="M">Male (M)</MenuItem>
-                   <MenuItem value="F">Female (F)</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 2 }}>
-               <FormControl fullWidth>
-                <InputLabel sx={{ fontWeight: 800 }}>Voting Status</InputLabel>
-                <Select value={selectedStatus} label="Voting Status" onChange={e => setSelectedStatus(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
-                   <MenuItem value="ANY">Any Status</MenuItem>
-                   <MenuItem value="READY">Ready</MenuItem>
-                   <MenuItem value="VOTED">Voted</MenuItem>
-                   <MenuItem value="BLOCKED">Blocked</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6, md: 6, lg: 2 }}>
-               <FormControl fullWidth>
-                <InputLabel sx={{ fontWeight: 800 }}>Candidacy</InputLabel>
-                <Select value={selectedIsCandidate} label="Candidacy" onChange={e => setSelectedIsCandidate(e.target.value)} sx={{ height: 60, borderRadius: 2 }}>
-                   <MenuItem value="ANY">Any</MenuItem>
-                   <MenuItem value="YES">Candidate</MenuItem>
-                   <MenuItem value="NO">Voter Only</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+        </Box>
         </Box>
         
         {/* Active Filter Status Message - Reduced size as requested */}
@@ -403,13 +628,13 @@ const Voters = () => {
            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
              {isLoading ? "Updating list..." : `Showing ${totalCount} records matching your filters`}
            </Typography>
-           {(selectedClass || selectedDivision || selectedSex !== 'ANY' || selectedStatus !== 'ANY' || selectedIsCandidate !== 'ANY' || searchQuery) && (
+           {(selectedClass.length > 0 || selectedSection.length > 0 || selectedDivision.length > 0 || selectedSex.length > 0 || selectedStatus.length > 0 || selectedIsCandidate !== 'ANY' || searchQuery) && (
              <Button variant="outlined" color="error" size="small" onClick={() => { 
-               setSelectedClass(''); 
-               setSelectedSection('');
-               setSelectedDivision(''); 
-               setSelectedSex('ANY'); 
-               setSelectedStatus('ANY'); 
+               setSelectedClass([]); 
+               setSelectedSection([]);
+               setSelectedDivision([]); 
+               setSelectedSex([]); 
+               setSelectedStatus([]); 
                setSelectedIsCandidate('ANY'); 
                setSearchQuery('');
              }}>Clear All Filters</Button>
@@ -419,11 +644,65 @@ const Voters = () => {
 
       {selectedElectionId && (
         <>
+          {selectedVoterIds.length > 0 && (
+            <Paper sx={{ 
+              mb: 2, 
+              p: 2, 
+              bgcolor: theme => alpha(theme.palette.primary.main, 0.05), 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              border: '1px solid',
+              borderColor: 'primary.light',
+              borderRadius: 3,
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.1)'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Checkbox 
+                  indeterminate={selectedVoterIds.length > 0 && selectedVoterIds.length < voters.length}
+                  checked={voters.length > 0 && selectedVoterIds.length === voters.length}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedVoterIds(voters.map((v: any) => v.id));
+                    else setSelectedVoterIds([]);
+                  }}
+                />
+                <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'primary.main' }}>
+                  {selectedVoterIds.length} Voters Selected
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1.5 }}>
+                <Button size="small" onClick={() => setSelectedVoterIds([])} sx={{ fontWeight: 700 }}>Cancel</Button>
+                <Button 
+                  variant="contained" 
+                  color="error" 
+                  startIcon={<Trash2 size={18} />} 
+                  onClick={() => setOpenBulkDeleteConfirm(true)}
+                  sx={{ borderRadius: 2, fontWeight: 800, px: 3 }}
+                >
+                  Delete Selected
+                </Button>
+              </Box>
+            </Paper>
+          )}
           {isFetching && <LinearProgress sx={{ height: 3, mb: -0.3, zIndex: 1, position: 'relative' }} />}
-          <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+          <TableContainer component={Paper} sx={{ borderRadius: 1, overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      indeterminate={selectedVoterIds.length > 0 && selectedVoterIds.length < voters.length}
+                      checked={voters.length > 0 && selectedVoterIds.length === voters.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedVoterIds(voters.map((v: any) => v.id));
+                        } else {
+                          setSelectedVoterIds([]);
+                        }
+                      }}
+                      sx={{ color: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'inherit' }}
+                    />
+                  </TableCell>
                   <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Admission No</TableCell>
                   <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Name</TableCell>
                   <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Class</TableCell>
@@ -435,11 +714,23 @@ const Voters = () => {
               </TableHead>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 8 }}><CircularProgress size={32} /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} align="center" sx={{ py: 8 }}><CircularProgress size={32} /></TableCell></TableRow>
                 ) : voters?.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} align="center" sx={{ py: 8, color: 'text.secondary' }}>No voters found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} align="center" sx={{ py: 8, color: 'text.secondary' }}>No voters found</TableCell></TableRow>
                 ) : voters?.map((v: any) => (
-                  <TableRow key={v.id} hover>
+                  <TableRow key={v.id} hover selected={selectedVoterIds.includes(v.id)}>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selectedVoterIds.includes(v.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedVoterIds([...selectedVoterIds, v.id]);
+                          } else {
+                            setSelectedVoterIds(selectedVoterIds.filter(id => id !== v.id));
+                          }
+                        }}
+                      />
+                    </TableCell>
                     <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>
                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         {v.admission_no}
@@ -494,6 +785,18 @@ const Voters = () => {
       <Dialog open={openAdd} onClose={() => setOpenAdd(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>Add New Voter</DialogTitle>
         <DialogContent sx={{ mt: 1 }}>
+          {stats?.plan && (
+            <Alert severity={stats.totalVoters >= (stats.plan.custom_max_voters || stats.plan.max_voters) ? "error" : "info"} sx={{ mb: 3, borderRadius: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                Voter Usage: {stats.totalVoters} / {stats.plan.custom_max_voters || stats.plan.max_voters} Voters
+              </Typography>
+              {stats.totalVoters >= (stats.plan.custom_max_voters || stats.plan.max_voters) && (
+                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                  You have reached your voter limit. Please upgrade your plan or delete existing voters.
+                </Typography>
+              )}
+            </Alert>
+          )}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <TextField fullWidth label="Admission No" value={voterForm.admission_no} onChange={e => setVoterForm(p => ({ ...p, admission_no: e.target.value.toUpperCase() }))} required autoFocus />
             <TextField fullWidth label="Full Name" value={voterForm.name} onChange={e => setVoterForm(p => ({ ...p, name: e.target.value }))} required />
@@ -515,7 +818,11 @@ const Voters = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenAdd(false)}>Cancel</Button>
-          <Button variant="contained" disabled={addVoterMutation.isPending} onClick={() => addVoterMutation.mutate(voterForm)}>
+          <Button 
+            variant="contained" 
+            disabled={addVoterMutation.isPending || (stats?.plan && stats.totalVoters >= (stats.plan.custom_max_voters || stats.plan.max_voters))} 
+            onClick={() => addVoterMutation.mutate(voterForm)}
+          >
             {addVoterMutation.isPending ? <CircularProgress size={20} /> : 'Save Voter'}
           </Button>
         </DialogActions>
@@ -564,6 +871,30 @@ const Voters = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Bulk Delete Confirmation */}
+      <Dialog open={openBulkDeleteConfirm} onClose={() => setOpenBulkDeleteConfirm(false)}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: 'error.main', fontWeight: 800 }}>
+          <AlertTriangle size={24} /> Bulk Delete Confirmation
+        </DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete the <strong>{selectedVoterIds.length}</strong> selected voters? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenBulkDeleteConfirm(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            onClick={() => bulkDeleteMutation.mutate(selectedVoterIds)}
+            disabled={bulkDeleteMutation.isPending}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            {bulkDeleteMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Block/Unblock Confirmation */}
       <Dialog open={openBlockConfirm} onClose={() => setOpenBlockConfirm(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>{selectedVoter?.is_blocked ? 'Unblock Voter' : 'Block Voter'}</DialogTitle>
@@ -585,6 +916,13 @@ const Voters = () => {
       <Dialog open={openUpload} onClose={() => setOpenUpload(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Bulk Import Voters</DialogTitle>
         <DialogContent>
+          {stats?.plan && (
+            <Alert severity={stats.totalVoters >= (stats.plan.custom_max_voters || stats.plan.max_voters) ? "error" : "info"} sx={{ mb: 2, borderRadius: 2 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                Voter Usage: {stats.totalVoters} / {stats.plan.custom_max_voters || stats.plan.max_voters} Voters
+              </Typography>
+            </Alert>
+          )}
           <Alert 
             severity="info" 
             sx={{ mb: 2 }}
@@ -598,8 +936,46 @@ const Voters = () => {
           </Alert>
           <input type="file" ref={fileRef} accept=".xlsx,.xls,.csv" onChange={e => setUploadFile(e.target.files?.[0] || null)} />
           {uploadErrors.length > 0 && (
-            <Box sx={{ mt: 2, p: 1, bgcolor: 'error.lighter', borderRadius: 1 }}>
-              <Typography variant="caption" color="error" sx={{ fontWeight: 700 }}>Errors found: {uploadErrors.length}</Typography>
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle2" color="error" sx={{ fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AlertTriangle size={18} />
+                Validation Errors ({uploadErrors.length})
+              </Typography>
+              <Paper 
+                variant="outlined" 
+                sx={{ 
+                  maxHeight: 200, 
+                  overflow: 'auto', 
+                  bgcolor: alpha('#f44336', 0.05),
+                  borderColor: alpha('#f44336', 0.2),
+                  borderRadius: 2
+                }}
+              >
+                <List size="small" disablePadding>
+                  {uploadErrors.map((err, i) => (
+                    <React.Fragment key={i}>
+                      <ListItem sx={{ py: 1 }}>
+                        <ListItemText 
+                          primary={
+                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'error.main' }}>
+                              Row {typeof err === 'object' ? (err as any).row || i + 1 : i + 1}:
+                            </Typography>
+                          }
+                          secondary={
+                            <Typography variant="caption" display="block">
+                              {typeof err === 'object' ? (err as any).message || JSON.stringify(err) : err}
+                            </Typography>
+                          }
+                        />
+                      </ListItem>
+                      {i < uploadErrors.length - 1 && <Divider sx={{ opacity: 0.5 }} />}
+                    </React.Fragment>
+                  ))}
+                </List>
+              </Paper>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                Please fix these issues in your file and try uploading again.
+              </Typography>
             </Box>
           )}
         </DialogContent>
@@ -627,11 +1003,35 @@ const Voters = () => {
       </Dialog>
 
       {/* Processing Loader */}
-      <Dialog open={uploadMutation.isPending || clearVotersMutation.isPending} disableEscapeKeyDown>
+      <Dialog open={uploadMutation.isPending || clearVotersMutation.isPending} disableEscapeKeyDown maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <Paper sx={{ p: 5, textAlign: 'center' }}>
-          <CircularProgress sx={{ mb: 2 }} />
-          <Typography variant="h6">Processing Data...</Typography>
-          <Typography variant="caption" color="text.secondary">Do not refresh page</Typography>
+          {uploadMutation.isPending ? (
+            <>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Uploading Voters...</Typography>
+                <Typography variant="body2" color="text.secondary">Please wait while we process the file</Typography>
+              </Box>
+              <Box sx={{ width: '100%', mb: 2 }}>
+                <LinearProgress 
+                  variant={uploadProgress > 0 ? "determinate" : "indeterminate"} 
+                  value={uploadProgress} 
+                  sx={{ height: 10, borderRadius: 5 }}
+                />
+              </Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                {uploadProgress > 0 ? `${uploadProgress}% Completed` : 'Preparing...'}
+              </Typography>
+            </>
+          ) : (
+            <>
+              <CircularProgress sx={{ mb: 3 }} size={50} thickness={4} />
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Processing Data...</Typography>
+              <Typography variant="body2" color="text.secondary">This may take a moment</Typography>
+            </>
+          )}
+          <Typography variant="caption" display="block" sx={{ mt: 3, opacity: 0.5 }}>
+            Do not refresh or close this tab
+          </Typography>
         </Paper>
       </Dialog>
       

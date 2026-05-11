@@ -16,12 +16,37 @@ import { createFilterOptions } from '@mui/material/Autocomplete';
 import { ELECTION_SYMBOLS } from '../../constants/symbols';
 import * as LucideIcons from 'lucide-react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import Webcam from 'react-webcam';
 
 const filter = createFilterOptions({
   limit: 50, // Only show first 50 matches to keep typing smooth
 });
 
 const BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+
+const getPostColor = (postName: string) => {
+  const colors = [
+    { bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe' }, // Indigo
+    { bg: '#faf5ff', text: '#7e22ce', border: '#e9d5ff' }, // Purple
+    { bg: '#fdf2f8', text: '#be185d', border: '#fbcfe8' }, // Pink
+    { bg: '#fff1f2', text: '#be123c', border: '#fecdd3' }, // Rose
+    { bg: '#fff7ed', text: '#c2410c', border: '#ffedd5' }, // Orange
+    { bg: '#fefce8', text: '#a16207', border: '#fef08a' }, // Yellow
+    { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' }, // Green
+    { bg: '#ecfeff', text: '#0e7490', border: '#cffafe' }, // Cyan
+    { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' }, // Blue
+    { bg: '#f5f3ff', text: '#6d28d9', border: '#ddd6fe' }, // Violet
+  ];
+  
+  if (!postName) return colors[0];
+  
+  let hash = 0;
+  for (let i = 0; i < postName.length; i++) {
+    hash = postName.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  return colors[Math.abs(hash) % colors.length];
+};
 
 const Candidates = () => {
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
@@ -58,6 +83,8 @@ const Candidates = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+  const webcamRef = useRef<Webcam>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
 
   const { data: elections } = useQuery({
@@ -258,6 +285,16 @@ const Candidates = () => {
         setCropDialogOpen(true);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCapture = () => {
+    const imageSrc = webcamRef.current?.getScreenshot();
+    if (imageSrc) {
+      setImageToCrop(imageSrc);
+      setCroppingFor('photo');
+      setCropDialogOpen(true);
+      setCameraOpen(false);
     }
   };
 
@@ -550,37 +587,68 @@ const Candidates = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>Candidate Management</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 0.5 }}>Candidate Management</Typography>
           <Typography variant="body2" color="text.secondary">Register and manage candidates for {selectedElectionName || 'the current election'}.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', md: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
           <Button 
             variant="outlined" 
             startIcon={<Search size={20} />} 
             onClick={() => setLibraryDialogOpen(true)}
-            sx={{ borderRadius: 1.5 }}
+            sx={{ borderRadius: 2, height: 44, px: 3, fontWeight: 700 }}
           >
             Symbol Library
           </Button>
           {isConfiguring && (
-            <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => { 
-            setError(null); 
-            setEligibilityError(null);
-            setAdmissionNo('');
-            setFoundVoter(null);
-            setPhoto(null);
-            setSymbol(null);
-            setPhotoPreview(null);
-            setSymbolPreview(null);
-            setOpen(true); 
-          }} disabled={!selectedElectionId}>
-            Register Candidate
-          </Button>
-        )}
+            <Button 
+              variant="contained" 
+              startIcon={<Plus size={20} />} 
+              onClick={() => { 
+                setError(null); 
+                setEligibilityError(null);
+                setAdmissionNo('');
+                setFoundVoter(null);
+                setPhoto(null);
+                setSymbol(null);
+                setPhotoPreview(null);
+                setSymbolPreview(null);
+                setOpen(true); 
+              }} 
+              disabled={!selectedElectionId}
+              sx={{ borderRadius: 2, height: 44, px: 3, fontWeight: 700 }}
+            >
+              Register Candidate
+            </Button>
+          )}
         </Box>
       </Box>
+
+      {/* Camera Dialog */}
+      <Dialog open={cameraOpen} onClose={() => setCameraOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Take Candidate Photo</DialogTitle>
+        <DialogContent>
+          <Box sx={{ position: 'relative', width: '100%', borderRadius: 2, overflow: 'hidden', bgcolor: 'black' }}>
+            <Webcam
+              audio={false}
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              videoConstraints={{ facingMode: "user", width: 1280, height: 720 }}
+              style={{ width: '100%', display: 'block' }}
+            />
+          </Box>
+          <Typography variant="caption" sx={{ mt: 1, display: 'block', textAlign: 'center', color: 'text.secondary' }}>
+            Position the candidate within the frame and click capture.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setCameraOpen(false)}>Cancel</Button>
+          <Button variant="contained" startIcon={<Camera size={20} />} onClick={handleCapture}>
+            Capture Photo
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!success}
@@ -604,6 +672,7 @@ const Candidates = () => {
         </Alert>
       </Snackbar>
 
+
       {/* Current Context Banner */}
       <Box sx={{ 
         mb: 4, 
@@ -622,7 +691,8 @@ const Candidates = () => {
             borderRadius: '15px', 
             background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
             display: 'flex',
-            alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
             gap: 2.5
           }}>
             <Box sx={{ 
@@ -733,7 +803,7 @@ const Candidates = () => {
       </Paper>
 
       {selectedElectionId && (
-        <TableContainer component={Paper} sx={{ borderRadius: 1, overflow: 'hidden' }}>
+        <TableContainer component={Paper} sx={{ borderRadius: 1, overflowX: 'auto' }}>
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
@@ -768,40 +838,85 @@ const Candidates = () => {
                   const matchGender = filterGender === '' || c.sex === filterGender;
                   const matchClass = filterClass === '' || c.class_name === filterClass;
                   return matchSearch && matchGender && matchClass;
-                }).map((c: any) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar src={c.photo ? `${BASE_URL}${c.photo}?v=${new Date().getTime()}` : undefined} sx={{ bgcolor: 'primary.main' }}>
-                        {c.candidate_name?.charAt(0) || <User size={16} />}
-                      </Avatar>
-                      <Typography fontWeight={600}>{c.candidate_name}</Typography>
-                      {c.is_blocked === 1 && (
-                        <Chip label="DISQUALIFIED" size="small" color="error" variant="filled" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 900, ml: 1 }} />
-                      )}
-                    </Box>
-                  </TableCell>
-                  <TableCell sx={{ fontFamily: 'monospace' }}>{c.admission_no}</TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{c.class_name}</Typography>
-                    <Typography variant="caption" color="text.secondary">{c.division ? `Div ${c.division}` : 'No Div'}</Typography>
-                  </TableCell>
-                  <TableCell><Chip label={c.post_name} size="small" color="primary" /></TableCell>
-                  <TableCell>
-                    <Chip label={c.sex === 'M' ? '♂ Male' : '♀ Female'} size="small"
-                      color={c.sex === 'M' ? 'info' : 'secondary'} />
-                  </TableCell>
+                }).map((c: any) => {
+                  const postColor = getPostColor(c.post_name);
+                  return (
+                    <TableRow key={c.id} sx={{ 
+                      backgroundColor: alpha(postColor.bg, 0.5),
+                      '&:hover': { backgroundColor: alpha(postColor.bg, 0.8) },
+                      transition: 'background-color 0.2s'
+                    }}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Avatar 
+                            src={c.photo ? `${BASE_URL}${c.photo}?v=${new Date().getTime()}` : undefined} 
+                            sx={{ 
+                              width: 48, 
+                              height: 48, 
+                              bgcolor: postColor.text,
+                              boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+                            }}
+                          >
+                            {c.candidate_name?.charAt(0) || <User size={20} />}
+                          </Avatar>
+                          <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>{c.candidate_name}</Typography>
+                          {c.is_blocked === 1 && (
+                            <Chip label="DISQUALIFIED" size="small" color="error" variant="filled" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 900, ml: 1 }} />
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{c.admission_no}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{c.class_name}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{c.division ? `Div ${c.division}` : 'No Div'}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={c.post_name} 
+                          size="small" 
+                          sx={{ 
+                            bgcolor: 'white', 
+                            color: postColor.text, 
+                            fontWeight: 900,
+                            border: '2px solid',
+                            borderColor: postColor.text,
+                            borderRadius: '6px',
+                            textTransform: 'uppercase',
+                            fontSize: '0.7rem'
+                          }} 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip label={c.sex === 'M' ? '♂ Male' : '♀ Female'} size="small"
+                          color={c.sex === 'M' ? 'info' : 'secondary'} sx={{ fontWeight: 700 }} />
+                      </TableCell>
                    <TableCell>
                     {c.symbol ? (
-                      <Avatar src={`${BASE_URL}${c.symbol}?v=${new Date().getTime()}`} variant="square" sx={{ width: 32, height: 32, bgcolor: 'transparent', p: 0.5 }}>
-                         <Image size={16} />
-                      </Avatar>
+                      <Box sx={{ 
+                        width: 50, 
+                        height: 50, 
+                        p: 0.5, 
+                        border: '1px solid', 
+                        borderColor: 'divider', 
+                        borderRadius: 2, 
+                        bgcolor: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                      }}>
+                        <img 
+                          src={`${BASE_URL}${c.symbol}?v=${new Date().getTime()}`} 
+                          alt={c.symbol_name} 
+                          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+                        />
+                      </Box>
                     ) : (
-                      <Typography variant="caption" color="text.secondary">No Image</Typography>
+                      <Typography variant="caption" color="text.secondary">No Symbol</Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 800, color: 'primary.main' }}>{c.symbol_name || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: postColor.text, fontSize: '0.95rem' }}>{c.symbol_name || 'N/A'}</Typography>
                   </TableCell>
                   <TableCell align="right">
                     {isConfiguring && (
@@ -837,7 +952,8 @@ const Candidates = () => {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+                  );
+                })}
             </TableBody>
           </Table>
         </TableContainer>
@@ -942,7 +1058,7 @@ const Candidates = () => {
 
             <Grid container spacing={2}>
               {/* 1. Candidate Symbol First */}
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                   <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>SYMBOL</Typography>
                   <Button 
@@ -986,9 +1102,12 @@ const Candidates = () => {
               </Grid>
 
               {/* 2. Candidate Photo Second */}
-              <Grid size={{ xs: 6 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, height: 26 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, height: 26, justifyContent: 'space-between' }}>
                   <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>PHOTO</Typography>
+                  <Button size="small" variant="text" startIcon={<Camera size={14} />} onClick={() => setCameraOpen(true)} sx={{ p: 0, minWidth: 0, fontWeight: 800 }}>
+                    Take Photo
+                  </Button>
                 </Box>
                 <input type="file" ref={photoInputRef} hidden accept="image/jpeg" onChange={handlePhotoChange} />
                 <Box 
@@ -1065,8 +1184,11 @@ const Candidates = () => {
 
             <Grid container spacing={4}>
               <Grid size={{ xs: 6 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, height: 26, justifyContent: 'center' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, height: 26, justifyContent: 'space-between' }}>
                   <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>PHOTO</Typography>
+                  <Button size="small" variant="text" startIcon={<Camera size={14} />} onClick={() => setCameraOpen(true)} sx={{ p: 0, minWidth: 0, fontWeight: 800 }}>
+                    Take Photo
+                  </Button>
                 </Box>
                 <input type="file" ref={photoInputRef} hidden accept="image/*" onChange={handlePhotoChange} />
                 <Box 

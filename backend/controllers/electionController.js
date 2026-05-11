@@ -31,11 +31,30 @@ exports.createElection = async (req, res) => {
     }
     const school_code = schoolRows[0].code;
 
-    // 2. Count existing elections to generate the next number
+    // 2. Fetch School Plan Limits
+    const [schoolInfo] = await db.execute(`
+      SELECT s.custom_max_elections, p.max_elections 
+      FROM schools s
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      WHERE s.id = ?
+    `, [school_id]);
+
+    const maxElections = (schoolInfo[0]?.custom_max_elections !== null && schoolInfo[0]?.custom_max_elections !== undefined) 
+      ? schoolInfo[0].custom_max_elections 
+      : (schoolInfo[0]?.max_elections || 1); // Default to 1 if no plan found
+
+    // 3. Count existing elections
     const [countRows] = await db.execute(
       "SELECT COUNT(*) as count FROM elections WHERE school_id = ?",
       [school_id]
     );
+
+    if (countRows[0].count >= maxElections) {
+      return res.status(403).json({ 
+        message: `Election limit reached. Your current plan allows a maximum of ${maxElections} elections. Please upgrade your plan.` 
+      });
+    }
+
     const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
     const election_code = `${school_code}-EL${nextNumber}`;
 
@@ -170,11 +189,20 @@ exports.getStats = async (req, res) => {
       [school_id]
     );
 
+    const [planInfo] = await db.execute(`
+      SELECT s.plan_id, s.custom_max_voters, s.custom_max_elections, s.subscription_status, s.subscription_expiry,
+             p.name as plan_name, p.max_voters, p.max_elections
+      FROM schools s
+      JOIN subscription_plans p ON s.plan_id = p.id
+      WHERE s.id = ?
+    `, [school_id]);
+
     res.json({
       totalElections,
       totalVoters,
       totalCandidates,
-      activeBooths
+      activeBooths,
+      plan: planInfo[0] || null
     });
 
   } catch (error) {
@@ -871,11 +899,31 @@ exports.duplicateElection = async (req, res) => {
     const original = originalRows[0];
     const { name: newName, start_time: newStartTime, end_time: newEndTime } = req.body || {};
 
-    // 2. Count existing elections to generate new code
+    // 2. Fetch School Plan Limits
+    const [schoolInfo] = await connection.execute(`
+      SELECT s.custom_max_elections, p.max_elections 
+      FROM schools s
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      WHERE s.id = ?
+    `, [school_id]);
+
+    const maxElections = (schoolInfo[0]?.custom_max_elections !== null && schoolInfo[0]?.custom_max_elections !== undefined) 
+      ? schoolInfo[0].custom_max_elections 
+      : (schoolInfo[0]?.max_elections || 1);
+
+    // 3. Count existing elections
     const [countRows] = await connection.execute(
       "SELECT COUNT(*) as count FROM elections WHERE school_id = ?",
       [school_id]
     );
+
+    if (countRows[0].count >= maxElections) {
+      await connection.rollback();
+      return res.status(403).json({ 
+        message: `Election limit reached. Your current plan allows a maximum of ${maxElections} elections. Please upgrade your plan.` 
+      });
+    }
+
     const [schoolRows] = await connection.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
     const school_code = schoolRows[0].code;
     const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
@@ -960,5 +1008,312 @@ exports.duplicateElection = async (req, res) => {
     res.status(500).json({ message: "Server error duplicating election", error: error.message });
   } finally {
     if (connection) connection.release();
+  }
+};
+
+exports.duplicateElection = async (req, res) => {
+  let connection;
+  try {
+    const { id: originalElectionId } = req.params;
+    const school_id = req.user.school_id;
+    const created_by = req.user.id;
+    
+    // Options for selective cloning
+    const { 
+      name: newName, 
+      start_time: newStartTime, 
+      end_time: newEndTime,
+      includeSections = false,
+      includeClasses = false,
+      includeVoters = false,
+      includePosts = false,
+      includeCandidates = false
+    } = req.body || {};
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // 1. Get original election
+    const [originalRows] = await connection.execute(
+      "SELECT name, start_time, end_time FROM elections WHERE id = ? AND school_id = ?",
+      [originalElectionId, school_id]
+    );
+
+    if (originalRows.length === 0) {
+      if (connection) await connection.rollback();
+      return res.status(404).json({ message: "Original election not found" });
+    }
+
+    const original = originalRows[0];
+
+    // 2. Count existing elections to generate new code
+    const [countRows] = await connection.execute(
+      "SELECT COUNT(*) as count FROM elections WHERE school_id = ?",
+      [school_id]
+    );
+    const [schoolRows] = await connection.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
+    const school_code = schoolRows[0].code;
+    const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
+    const election_code = `${school_code}-EL${nextNumber}`;
+
+    // 3. Create new election (Status: DRAFT)
+    const [elecResult] = await connection.execute(
+      `INSERT INTO elections (school_id, name, start_time, end_time, created_by, election_code, status) 
+       VALUES (?, ?, ?, ?, ?, ?, 'DRAFT')`,
+      [
+        school_id, 
+        newName || `Copy of ${original.name}`, 
+        newStartTime || original.start_time, 
+        newEndTime || original.end_time, 
+        created_by, 
+        election_code
+      ]
+    );
+    const newElectionId = elecResult.insertId;
+
+    // Mapping maps to track old IDs to new IDs
+    const sectionMap = new Map();
+    const classMap = new Map();
+    const voterMap = new Map();
+    const postMap = new Map();
+
+    // 4. Duplicate Sections
+    if (includeSections) {
+      const [sectionRows] = await connection.execute(
+        "SELECT id, name FROM sections WHERE election_id = ? AND school_id = ?",
+        [originalElectionId, school_id]
+      );
+      for (const s of sectionRows) {
+        const [result] = await connection.execute(
+          "INSERT INTO sections (school_id, election_id, name) VALUES (?, ?, ?)",
+          [school_id, newElectionId, s.name]
+        );
+        sectionMap.set(s.id, result.insertId);
+      }
+    }
+
+    // 5. Duplicate Classes
+    if (includeClasses) {
+      const [classRows] = await connection.execute(
+        "SELECT id, name, section_id FROM classes WHERE election_id = ? AND school_id = ?",
+        [originalElectionId, school_id]
+      );
+      for (const c of classRows) {
+        const newSectionId = sectionMap.get(c.section_id) || null;
+        const [result] = await connection.execute(
+          "INSERT INTO classes (school_id, election_id, section_id, name) VALUES (?, ?, ?, ?)",
+          [school_id, newElectionId, newSectionId, c.name]
+        );
+        classMap.set(c.id, result.insertId);
+      }
+    }
+
+    // 6. Duplicate Voters
+    if (includeVoters) {
+      const [voterRows] = await connection.execute(
+        "SELECT id, admission_no, name, class_id, sex, division, is_blocked FROM voters WHERE election_id = ? AND school_id = ?",
+        [originalElectionId, school_id]
+      );
+
+      for (const v of voterRows) {
+        const newClassId = classMap.get(v.class_id) || null;
+        const [voterResult] = await connection.execute(
+          `INSERT INTO voters (school_id, election_id, admission_no, name, class_id, sex, division, is_blocked) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [school_id, newElectionId, v.admission_no, v.name, newClassId, v.sex, v.division || null, v.is_blocked || 0]
+        );
+        voterMap.set(v.id, voterResult.insertId);
+      }
+    }
+
+    // 7. Duplicate Posts
+    if (includePosts) {
+      const [postRows] = await connection.execute(
+        "SELECT id, name, candidate_classes, voting_classes, gender_rule FROM posts WHERE election_id = ? AND school_id = ?",
+        [originalElectionId, school_id]
+      );
+
+      for (const p of postRows) {
+        // Map class IDs in candidate_classes and voting_classes JSON arrays
+        let candClasses = p.candidate_classes;
+        let votClasses = p.voting_classes;
+
+        try {
+          if (typeof candClasses === 'string') candClasses = JSON.parse(candClasses);
+          if (typeof votClasses === 'string') votClasses = JSON.parse(votClasses);
+          
+          if (Array.isArray(candClasses)) {
+             candClasses = candClasses.map(id => classMap.get(id)).filter(id => id !== undefined);
+          }
+          if (Array.isArray(votClasses)) {
+             votClasses = votClasses.map(id => classMap.get(id)).filter(id => id !== undefined);
+          }
+        } catch (e) {
+          console.error("Error mapping classes for post:", e);
+        }
+
+        const [postResult] = await connection.execute(
+          `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [school_id, newElectionId, p.name, JSON.stringify(candClasses), JSON.stringify(votClasses), p.gender_rule]
+        );
+        postMap.set(p.id, postResult.insertId);
+      }
+    }
+
+    // 8. Duplicate Candidates
+    if (includeCandidates && includeVoters && includePosts) {
+      const [candRows] = await connection.execute(
+        "SELECT voter_id, post_id, photo, symbol, symbol_name FROM candidates WHERE election_id = ? AND school_id = ?",
+        [originalElectionId, school_id]
+      );
+
+      for (const c of candRows) {
+        const newVoterId = voterMap.get(c.voter_id);
+        const newPostId = postMap.get(c.post_id);
+
+        if (newVoterId && newPostId) {
+          await connection.execute(
+            `INSERT INTO candidates (school_id, election_id, voter_id, post_id, photo, symbol, symbol_name) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [school_id, newElectionId, newVoterId, newPostId, c.photo, c.symbol, c.symbol_name]
+          );
+        }
+      }
+    }
+
+    await connection.commit();
+    res.json({ 
+      message: "Election duplicated successfully", 
+      election_id: newElectionId,
+      election_code: election_code
+    });
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error("Duplicate Error:", error);
+    res.status(500).json({ message: "Server error duplicating election", error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
+/**
+ * Import Post Structure from another election
+ */
+exports.importPostStructure = async (req, res) => {
+  try {
+    const { target_election_id } = req.params;
+    const { from_election_id } = req.body;
+    const school_id = req.user.school_id;
+
+    if (!from_election_id || !target_election_id) {
+      return res.status(400).json({ message: "Missing election IDs" });
+    }
+
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // Verify source election belongs to school
+      const [sourceElection] = await connection.execute(
+        "SELECT id FROM elections WHERE id = ? AND school_id = ?",
+        [from_election_id, school_id]
+      );
+      if (sourceElection.length === 0) {
+        return res.status(403).json({ message: "Source election access denied" });
+      }
+
+      // Verify target election belongs to school
+      const [targetElection] = await connection.execute(
+        "SELECT id, status FROM elections WHERE id = ? AND school_id = ?",
+        [target_election_id, school_id]
+      );
+      if (targetElection.length === 0) {
+        return res.status(403).json({ message: "Target election access denied" });
+      }
+
+      if (targetElection[0].status !== 'DRAFT' && targetElection[0].status !== 'CONFIGURING') {
+        return res.status(400).json({ message: "Can only import structure to an election in Draft/Configuring status" });
+      }
+
+      // Get posts from source
+      const [posts] = await connection.execute(
+        "SELECT name, candidate_classes, voting_classes, gender_rule FROM posts WHERE election_id = ?",
+        [from_election_id]
+      );
+
+      if (posts.length === 0) {
+        return res.status(400).json({ message: "Source election has no posts to import" });
+      }
+
+      // Insert into target
+      for (const p of posts) {
+        await connection.execute(
+          `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule) 
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [school_id, target_election_id, p.name, p.candidate_classes, p.voting_classes, p.gender_rule]
+        );
+      }
+
+      await connection.commit();
+      res.json({ message: `${posts.length} positions imported successfully` });
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error("Import Error:", error);
+    res.status(500).json({ message: "Server error during import" });
+  }
+};
+
+exports.toggleNominations = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { open } = req.body;
+    const school_id = req.user.school_id;
+
+    const [result] = await db.execute(
+      `UPDATE elections SET nomination_open = ? WHERE id = ? AND school_id = ?`,
+      [open ? 1 : 0, id, school_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Election not found" });
+    }
+
+    res.json({ message: `Nominations ${open ? 'opened' : 'closed'} successfully` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getPublicElection = async (req, res) => {
+  try {
+    const { code } = req.params;
+
+    const [rows] = await db.execute(
+      `SELECT id, name, nomination_open, status FROM elections WHERE election_code = ?`,
+      [code]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Election not found" });
+    }
+
+    const election = rows[0];
+
+    if (!election.nomination_open && election.status !== 'CONFIGURING') {
+      return res.status(403).json({ message: "Nomination window is closed for this election." });
+    }
+
+    res.json(election);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };

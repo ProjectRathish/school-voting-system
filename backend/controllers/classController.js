@@ -21,7 +21,7 @@ exports.createClass = async (req, res) => {
 
     const [result] = await db.execute(
       `INSERT INTO classes (school_id, election_id, section_id, name) VALUES (?,?,?,?)`,
-      [school_id, election_id || null, section_id, name]
+      [school_id, election_id, section_id, name]
     );
 
     res.json({ message: "Class created successfully", class_id: result.insertId });
@@ -44,8 +44,10 @@ exports.getClasses = async (req, res) => {
     let params = [school_id];
 
     if (election_id && election_id !== 'undefined' && election_id !== 'null') {
-       query += " AND (classes.election_id = ? OR classes.election_id IS NULL)";
+       query += " AND classes.election_id = ?";
        params.push(election_id);
+    } else {
+       query += " AND classes.election_id IS NULL";
     }
 
     const [rows] = await db.execute(query, params);
