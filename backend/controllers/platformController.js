@@ -78,16 +78,15 @@ exports.getEnquiries = async (req, res) => {
 
 exports.getPlatformStats = async (req, res) => {
   try {
-    const [[{ totalSchools }]] = await db.execute("SELECT COUNT(*) as totalSchools FROM schools");
-    const [[{ pendingEnquiries }]] = await db.execute("SELECT COUNT(*) as pendingEnquiries FROM school_enquiries WHERE status = 'PENDING'");
-    const [[{ activeElections }]] = await db.execute("SELECT COUNT(*) as activeElections FROM elections WHERE status = 'ACTIVE'");
-    const [[{ expiringSoon }]] = await db.execute(
-      "SELECT COUNT(*) as expiringSoon FROM elections WHERE status = 'ACTIVE' AND end_date <= DATE_ADD(NOW(), INTERVAL 7 DAY)"
-    );
+    const [schools] = await db.execute("SELECT COUNT(*) as totalSchools FROM schools");
+    const [enquiries] = await db.execute("SELECT COUNT(*) as pendingEnquiries FROM school_enquiries WHERE status = 'PENDING'");
 
-    res.json({ totalSchools, pendingEnquiries, activeElections, expiringSoon });
+    res.json({ 
+      totalSchools: Number(schools[0].totalSchools), 
+      pendingEnquiries: Number(enquiries[0].pendingEnquiries)
+    });
   } catch (error) {
-    console.error(error);
+    console.error("Error in getPlatformStats:", error);
     res.status(500).json({ message: "Server error" });
   }
 };

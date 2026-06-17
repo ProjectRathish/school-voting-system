@@ -1,0 +1,47 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main   # Triggers on every push to main branch
+
+jobs:
+  deploy:
+    name: SSH & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout code (just to validate the push succeeded) ──────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. SSH into server and run deploy ───────────────────────────────────
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e   # Stop immediately if any command fails
+
+            echo "📦 Pulling latest code..."
+            cd ${{ secrets.APP_DIR }}
+            git pull origin main
+
+            echo "🔨 Rebuilding frontend..."
+            cd frontend-react
+            npm ci --prefer-offline
+            npm run build
+            cd ..
+
+            echo "🔄 Updating backend dependencies..."
+            cd backend
+            npm ci --prefer-offline
+
+            echo "♻️ Restarting backend..."
+            pm2 restart school-voting || pm2 start server.js --name school-voting
+            pm2 save
+
+            echo "✅ Deployment complete!"

@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, Paper, Table, TableBody, 
   TableCell, TableContainer, TableHead, TableRow, 
   Dialog, DialogTitle, DialogContent, DialogActions, 
-  TextField, IconButton, Chip, Alert
+  TextField, IconButton, Chip, Alert, FormControlLabel, Switch
 } from '@mui/material';
 import { Plus, Edit, Trash2, Package } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -18,7 +18,9 @@ const Plans = () => {
     max_voters: 0,
     max_elections: 0,
     price: 0,
-    description: ''
+    duration_months: 12,
+    description: '',
+    is_active: 1
   });
 
   const { data: plans, isLoading } = useQuery({
@@ -62,7 +64,9 @@ const Plans = () => {
         max_voters: plan.max_voters,
         max_elections: plan.max_elections,
         price: plan.price,
-        description: plan.description || ''
+        duration_months: plan.duration_months || 12,
+        description: plan.description || '',
+        is_active: plan.is_active ?? 1
       });
     } else {
       setEditPlan(null);
@@ -71,7 +75,9 @@ const Plans = () => {
         max_voters: 450,
         max_elections: 1,
         price: 0,
-        description: ''
+        duration_months: 12,
+        description: '',
+        is_active: 1
       });
     }
     setOpen(true);
@@ -116,6 +122,7 @@ const Plans = () => {
               <TableCell sx={{ fontWeight: 700 }}>Max Voters</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Max Elections</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Price (INR)</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Duration</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
             </TableRow>
@@ -137,6 +144,11 @@ const Plans = () => {
                 <TableCell sx={{ fontWeight: 600 }}>{plan.max_voters}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{plan.max_elections}</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>₹{plan.price}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
+                  {plan.duration_months >= 12
+                    ? `${Math.round(plan.duration_months / 12)} yr${Math.round(plan.duration_months / 12) > 1 ? 's' : ''}`
+                    : `${plan.duration_months} month${plan.duration_months > 1 ? 's' : ''}`}
+                </TableCell>
                 <TableCell>
                   <Chip 
                     label={plan.is_active ? 'Active' : 'Inactive'} 
@@ -193,12 +205,32 @@ const Plans = () => {
                 onChange={(e) => setFormData({...formData, price: parseFloat(e.target.value)})}
               />
               <TextField 
+                label="Duration (Months)" 
+                type="number" 
+                fullWidth 
+                required
+                value={formData.duration_months}
+                onChange={(e) => setFormData({...formData, duration_months: parseInt(e.target.value)})}
+                helperText={`= ${formData.duration_months >= 12 ? (formData.duration_months / 12).toFixed(1) + ' year(s)' : formData.duration_months + ' month(s)'}`}
+                inputProps={{ min: 1 }}
+              />
+              <TextField 
                 label="Description" 
                 fullWidth 
                 multiline 
                 rows={2}
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.is_active === 1}
+                    onChange={(e) => setFormData({...formData, is_active: e.target.checked ? 1 : 0})}
+                    color="success"
+                  />
+                }
+                label={formData.is_active === 1 ? 'Active (visible to schools)' : 'Inactive (hidden from schools)'}
               />
             </Box>
           </DialogContent>

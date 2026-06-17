@@ -1,8 +1,10 @@
-require("dotenv").config(); // Restarted to apply email credentials
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const helmet = require("helmet");
 const db = require("./config/db");
+const { authLimiter, generalLimiter } = require("./middleware/rateLimiter");
 
 const authRoutes = require("./routes/authRoutes");
 const platformRoutes = require("./routes/platformRoutes");
@@ -17,18 +19,53 @@ const votingMachineRoutes = require("./routes/votingMachineRoutes");
 const schoolRoutes = require("./routes/schoolRoutes");
 const reportRoutes = require("./routes/reportRoutes");
 const planRoutes = require("./routes/planRoutes");
-
+const registrationRoutes = require('./routes/registrationRoutes');
+const auditRoutes = require('./routes/auditRoutes');
 
 const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// ─── Security Headers ────────────────────────────────────────────────────────
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow uploads to be served cross-origin
+  contentSecurityPolicy: false // Disable CSP here; configure at reverse proxy/CDN level
+}));
 
-// Serve uploaded files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// ─── CORS ────────────────────────────────────────────────────────────────────
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:3000'];
 
-app.use("/api/auth", authRoutes);
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, same-origin)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: Origin ${origin} not allowed`));
+    }
+  },
+  credentials: true
+}));
+
+// ─── Body Parsing ─────────────────────────────────────────────────────────────
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// ─── Static Files ─────────────────────────────────────────────────────────────
+// Serve uploaded files with explicit CORS headers for Canvas processing
+app.use("/uploads", cors({ origin: allowedOrigins }), express.static(path.join(__dirname, "uploads"), {
+  setHeaders: (res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  }
+}));
+
+// ─── Rate Limiting ────────────────────────────────────────────────────────────
+app.use(generalLimiter);
+
+// ─── Routes ──────────────────────────────────────────────────────────────────
+app.use("/api/auth", authLimiter, authRoutes);  // Strict limit on auth
 app.use("/api/platform", platformRoutes);
 app.use("/api/elections", electionRoutes);
 app.use("/api/sections", sectionRoutes);
@@ -41,40 +78,40 @@ app.use("/api/machines", votingMachineRoutes);
 app.use("/api/schools", schoolRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/plans", planRoutes);
+app.use('/api/register', registrationRoutes);
+app.use('/api/audit', auditRoutes);
 
-// Global Error Handler for JSON responses (including Multer errors)
+// ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error("Global Error:", err);
-  
+
+  if (err.message && err.message.startsWith('CORS:')) {
+    return res.status(403).json({ message: err.message });
+  }
+
   if (err instanceof require("multer").MulterError) {
     return res.status(400).json({ message: "File upload error: " + err.message });
   }
 
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     message: err.message || "Something went wrong on the server",
     error: process.env.NODE_ENV === "development" ? err : {}
   });
 });
 
-
-const http = require("http");
-const server = http.createServer(app);
-
-// Initialize Socket.io
-const io = require("./utils/socket").init(server);
-
 app.get("/", (req, res) => {
- res.send("School Voting System Backend Running with WebSockets");
+  res.send("School Voting System Backend Running");
 });
 
 db.getConnection()
-.then(() => {
-  console.log("MySQL Connected");
-})
-.catch(err => {
-  console.error("Database connection failed:", err);
-});
+  .then(() => {
+    console.log("MySQL Connected");
+  })
+  .catch(err => {
+    console.error("Database connection failed:", err);
+  });
 
-server.listen(process.env.PORT, () => {
- console.log("Server running on port " + process.env.PORT);
+app.listen(process.env.PORT, () => {
+  console.log(`Server running on port ${process.env.PORT}`);
+  console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
 });

@@ -21,7 +21,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Slider } from '@mui/material';
 import Cropper from 'react-easy-crop';
 import { useAuthStore } from '../../store/authStore';
-import axiosInstance from '../../api/axiosInstance';
+import axiosInstance, { getMediaUrl } from '../../api/axiosInstance';
 import getCroppedImg from '../../utils/cropImage';
 import { useElectionStore } from '../../store/electionStore';
 import { Sparkles } from 'lucide-react';
@@ -85,7 +85,7 @@ const Profile = () => {
         contact_person: school.contact_person || ''
       });
       if (school.logo) {
-        setLogoPreview(`http://localhost:3000${school.logo}`);
+        setLogoPreview(`${getMediaUrl()}${school.logo}`);
       }
     }
   }, [school]);
@@ -109,7 +109,7 @@ const Profile = () => {
 
     onSuccess: (res) => {
       setSuccess('Logo updated successfully!');
-      setLogoPreview(`http://localhost:3000${res.data.logo}`);
+      setLogoPreview(`${getMediaUrl()}${res.data.logo}`);
       queryClient.invalidateQueries({ queryKey: ['school-me'] });
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Logo upload failed')
@@ -187,71 +187,11 @@ const Profile = () => {
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800 }}>Profile Management</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary' }}>Profile Management</Typography>
         <Typography color="text.secondary">Update your school's public identity and contact information</Typography>
       </Box>
 
-      {/* Current Context Banner */}
-      <Box sx={{ 
-        mb: 4, 
-        display: 'flex'
-      }}>
-        <Box sx={{ 
-          p: '1.5px', 
-          borderRadius: '16px', 
-          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
-          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
-          position: 'relative'
-        }}>
-          <Box sx={{ 
-            px: 3, 
-            py: 2, 
-            borderRadius: '15px', 
-            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2.5
-          }}>
-            <Box sx={{ 
-              width: 45, 
-              height: 45, 
-              borderRadius: '12px', 
-              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
-            }}>
-              <Sparkles size={22} />
-            </Box>
-            <Box>
-              <Typography variant="caption" sx={{ 
-                color: 'text.secondary', 
-                fontWeight: 800, 
-                textTransform: 'uppercase', 
-                letterSpacing: 1.5,
-                fontSize: '0.65rem',
-                display: 'block',
-                mb: 0.5
-              }}>
-                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
-              </Typography>
-              <Typography variant="h6" sx={{ 
-                fontWeight: 900, 
-                color: 'text.primary', 
-                lineHeight: 1.1,
-                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontSize: '1.25rem'
-              }}>
-                {selectedElectionName || 'None Selected'}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
+      {/* No Election Context here */}
 
       {success && <Alert severity="success" sx={{ mb: 3, borderRadius: 3 }}>{success}</Alert>}
       {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 3 }}>{error}</Alert>}

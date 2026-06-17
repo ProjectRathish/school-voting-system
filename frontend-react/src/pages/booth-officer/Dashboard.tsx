@@ -1,19 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Paper, Typography, Box, Grid, Button, TextField, 
-  InputAdornment, Chip, Alert, CircularProgress 
+  InputAdornment, Chip, Alert, CircularProgress,
+  FormControl, InputLabel, Select, MenuItem,
+  Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
 } from '@mui/material';
 import { Search, Smartphone, PlayCircle, Lock, Unlock } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
+import evmIcon from '../../assets/evm_icon.png';
 
 const BoothOfficerDashboard = () => {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const queryClient = useQueryClient();
   const [inputs, setInputs] = useState<Record<number, string>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [selectedElection, setSelectedElection] = useState<number | string>(user?.election_id || '');
+  const [releaseConfirmOpen, setReleaseConfirmOpen] = useState(false);
+  const [machineToRelease, setMachineToRelease] = useState<number | null>(null);
+
+  // Fetch latest profile to ensure booth/election assignments are current
+  const { data: profile } = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: async () => (await axiosInstance.get('/auth/me')).data,
+    refetchInterval: 10000 // Check every 10 seconds for assignment changes
+  });
+
+  useEffect(() => {
+    if (profile) {
+      // If server has different booth/election data, update the store
+      if (profile.booth_id !== user?.booth_id || 
+          JSON.stringify(profile.available_elections) !== JSON.stringify(user?.available_elections)) {
+        updateUser({
+          booth_id: profile.booth_id,
+          election_id: profile.election_id,
+          available_elections: profile.available_elections,
+          school_name: profile.school_name,
+          school_logo: profile.school_logo,
+          school_code: profile.school_code
+        });
+        
+        if (!selectedElection && profile.election_id) {
+          setSelectedElection(profile.election_id);
+        } else if (!selectedElection && profile.available_elections?.length > 0) {
+          setSelectedElection(profile.available_elections[0].id);
+        }
+      }
+    }
+  }, [profile, user, updateUser, selectedElection]);
 
   // Fetch machines with polling every 3 seconds to ensure real-time status updates
   const { data: boothData, isLoading: machinesLoading, error: machinesError } = useQuery({
@@ -35,7 +71,8 @@ const BoothOfficerDashboard = () => {
     mutationFn: async (data: { admission_no: string, machine_id: number }) => {
       return await axiosInstance.post(`/polling-booths/assign-voter`, {
         admission_no: data.admission_no,
-        machine_id: data.machine_id
+        machine_id: data.machine_id,
+        election_id: selectedElection
       });
     },
     onSuccess: (res, variables) => {
@@ -58,6 +95,36 @@ const BoothOfficerDashboard = () => {
     assignMachineMutation.mutate({ admission_no: admissionNo.toUpperCase(), machine_id: machineId });
   };
 
+  const releaseMachineMutation = useMutation({
+    mutationFn: async (machineId: number) => {
+      return await axiosInstance.post(`/machines/${machineId}/release`);
+    },
+    onSuccess: () => {
+      setSuccessMsg(`Session successfully reset. The terminal is now FREE.`);
+      queryClient.invalidateQueries({ queryKey: ['booth-machines'] });
+      setTimeout(() => setSuccessMsg(null), 5000);
+    },
+    onError: (err: any) => {
+      setErrorMsg(err.response?.data?.message || 'Error resetting terminal session');
+      setTimeout(() => setErrorMsg(null), 7000);
+    }
+  });
+
+  const handleRelease = (machineId: number) => {
+    setMachineToRelease(machineId);
+    setReleaseConfirmOpen(true);
+  };
+
+  const handleReleaseConfirm = () => {
+    if (machineToRelease !== null) {
+      setErrorMsg(null);
+      setSuccessMsg(null);
+      releaseMachineMutation.mutate(machineToRelease);
+      setReleaseConfirmOpen(false);
+      setMachineToRelease(null);
+    }
+  };
+
   if (!user?.booth_id) {
     return (
       <Box sx={{ p: 4 }}>
@@ -65,7 +132,7 @@ const BoothOfficerDashboard = () => {
           Booth Control Panel
         </Typography>
         <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 3, mt: 4, bgcolor: 'rgba(255, 152, 0, 0.05)', border: '1px dashed orange' }}>
-          <Smartphone size={64} color="orange" style={{ marginBottom: 24, opacity: 0.5 }} />
+          <Box component="img" src={evmIcon} sx={{ width: 100, height: 100, mb: 3, opacity: 0.8, filter: 'grayscale(0.5)' }} />
           <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
             No Active Assignment Found
           </Typography>
@@ -95,6 +162,39 @@ const BoothOfficerDashboard = () => {
         <Typography color="text.secondary" variant="body2" sx={{ fontWeight: 500 }}>
            Logged in as {user?.username} • {user?.school_name}
         </Typography>
+
+        {/* Election Selector */}
+        <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)', border: '1px solid', borderColor: 'divider' }}>
+           <Grid container spacing={2} alignItems="center">
+              <Grid size={{ xs: 12, md: 8 }}>
+                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 1, mb: 0.5 }}>
+                    Active Election Context
+                 </Typography>
+                 <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    {user?.available_elections?.find((e: any) => e.id === selectedElection)?.name || 'Select an Election'}
+                 </Typography>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                 {user?.available_elections && user.available_elections.length > 1 ? (
+                    <FormControl fullWidth size="small">
+                       <InputLabel>Switch Election</InputLabel>
+                       <Select 
+                          value={selectedElection} 
+                          label="Switch Election" 
+                          onChange={(e) => setSelectedElection(e.target.value)}
+                          sx={{ fontWeight: 700 }}
+                       >
+                          {user.available_elections.map((e: any) => (
+                             <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>
+                          ))}
+                       </Select>
+                    </FormControl>
+                 ) : (
+                    <Chip label="Single Election Mode" size="small" variant="outlined" sx={{ fontWeight: 700 }} />
+                 )}
+              </Grid>
+           </Grid>
+        </Box>
       </Box>
 
       {successMsg && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>{successMsg}</Alert>}
@@ -114,7 +214,7 @@ const BoothOfficerDashboard = () => {
         </Box>
       ) : machines?.length === 0 ? (
         <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
-          <Smartphone size={48} color="lightgray" style={{ marginBottom: 16 }} />
+          <Box component="img" src={evmIcon} sx={{ width: 80, height: 80, mb: 2, opacity: 0.6 }} />
           <Typography color="text.secondary" variant="h6">
             No voting machines are registered to this booth.
           </Typography>
@@ -122,8 +222,6 @@ const BoothOfficerDashboard = () => {
       ) : (
         <Grid container spacing={3}>
           {[...(machines || [])].sort((a, b) => {
-            if (a.status === 'BUSY' && b.status !== 'BUSY') return -1;
-            if (a.status !== 'BUSY' && b.status === 'BUSY') return 1;
             return a.machine_name.localeCompare(b.machine_name);
           }).map((machine: any) => {
             const isFree = machine.status === 'FREE';
@@ -143,19 +241,34 @@ const BoothOfficerDashboard = () => {
                 >
                   <Box sx={{ p: 2, bgcolor: isFree ? 'success.lighter' : 'warning.lighter', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Smartphone size={32} color={isFree ? '#4caf50' : '#ff9800'} />
+                      <Box component="img" src={evmIcon} sx={{ width: 48, height: 48, borderRadius: 1 }} />
                       <Box>
                         <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.1 }}>{machine.machine_name}</Typography>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary', mt: 0.5, letterSpacing: 0.5 }}>{machine.machine_code}</Typography>
                       </Box>
                     </Box>
-                    <Chip 
-                      label={isFree ? 'FREE' : 'BUSY'} 
-                      size="small" 
-                      color={isFree ? 'success' : 'warning'}
-                      icon={isFree ? <Unlock size={14} /> : <Lock size={14} />}
-                      sx={{ fontWeight: 800 }}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box sx={{ 
+                        width: 8, 
+                        height: 8, 
+                        borderRadius: '50%', 
+                        bgcolor: machine.is_online ? 'success.main' : 'error.main',
+                        boxShadow: machine.is_online ? '0 0 8px rgba(76, 175, 80, 0.8)' : 'none',
+                        animation: machine.is_online ? 'pulse-green 2s infinite' : 'none',
+                        '@keyframes pulse-green': {
+                           '0%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)' },
+                           '70%': { transform: 'scale(1)', boxShadow: '0 0 0 10px rgba(76, 175, 80, 0)' },
+                           '100%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)' },
+                        }
+                      }} />
+                      <Chip 
+                        label={isFree ? 'FREE' : 'BUSY'} 
+                        size="small" 
+                        color={isFree ? 'success' : 'warning'}
+                        icon={isFree ? <Unlock size={14} /> : <Lock size={14} />}
+                        sx={{ fontWeight: 800 }}
+                      />
+                    </Box>
                   </Box>
 
                   <Box sx={{ p: 3, minHeight: 180, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -193,14 +306,33 @@ const BoothOfficerDashboard = () => {
                         </Button>
                       </Box>
                     ) : (
-                      <Box sx={{ textAlign: 'center', py: 2 }}>
-                        <CircularProgress color="warning" size={40} thickness={4} sx={{ mb: 2 }} />
+                      <Box sx={{ textAlign: 'center', py: 1 }}>
+                        <CircularProgress color="warning" size={36} thickness={4} sx={{ mb: 1.5 }} />
                         <Typography variant="h6" color="warning.main" sx={{ fontWeight: 800 }}>
                           Voting Happening...
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, px: 2 }}>
                           A voter is currently using this machine. Please wait until they cast their ballot.
                         </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%', mt: 1.5 }}>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            onClick={() => handleRelease(machine.id)}
+                            disabled={releaseMachineMutation.isPending}
+                            sx={{ 
+                              fontWeight: 700, 
+                              borderRadius: 1.5, 
+                              fontSize: '0.75rem',
+                              px: 1.5,
+                              py: 0.5,
+                              textTransform: 'none'
+                            }}
+                          >
+                            Reset Session
+                          </Button>
+                        </Box>
                       </Box>
                     )}
                   </Box>
@@ -210,6 +342,48 @@ const BoothOfficerDashboard = () => {
           })}
         </Grid>
       )}
+      {/* Release Machine Confirmation Dialog */}
+      <Dialog 
+        open={releaseConfirmOpen} 
+        onClose={() => { setReleaseConfirmOpen(false); setMachineToRelease(null); }}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            p: 1
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Lock size={22} /> Cancel & Reset Active Session?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontWeight: 500, color: 'text.primary', mb: 2 }}>
+            Are you sure you want to cancel the active voter session and reset this terminal?
+          </DialogContentText>
+          <DialogContentText variant="body2" color="text.secondary">
+            This will immediately disconnect the voting screen on the terminal. The currently assigned voter will not be able to cast their vote unless they are verified and assigned again.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button 
+            onClick={() => { setReleaseConfirmOpen(false); setMachineToRelease(null); }}
+            variant="outlined"
+            color="inherit"
+            sx={{ fontWeight: 700, borderRadius: 2 }}
+          >
+            Go Back
+          </Button>
+          <Button 
+            onClick={handleReleaseConfirm}
+            variant="contained"
+            color="error"
+            autoFocus
+            sx={{ fontWeight: 700, borderRadius: 2 }}
+          >
+            Yes, Reset Terminal
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

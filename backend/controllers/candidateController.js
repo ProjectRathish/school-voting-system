@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { logAction } = require('../utils/auditLogger');
 
 exports.createCandidate = async (req, res) => {
   try {
@@ -98,10 +99,10 @@ exports.createCandidate = async (req, res) => {
 
     if (req.files) {
       if (req.files.photo) {
-        photoPath = `/uploads/candidates/${school_code}/${election_id}/photos/photo-${actual_admission_no}.jpg`;
+        photoPath = `/uploads/candidates/${school_code}/${election_id}/photos/${req.files.photo[0].filename}`;
       }
       if (req.files.symbol) {
-        symbolPath = `/uploads/candidates/${school_code}/${election_id}/symbols/symbol-${actual_admission_no}.png`;
+        symbolPath = `/uploads/candidates/${school_code}/${election_id}/symbols/${req.files.symbol[0].filename}`;
       }
     }
 
@@ -161,7 +162,8 @@ exports.getCandidates = async (req, res) => {
         candidates.symbol,
         candidates.symbol_name,
         candidates.status,
-        posts.name AS post_name
+        posts.name AS post_name,
+        posts.priority AS post_priority
       FROM candidates
       JOIN voters ON candidates.voter_id = voters.id
       LEFT JOIN classes ON voters.class_id = classes.id
@@ -199,7 +201,7 @@ exports.getCandidates = async (req, res) => {
       params.push(division);
     }
 
-    query += ` ORDER BY candidate_name ASC`;
+    query += ` ORDER BY posts.priority ASC, candidate_name ASC`;
 
     const [rows] = await db.execute(query, params);
 
@@ -483,14 +485,23 @@ exports.selfNominate = async (req, res) => {
     let symbolPath = null;
     
     const [sRows] = await db.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
+    if (sRows.length === 0) {
+        return res.status(500).json({ message: "School configuration error" });
+    }
     const school_code = sRows[0].code;
 
     if (req.files) {
       if (req.files.photo) {
-        photoPath = `/uploads/candidates/${school_code}/${election_id}/photos/photo-${admission_no}.jpg`;
+        const photoFile = req.files.photo[0];
+        photoPath = req.user 
+          ? `/uploads/candidates/${school_code}/${election_id}/photos/${photoFile.filename}`
+          : `/uploads/public/${election_id}/photos/${photoFile.filename}`;
       }
       if (req.files.symbol) {
-        symbolPath = `/uploads/candidates/${school_code}/${election_id}/symbols/symbol-${admission_no}.png`;
+        const symbolFile = req.files.symbol[0];
+        symbolPath = req.user
+          ? `/uploads/candidates/${school_code}/${election_id}/symbols/${symbolFile.filename}`
+          : `/uploads/public/${election_id}/symbols/${symbolFile.filename}`;
       }
     }
 
@@ -502,8 +513,8 @@ exports.selfNominate = async (req, res) => {
 
     res.json({ message: "Nomination submitted successfully! It is now pending approval." });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Nomination submission error:", error);
+    res.status(500).json({ message: "Server error during submission", error: error.message });
   }
 };
 
@@ -517,16 +528,59 @@ exports.updateCandidateStatus = async (req, res) => {
        return res.status(400).json({ message: "Invalid status" });
     }
 
-    const [result] = await db.execute(
-      `UPDATE candidates SET status = ? WHERE id = ? AND school_id = ?`,
-      [status, candidate_id, school_id]
-    );
+    if (status === 'REJECTED') {
+      const [existing] = await db.execute(
+        `SELECT photo, symbol FROM candidates WHERE id = ? AND school_id = ?`,
+        [candidate_id, school_id]
+      );
+      
+      if (existing.length > 0) {
+        const { photo, symbol } = existing[0];
+        const fs = require("fs");
+        const path = require("path");
+        
+        try {
+          if (photo) {
+            const photoPath = path.join(__dirname, "..", photo);
+            if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
+          }
+          if (symbol) {
+            const symbolPath = path.join(__dirname, "..", symbol);
+            if (fs.existsSync(symbolPath)) fs.unlinkSync(symbolPath);
+          }
+        } catch (err) {
+          console.error("Error deleting files on rejection:", err);
+        }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Candidate not found" });
+        await db.execute(
+          `UPDATE candidates SET status = ?, photo = NULL, symbol = NULL WHERE id = ? AND school_id = ?`,
+          [status, candidate_id, school_id]
+        );
+      }
+    } else {
+      await db.execute(
+        `UPDATE candidates SET status = ? WHERE id = ? AND school_id = ?`,
+        [status, candidate_id, school_id]
+      );
     }
 
     res.json({ message: `Candidate ${status.toLowerCase()} successfully` });
+
+    // Fire audit log after response
+    const [candInfo] = await db.execute(
+      `SELECT v.name, v.admission_no FROM candidates c JOIN voters v ON c.voter_id = v.id WHERE c.id = ?`,
+      [candidate_id]
+    );
+    logAction({
+      school_id,
+      user_id: req.user.id,
+      user_name: req.user.name || req.user.email,
+      role: req.user.role,
+      action: status === 'APPROVED' ? 'APPROVE_CANDIDATE' : status === 'REJECTED' ? 'REJECT_CANDIDATE' : 'UPDATE_CANDIDATE_STATUS',
+      entity_type: 'Candidate',
+      entity_name: candInfo[0]?.name || `Candidate #${candidate_id}`,
+      details: { candidate_id, new_status: status, admission_no: candInfo[0]?.admission_no }
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

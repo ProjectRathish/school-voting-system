@@ -11,11 +11,11 @@ import { Plus, Trash2, Monitor, UserPlus, Unlink, Sparkles, Edit } from 'lucide-
 import { useElectionStore } from '../../store/electionStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
+import evmIcon from '../../assets/evm_icon.png';
 
 const Infrastructure = () => {
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
-  const [selectedElection, setSelectedElection] = useState(selectedElectionId || '');
-  const [openAssign, setOpenAssign] = useState<any>(null); // For which booth we are assigning
+  const [selectedBoothForOfficer, setSelectedBoothForOfficer] = useState<any>(null);
   const [selectedOfficer, setSelectedOfficer] = useState('');
   const [machineForm, setMachineForm] = useState({ machine_name: '', booth_id: '' });
   const [error, setError] = useState<string | null>(null);
@@ -26,58 +26,54 @@ const Infrastructure = () => {
   const [editingMachine, setEditingMachine] = useState<any>(null);
   const [openDeleteMachine, setOpenDeleteMachine] = useState<any>(null);
   const [openBooth, setOpenBooth] = useState(false);
+  const [openDeleteAllMachines, setOpenDeleteAllMachines] = useState(false);
   const [editingBooth, setEditingBooth] = useState<any>(null);
   const [openDelete, setOpenDelete] = useState<any>(null);
   const [boothForm, setBoothForm] = useState({ booth_number: '', location: '', capacity: '100' });
   const queryClient = useQueryClient();
   // Sync with global store
+  // No longer sync with global election store for infrastructure management
   useEffect(() => {
-    if (selectedElectionId && selectedElectionId !== selectedElection) {
-      setSelectedElection(selectedElectionId);
-    }
-  }, [selectedElectionId]);
+    // Keep this empty to remove the sync dependency
+  }, []);
 
   const { data: elections } = useQuery({
     queryKey: ['elections'],
     queryFn: async () => (await axiosInstance.get('/elections/get-elections')).data
   });
 
-  const selectedElectionObj = elections?.find((e: any) => String(e.id) === String(selectedElection));
+  const selectedElectionObj = elections?.find((e: any) => String(e.id) === String(selectedElectionId));
   const isConfiguring = selectedElectionObj && (selectedElectionObj.status === 'CONFIGURING' || selectedElectionObj.status === 'DRAFT');
   const isClosed = selectedElectionStatus === 'CLOSED' || selectedElectionObj?.status === 'CLOSED';
-  const isEditDeleteLocked = !isConfiguring;
+  const isEditDeleteLocked = selectedElectionId && !isConfiguring;
 
   const { data: booths } = useQuery({
-    queryKey: ['booths', selectedElection],
-    enabled: !!selectedElection,
-    queryFn: async () => (await axiosInstance.get(`/polling-booths?election_id=${selectedElection}`)).data?.data || []
+    queryKey: ['booths'],
+    queryFn: async () => (await axiosInstance.get('/polling-booths')).data?.data || []
   });
 
-  const { data: officers, isLoading: officersLoading } = useQuery({
+  const { data: officers, isLoading: officersLoading, refetch: refetchOfficers } = useQuery({
     queryKey: ['booth-officers'],
     queryFn: async () => (await axiosInstance.get('/auth/booth-officers')).data?.data || []
   });
 
-  const { data: assignments, refetch: refetchAssignments } = useQuery({
-    queryKey: ['assignments', selectedElection],
-    enabled: !!selectedElection,
-    queryFn: async () => (await axiosInstance.get(`/elections/${selectedElection}/assignments`)).data || []
-  });
+  // Use officers data for assignments display
+  const assignments = officers;
 
   const { data: machines, isLoading: machinesLoading } = useQuery({
-    queryKey: ['machines', selectedElection],
-    enabled: !!selectedElection,
-    queryFn: async () => (await axiosInstance.get(`/machines/get-machines?election_id=${selectedElection}`)).data
+    queryKey: ['machines'],
+    queryFn: async () => (await axiosInstance.get('/machines/get-machines')).data,
+    refetchInterval: 5000 // Automatically refresh every 5 seconds to sync hardware binding status
   });
 
   const createMachineMutation = useMutation({
-    mutationFn: (data: any) => axiosInstance.post('/machines/register', { ...data, election_id: selectedElection }),
+    mutationFn: (data: any) => axiosInstance.post('/machines/register', data),
     onSuccess: () => {
       setSuccess('Voting machine registered!');
       setOpenMachine(false);
       setDialogError(null);
       setMachineForm({ machine_name: '', booth_id: '' });
-      queryClient.invalidateQueries({ queryKey: ['machines', selectedElection] });
+      queryClient.invalidateQueries({ queryKey: ['machines'] });
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => setDialogError(err.response?.data?.message || 'Error creating machine')
@@ -90,31 +86,51 @@ const Infrastructure = () => {
       setEditingMachine(null);
       setDialogError(null);
       setMachineForm({ machine_name: '', booth_id: '' });
-      queryClient.invalidateQueries({ queryKey: ['machines', selectedElection] });
+      queryClient.invalidateQueries({ queryKey: ['machines'] });
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => setDialogError(err.response?.data?.message || 'Error updating machine')
   });
-
   const deleteMachineMutation = useMutation({
     mutationFn: (id: number) => axiosInstance.delete(`/machines/${id}`),
     onSuccess: () => {
       setSuccess('Voting machine deleted.');
       setOpenDeleteMachine(null);
-      queryClient.invalidateQueries({ queryKey: ['machines', selectedElection] });
+      queryClient.invalidateQueries({ queryKey: ['machines'] });
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => setDialogError(err.response?.data?.message || 'Error deleting machine')
   });
 
+  const bulkDeleteMachinesMutation = useMutation({
+    mutationFn: () => axiosInstance.delete('/machines/bulk-delete'),
+    onSuccess: () => {
+      setSuccess('All voting machines deleted.');
+      setOpenDeleteAllMachines(false);
+      queryClient.invalidateQueries({ queryKey: ['machines'] });
+      setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err: any) => setDialogError(err.response?.data?.message || 'Error deleting all machines')
+  });
+
+  const resetBindingMutation = useMutation({
+    mutationFn: (id: number) => axiosInstance.post(`/machines/${id}/reset-binding`),
+    onSuccess: () => {
+      setSuccess('Hardware binding reset! You can now use the code on a new device.');
+      queryClient.invalidateQueries({ queryKey: ['machines'] });
+      setTimeout(() => setSuccess(null), 4000);
+    },
+    onError: (err: any) => setError(err.response?.data?.message || 'Error resetting hardware binding')
+  });
+
   const createBoothMutation = useMutation({
-    mutationFn: (data: any) => axiosInstance.post('/polling-booths/create', { ...data, election_id: selectedElection }),
+    mutationFn: (data: any) => axiosInstance.post('/polling-booths/create', data),
     onSuccess: () => {
       setSuccess('Polling booth created!');
       setOpenBooth(false);
       setDialogError(null);
       setBoothForm({ booth_number: '', location: '', capacity: '100' });
-      queryClient.invalidateQueries({ queryKey: ['booths', selectedElection] });
+      queryClient.invalidateQueries({ queryKey: ['booths'] });
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => setDialogError(err.response?.data?.message || 'Error creating booth')
@@ -127,7 +143,7 @@ const Infrastructure = () => {
       setEditingBooth(null);
       setDialogError(null);
       setBoothForm({ booth_number: '', location: '', capacity: '100' });
-      queryClient.invalidateQueries({ queryKey: ['booths', selectedElection] });
+      queryClient.invalidateQueries({ queryKey: ['booths'] });
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => setDialogError(err.response?.data?.message || 'Error updating booth')
@@ -138,29 +154,29 @@ const Infrastructure = () => {
     onSuccess: () => {
       setSuccess('Polling booth deleted.');
       setOpenDelete(null);
-      queryClient.invalidateQueries({ queryKey: ['booths', selectedElection] });
+      queryClient.invalidateQueries({ queryKey: ['booths'] });
       setTimeout(() => setSuccess(null), 3000);
     },
     onError: (err: any) => setDialogError(err.response?.data?.message || 'Error deleting booth')
   });
 
   const assignOfficerMutation = useMutation({
-    mutationFn: (data: any) => axiosInstance.post(`/elections/${selectedElection}/assign-officer`, data),
+    mutationFn: (data: any) => axiosInstance.put(`/auth/booth-officers/${data.user_id}/assign-booth`, { booth_id: data.booth_id }),
     onSuccess: () => {
       setSuccess('Officer assigned successfully!');
-      setOpenAssign(null);
+      setSelectedBoothForOfficer(null);
       setDialogError(null);
       setSelectedOfficer('');
-      refetchAssignments();
+      refetchOfficers();
     },
     onError: (err: any) => setDialogError(err.response?.data?.message || 'Error assigning officer')
   });
 
   const unassignOfficerMutation = useMutation({
-    mutationFn: (userId: number) => axiosInstance.delete(`/elections/${selectedElection}/unassign-officer/${userId}`),
+    mutationFn: (userId: number) => axiosInstance.put(`/auth/booth-officers/${userId}/assign-booth`, { booth_id: null }),
     onSuccess: () => {
       setSuccess('Officer unassigned.');
-      refetchAssignments();
+      refetchOfficers();
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error removing assignment')
   });
@@ -168,7 +184,7 @@ const Infrastructure = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>Infrastructure Management</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary' }}>Infrastructure Management</Typography>
       </Box>
 
       <Snackbar
@@ -192,87 +208,13 @@ const Infrastructure = () => {
           {error}
         </Alert>
       </Snackbar>
-      {/* Current Context Banner */}
-      <Box sx={{ 
-        mb: 4, 
-        display: 'flex'
-      }}>
-        <Box sx={{ 
-          p: '1.5px', 
-          borderRadius: '16px', 
-          background: 'linear-gradient(45deg, #6366f1, #a855f7, #f43f5e)',
-          boxShadow: '0 10px 30px -10px rgba(99, 102, 241, 0.4)',
-          position: 'relative'
-        }}>
-          <Box sx={{ 
-            px: 3, 
-            py: 2, 
-            borderRadius: '15px', 
-            background: theme => theme.palette.mode === 'dark' ? '#1e1e28' : '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 2.5
-          }}>
-            <Box sx={{ 
-              width: 45, 
-              height: 45, 
-              borderRadius: '12px', 
-              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              color: 'white',
-              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
-            }}>
-              <Sparkles size={22} />
-            </Box>
-            <Box>
-              <Typography variant="caption" sx={{ 
-                color: 'text.secondary', 
-                fontWeight: 800, 
-                textTransform: 'uppercase', 
-                letterSpacing: 1.5,
-                fontSize: '0.65rem',
-                display: 'block',
-                mb: 0.5
-              }}>
-                {selectedElectionStatus ? `STAGE: ${selectedElectionStatus}` : 'Active Configuration'}
-              </Typography>
-              <Typography variant="h6" sx={{ 
-                fontWeight: 900, 
-                color: 'text.primary', 
-                lineHeight: 1.1,
-                background: 'linear-gradient(45deg, #6366f1, #a855f7)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                fontSize: '1.25rem'
-              }}>
-                {selectedElectionName || 'None Selected'}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      </Box>
-
       <Box sx={{ mb: 3 }}>
         <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-          Manage polling booths, register voting machines, and assign booth officers to booths for the selected election.
+          Manage your school's global polling booths and voting machines. These assets can be used across multiple elections.
         </Typography>
       </Box>
 
       <Box>
-        {selectedElectionObj && isEditDeleteLocked && !isClosed && (
-          <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
-            <strong>Live Scaling Mode:</strong> Edit and Delete actions are locked while the election is Active or Paused to protect data, but you can still Add Booths, Machines, and Officers.
-          </Alert>
-        )}
-        {selectedElectionObj && isClosed && (
-          <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
-            <strong>Election Closed:</strong> All infrastructure management is permanently locked.
-          </Alert>
-        )}
-
-        {selectedElection ? (
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 4 }}>
               <Paper sx={{ p: 3, borderRadius: 2 }}>
@@ -282,7 +224,6 @@ const Infrastructure = () => {
                     variant="contained" 
                     size="small" 
                     startIcon={<Plus size={18} />} 
-                    disabled={isClosed} 
                     onClick={() => setOpenBooth(true)}
                     sx={{ borderRadius: 2 }}
                   >
@@ -292,7 +233,7 @@ const Infrastructure = () => {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {booths?.length === 0 ? (
                     <Box sx={{ py: 6, textAlign: 'center', opacity: 0.5 }}>
-                      <Monitor size={48} style={{ marginBottom: '12px' }} />
+                      <Box component="img" src={evmIcon} sx={{ width: 64, height: 64, mb: 2, filter: 'grayscale(1)' }} />
                       <Typography variant="body2">No booths defined yet</Typography>
                     </Box>
                   ) : booths?.map((b: any) => {
@@ -319,13 +260,12 @@ const Infrastructure = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Box sx={{ 
-                              p: 1, 
+                              p: 0.5, 
                               borderRadius: 1, 
                               bgcolor: 'primary.main', 
-                              color: 'white',
                               display: 'flex'
                             }}>
-                              <Monitor size={20} />
+                              <Box component="img" src={evmIcon} sx={{ width: 32, height: 32 }} />
                             </Box>
                             <Box>
                               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
@@ -338,13 +278,13 @@ const Infrastructure = () => {
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <Tooltip title="Edit Booth">
-                                <IconButton size="small" disabled={isEditDeleteLocked} onClick={() => {
+                                <IconButton size="small" onClick={() => {
                                     setEditingBooth(b);
                                     setBoothForm({ booth_number: String(b.booth_number), location: b.location, capacity: String(b.capacity || 100) });
                                 }}><Edit size={16} /></IconButton>
                             </Tooltip>
                             <Tooltip title="Delete Booth">
-                                <IconButton size="small" color="error" disabled={isEditDeleteLocked} onClick={() => setOpenDelete(b)}><Trash2 size={16} /></IconButton>
+                                <IconButton size="small" color="error" onClick={() => setOpenDelete(b)}><Trash2 size={16} /></IconButton>
                             </Tooltip>
                             {assignedStaff && (
                                 <Chip 
@@ -384,8 +324,7 @@ const Infrastructure = () => {
                                     <IconButton 
                                         size="small" 
                                         color="error"
-                                        disabled={isEditDeleteLocked}
-                                        onClick={() => unassignOfficerMutation.mutate(assignedStaff.user_id)}
+                                        onClick={() => unassignOfficerMutation.mutate(assignedStaff.id)}
                                         sx={{ ml: 1 }}
                                     >
                                         <Unlink size={16} />
@@ -395,8 +334,7 @@ const Infrastructure = () => {
                                 <Button 
                                     size="small" 
                                     startIcon={<UserPlus size={14} />} 
-                                    disabled={isClosed}
-                                    onClick={() => setOpenAssign(b)}
+                                    onClick={() => setSelectedBoothForOfficer(b)}
                                     sx={{ textTransform: 'none', fontWeight: 700 }}
                                 >
                                     Assign Booth Officer
@@ -414,9 +352,22 @@ const Infrastructure = () => {
               <Paper sx={{ p: 3, borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>Voting Machines</Typography>
-                  <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)} disabled={isClosed}>
-                    Add Machine
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {machines?.length > 0 && (
+                      <Button 
+                        variant="outlined" 
+                        color="error" 
+                        size="small" 
+                        startIcon={<Trash2 size={18} />} 
+                        onClick={() => setOpenDeleteAllMachines(true)}
+                      >
+                        Delete All
+                      </Button>
+                    )}
+                    <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)}>
+                      Add Machine
+                    </Button>
+                  </Box>
                 </Box>
                 <TableContainer>
                   <Table size="small">
@@ -443,13 +394,25 @@ const Infrastructure = () => {
                             <Chip label={m.status} size="small" color={m.status === 'FREE' ? 'success' : 'warning'} />
                           </TableCell>
                           <TableCell align="right">
+                            {m.device_fingerprint && (
+                              <Tooltip title="Reset Hardware Binding (Clear Device Lock)">
+                                <IconButton 
+                                  size="small" 
+                                  color="warning" 
+                                  onClick={() => resetBindingMutation.mutate(m.id)}
+                                  disabled={resetBindingMutation.isPending}
+                                >
+                                  <Unlink size={16} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                             <Tooltip title="Edit Machine">
-                              <IconButton size="small" onClick={() => { setEditingMachine(m); setMachineForm({ machine_name: m.machine_name, booth_id: m.booth_id }); }} disabled={isEditDeleteLocked}>
+                              <IconButton size="small" onClick={() => { setEditingMachine(m); setMachineForm({ machine_name: m.machine_name, booth_id: m.booth_id }); }}>
                                 <Edit size={16} />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Delete Machine">
-                              <IconButton size="small" color="error" onClick={() => setOpenDeleteMachine(m)} disabled={isEditDeleteLocked}>
+                              <IconButton size="small" color="error" onClick={() => setOpenDeleteMachine(m)}>
                                 <Trash2 size={16} />
                               </IconButton>
                             </Tooltip>
@@ -462,11 +425,6 @@ const Infrastructure = () => {
               </Paper>
             </Grid>
           </Grid>
-        ) : (
-          <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 3 }}>
-            <Typography color="text.secondary">Select an election to manage booths and machines</Typography>
-          </Paper>
-        )}
       </Box>
 
       {/* Dialogs */}
@@ -503,7 +461,7 @@ const Infrastructure = () => {
             <Button variant="contained" onClick={() => {
                 const isDuplicate = booths?.some((b: any) => String(b.booth_number) === String(boothForm.booth_number) && (!editingBooth || b.id !== editingBooth.id));
                 if (isDuplicate) {
-                   setDialogError(`Booth #${boothForm.booth_number} already exists in this election!`);
+                   setDialogError(`Booth #${boothForm.booth_number} already exists!`);
                    return;
                 }
                 editingBooth ? updateBoothMutation.mutate(boothForm) : createBoothMutation.mutate(boothForm);
@@ -568,8 +526,8 @@ const Infrastructure = () => {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!openAssign} onClose={() => { setOpenAssign(null); setDialogError(null); }} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>Assign Booth Officer to Booth #{openAssign?.booth_number}</DialogTitle>
+       <Dialog open={!!selectedBoothForOfficer} onClose={() => { setSelectedBoothForOfficer(null); setDialogError(null); }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>Assign Booth Officer to Booth #{selectedBoothForOfficer?.booth_number}</DialogTitle>
         <DialogContent>
           {dialogError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{dialogError}</Alert>}
           <Box sx={{ mt: 1 }}>
@@ -577,8 +535,8 @@ const Infrastructure = () => {
               <InputLabel>Select Officer from Pool</InputLabel>
               <Select value={selectedOfficer} label="Select Officer from Pool" onChange={e => setSelectedOfficer(e.target.value)}>
                 {officers?.map((o: any) => (
-                  <MenuItem key={o.id} value={o.id} disabled={assignments?.some((a: any) => a.user_id === o.id)}>
-                    {o.username} {assignments?.some((a: any) => a.user_id === o.id) ? '(Assigned)' : ''}
+                  <MenuItem key={o.id} value={o.id} disabled={!!o.booth_id}>
+                    {o.username} {o.booth_id ? `(Assigned to Booth #${booths?.find((b: any) => b.id === o.booth_id)?.booth_number || o.booth_id})` : ''}
                   </MenuItem>
                 ))}
               </Select>
@@ -586,10 +544,10 @@ const Infrastructure = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenAssign(null)}>Cancel</Button>
+          <Button onClick={() => setSelectedBoothForOfficer(null)}>Cancel</Button>
           <Button variant="contained" 
             disabled={!selectedOfficer || assignOfficerMutation.isPending}
-            onClick={() => assignOfficerMutation.mutate({ user_id: selectedOfficer, booth_id: openAssign?.id })}>
+            onClick={() => assignOfficerMutation.mutate({ user_id: selectedOfficer, booth_id: selectedBoothForOfficer?.id })}>
             Assign Booth Officer
           </Button>
         </DialogActions>
@@ -615,6 +573,31 @@ const Infrastructure = () => {
             onClick={() => deleteBoothMutation.mutate(openDelete.id)}
           >
             Confirm Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete All Machines Confirmation */}
+      <Dialog open={openDeleteAllMachines} onClose={() => setOpenDeleteAllMachines(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>Delete ALL Voting Machines?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Are you sure you want to delete <strong>EVERY</strong> voting machine in your school? 
+            This will disconnect all active terminals.
+          </Typography>
+          <Alert severity="error" variant="filled" sx={{ borderRadius: 2 }}>
+            This action is permanent and cannot be undone.
+          </Alert>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setOpenDeleteAllMachines(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            color="error" 
+            disabled={bulkDeleteMachinesMutation.isPending}
+            onClick={() => bulkDeleteMachinesMutation.mutate()}
+          >
+            Yes, Delete All
           </Button>
         </DialogActions>
       </Dialog>

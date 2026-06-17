@@ -35,7 +35,9 @@ import {
   UserSquare2,
   BookOpen,
   Award,
-  FileText
+  FileText,
+  Activity,
+  ClipboardList
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,11 +67,12 @@ const navItems: NavItem[] = [
   { text: 'Classes & Sections', icon: <BookOpen size={22} />, path: '/school-admin/classes', roles: ['SCHOOL_ADMIN'] },
   { text: 'Posts', icon: <Award size={22} />, path: '/school-admin/posts', roles: ['SCHOOL_ADMIN'] },
   { text: 'Voters', icon: <Users size={22} />, path: '/school-admin/voters', roles: ['SCHOOL_ADMIN'] },
-  { text: 'Nominations', icon: <FileText size={22} />, path: '/school-admin/nominations', roles: ['SCHOOL_ADMIN'] },
   { text: 'Candidates', icon: <UserSquare2 size={22} />, path: '/school-admin/candidates', roles: ['SCHOOL_ADMIN'] },
-  { text: 'Booth Officers', icon: <UserSquare2 size={22} />, path: '/school-admin/staff', roles: ['SCHOOL_ADMIN'] },
   { text: 'Infrastructure', icon: <Monitor size={22} />, path: '/school-admin/infrastructure', roles: ['SCHOOL_ADMIN'] },
+  { text: 'Booth Officers', icon: <UserSquare2 size={22} />, path: '/school-admin/staff', roles: ['SCHOOL_ADMIN'] },
   { text: 'Results', icon: <BarChart3 size={22} />, path: '/school-admin/results', roles: ['SCHOOL_ADMIN'] },
+  { text: 'Live Monitor', icon: <Activity size={22} />, path: '/school-admin/live', roles: ['SCHOOL_ADMIN'] },
+  { text: 'Audit Log', icon: <ClipboardList size={22} />, path: '/school-admin/audit', roles: ['SCHOOL_ADMIN'] },
   { text: 'Profile', icon: <School size={22} />, path: '/school-admin/profile', roles: ['SCHOOL_ADMIN'] },
   
   // Booth Officer
@@ -250,7 +253,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               whiteSpace: 'nowrap',
               maxWidth: { xs: '180px', sm: '300px', md: 'auto' }
             }}>
-              {filteredNavItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
+              {user?.role === 'SUPER_ADMIN' ? 'Super Admin Panel' : 'School Admin Panel'}
               {user?.role !== 'SUPER_ADMIN' && user?.school_name && (
                 <Typography 
                   component="span" 

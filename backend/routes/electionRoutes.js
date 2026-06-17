@@ -71,6 +71,12 @@ router.get(
   electionController.getResults
 );
 
+// Get Public Election Results (No Auth)
+router.get(
+  "/public/:id/results",
+  electionController.getPublicResults
+);
+
 // Get Detailed Analytics
 router.get(
   "/:id/detailed-results",
@@ -116,12 +122,7 @@ router.post(
   electionController.duplicateElection
 );
 
-router.put(
-  "/:id/toggle-nominations",
-  requireAuth,
-  requireRole("SCHOOL_ADMIN"),
-  electionController.toggleNominations
-);
+
 
 router.post(
   "/:target_election_id/import-posts",
@@ -130,6 +131,6 @@ router.post(
   electionController.importPostStructure
 );
 
-router.get('/public/:code', electionController.getPublicElection);
+
 
 module.exports = router;

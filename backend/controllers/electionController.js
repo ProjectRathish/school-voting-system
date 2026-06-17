@@ -1,6 +1,7 @@
 const db = require("../config/db");
 const fs = require("fs");
 const path = require("path");
+const { logAction } = require('../utils/auditLogger');
 
 
 /*
@@ -64,6 +65,17 @@ exports.createElection = async (req, res) => {
        VALUES (?,?,?,?,?,?)`,
       [school_id, name, start_time, end_time, created_by, election_code]
     );
+
+    logAction({
+      school_id,
+      user_id: req.user.id,
+      user_name: req.user.name || req.user.email,
+      role: req.user.role,
+      action: 'CREATE_ELECTION',
+      entity_type: 'Election',
+      entity_name: name,
+      details: { election_code, election_id: result.insertId }
+    });
 
     res.json({
       message: "Election created successfully",
@@ -313,6 +325,19 @@ exports.updateElectionStatus = async (req, res) => {
       [status, id, school_id]
     );
 
+    // Fetch election name for the audit log
+    const [elRows] = await db.execute('SELECT name FROM elections WHERE id = ?', [id]);
+    logAction({
+      school_id,
+      user_id: req.user.id,
+      user_name: req.user.name || req.user.email,
+      role: req.user.role,
+      action: `ELECTION_STATUS_${status}`,
+      entity_type: 'Election',
+      entity_name: elRows[0]?.name || `Election #${id}`,
+      details: { election_id: id, new_status: status }
+    });
+
     res.json({
       message: "Election status updated"
     });
@@ -368,6 +393,10 @@ exports.deleteElection = async (req, res) => {
     await db.execute("DELETE FROM voting_machines WHERE election_id = ?", [id]);
     await db.execute("DELETE FROM polling_booths WHERE election_id = ?", [id]);
 
+    // Fetch name before deletion for audit log
+    const [nameRows] = await db.execute('SELECT name FROM elections WHERE id = ?', [id]);
+    const electionName = nameRows[0]?.name || `Election #${id}`;
+
     await db.execute(
       `DELETE FROM elections WHERE id = ? AND school_id = ?`,
       [id, school_id]
@@ -385,6 +414,17 @@ exports.deleteElection = async (req, res) => {
         console.error("Error deleting election files:", fileErr);
       }
     }
+
+    logAction({
+      school_id,
+      user_id: req.user.id,
+      user_name: req.user.name || req.user.email,
+      role: req.user.role,
+      action: 'DELETE_ELECTION',
+      entity_type: 'Election',
+      entity_name: electionName,
+      details: { election_id: id }
+    });
 
     res.json({
       message: "Election deleted successfully"
@@ -424,6 +464,10 @@ exports.getResults = async (req, res) => {
     }
 
     const election = electionResults[0];
+
+    if (election.status !== 'CLOSED') {
+      return res.status(403).json({ message: "Results are only available for CLOSED elections." });
+    }
 
     // Get Voter Turnout Stats
     const [turnout] = await db.execute(
@@ -507,6 +551,121 @@ exports.getResults = async (req, res) => {
   }
 };
 
+exports.getPublicResults = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if the id parameter is numeric (database ID) or an election code
+    const isNumeric = /^\d+$/.test(id);
+    const queryField = isNumeric ? 'e.id' : 'e.election_code';
+
+    // Verify election exists and fetch school info
+    const [electionResults] = await db.execute(
+      `SELECT e.id, e.name, e.status, s.name as school_name, s.logo as school_logo
+       FROM elections e
+       JOIN schools s ON e.school_id = s.id
+       WHERE ${queryField} = ?`,
+      [id]
+    );
+
+    if (electionResults.length === 0) {
+      return res.status(404).json({ message: "Election not found" });
+    }
+
+    const election = electionResults[0];
+    const numericElectionId = election.id;
+
+    if (election.status !== 'CLOSED') {
+      return res.status(403).json({ message: "Results are only available for CLOSED elections." });
+    }
+
+    // Get Voter Turnout Stats
+    const [turnout] = await db.execute(
+      `SELECT COUNT(*) as total_voters, SUM(CASE WHEN has_voted = 1 THEN 1 ELSE 0 END) as voted_count
+       FROM voters
+       WHERE election_id = ?`,
+      [numericElectionId]
+    );
+
+    const totalVoters = turnout[0].total_voters || 0;
+    const votedCount = Number(turnout[0].voted_count) || 0;
+    const turnoutPercentage = totalVoters > 0 ? ((votedCount / totalVoters) * 100).toFixed(2) : 0;
+
+    // Get results per post
+    const [rawResults] = await db.execute(
+      `SELECT 
+         p.id as post_id,
+         p.name as post_name,
+         c.id as candidate_id,
+         u.name as candidate_name,
+         c.photo,
+         c.symbol,
+         c.symbol_name,
+         COUNT(v.id) as vote_count
+       FROM posts p
+       LEFT JOIN candidates c ON c.post_id = p.id
+       LEFT JOIN voters u ON c.voter_id = u.id
+       LEFT JOIN votes v ON v.candidate_id = c.id
+       WHERE p.election_id = ?
+       GROUP BY p.id, c.id
+       ORDER BY p.id ASC, vote_count DESC`,
+      [numericElectionId]
+    );
+
+    // Format results to group by post
+    const postsMap = new Map();
+
+    rawResults.forEach(row => {
+      if (!postsMap.has(row.post_id)) {
+        postsMap.set(row.post_id, {
+          post_id: row.post_id,
+          post_name: row.post_name,
+          total_votes: 0,
+          candidates: []
+        });
+      }
+
+      const postEntry = postsMap.get(row.post_id);
+      
+      if (row.candidate_id) { // Only add if candidate exists for the post
+        postEntry.candidates.push({
+          candidate_id: row.candidate_id,
+          candidate_name: row.candidate_name,
+          photo: row.photo,
+          symbol: row.symbol,
+          symbol_name: row.symbol_name,
+          vote_count: row.vote_count
+        });
+        postEntry.total_votes += row.vote_count;
+      }
+    });
+
+    const resultsByPost = Array.from(postsMap.values());
+
+    res.json({
+      message: "Public election results retrieved successfully",
+      election: {
+        id: election.id,
+        name: election.name,
+        status: election.status,
+        school_name: election.school_name,
+        school_logo: election.school_logo
+      },
+      turnout: {
+        total_voters: totalVoters,
+        votes_cast: votedCount,
+        turnout_percentage: parseFloat(turnoutPercentage)
+      },
+      results: resultsByPost
+    });
+
+  } catch (error) {
+    console.error("Error fetching public election results:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+
 exports.getTurnout = async (req, res) => {
   try {
     const { id } = req.params;
@@ -582,6 +741,10 @@ exports.getDetailedResults = async (req, res) => {
     }
 
     const election = electionResults[0];
+
+    if (election.status !== 'CLOSED') {
+      return res.status(403).json({ message: "Detailed results are only available for CLOSED elections." });
+    }
 
     // Get voting breakdowns per candidate
     const [rawResults] = await db.execute(
@@ -796,7 +959,7 @@ exports.getAssignments = async (req, res) => {
        FROM election_officer_assignments a
        JOIN users u ON a.user_id = u.id
        JOIN polling_booths b ON a.booth_id = b.id
-       WHERE a.election_id = ? AND u.school_id = ?`,
+       WHERE a.election_id = ? AND b.school_id = ?`,
       [id, school_id]
     );
 
@@ -823,14 +986,14 @@ exports.assignOfficer = async (req, res) => {
       return res.status(404).json({ message: "Booth officer not found in your school" });
     }
 
-    // Verify booth belongs to this election
+    // Verify booth belongs to this school (now global)
     const [boothRows] = await db.execute(
-      "SELECT id FROM polling_booths WHERE id=? AND election_id=? AND school_id=?",
-      [booth_id, id, school_id]
+      "SELECT id FROM polling_booths WHERE id=? AND school_id=?",
+      [booth_id, school_id]
     );
 
     if (boothRows.length === 0) {
-      return res.status(404).json({ message: "Booth not found in this election" });
+      return res.status(404).json({ message: "Booth not found in your school" });
     }
 
     // Upsert assignment (Unique on election_id, user_id)
@@ -881,142 +1044,6 @@ exports.duplicateElection = async (req, res) => {
     const { id: originalElectionId } = req.params;
     const school_id = req.user.school_id;
     const created_by = req.user.id;
-
-    connection = await db.getConnection();
-    await connection.beginTransaction();
-
-    // 1. Get original election
-    const [originalRows] = await connection.execute(
-      "SELECT name, start_time, end_time FROM elections WHERE id = ? AND school_id = ?",
-      [originalElectionId, school_id]
-    );
-
-    if (originalRows.length === 0) {
-      if (connection) await connection.rollback();
-      return res.status(404).json({ message: "Original election not found" });
-    }
-
-    const original = originalRows[0];
-    const { name: newName, start_time: newStartTime, end_time: newEndTime } = req.body || {};
-
-    // 2. Fetch School Plan Limits
-    const [schoolInfo] = await connection.execute(`
-      SELECT s.custom_max_elections, p.max_elections 
-      FROM schools s
-      LEFT JOIN subscription_plans p ON s.plan_id = p.id
-      WHERE s.id = ?
-    `, [school_id]);
-
-    const maxElections = (schoolInfo[0]?.custom_max_elections !== null && schoolInfo[0]?.custom_max_elections !== undefined) 
-      ? schoolInfo[0].custom_max_elections 
-      : (schoolInfo[0]?.max_elections || 1);
-
-    // 3. Count existing elections
-    const [countRows] = await connection.execute(
-      "SELECT COUNT(*) as count FROM elections WHERE school_id = ?",
-      [school_id]
-    );
-
-    if (countRows[0].count >= maxElections) {
-      await connection.rollback();
-      return res.status(403).json({ 
-        message: `Election limit reached. Your current plan allows a maximum of ${maxElections} elections. Please upgrade your plan.` 
-      });
-    }
-
-    const [schoolRows] = await connection.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
-    const school_code = schoolRows[0].code;
-    const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
-    const election_code = `${school_code}-EL${nextNumber}`;
-
-    // 3. Create new election (Status: DRAFT)
-    const [elecResult] = await connection.execute(
-      `INSERT INTO elections (school_id, name, start_time, end_time, created_by, election_code, status) 
-       VALUES (?, ?, ?, ?, ?, ?, 'DRAFT')`,
-      [
-        school_id, 
-        newName || `Copy of ${original.name}`, 
-        newStartTime || original.start_time, 
-        newEndTime || original.end_time, 
-        created_by, 
-        election_code
-      ]
-    );
-    const newElectionId = elecResult.insertId;
-
-    // 4. Duplicate Voters
-    const voterMap = new Map();
-    const [voterRows] = await connection.execute(
-      "SELECT id, admission_no, name, class_id, sex, division, is_blocked FROM voters WHERE election_id = ? AND school_id = ?",
-      [originalElectionId, school_id]
-    );
-
-    for (const v of voterRows) {
-      const [voterResult] = await connection.execute(
-        `INSERT INTO voters (school_id, election_id, admission_no, name, class_id, sex, division, is_blocked) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [school_id, newElectionId, v.admission_no, v.name, v.class_id, v.sex, v.division || null, v.is_blocked || 0]
-      );
-      voterMap.set(v.id, voterResult.insertId);
-    }
-
-    // 5. Duplicate Posts
-    const postMap = new Map();
-    const [postRows] = await connection.execute(
-      "SELECT id, name, candidate_classes, voting_classes, gender_rule FROM posts WHERE election_id = ? AND school_id = ?",
-      [originalElectionId, school_id]
-    );
-
-    for (const p of postRows) {
-      const [postResult] = await connection.execute(
-        `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule) 
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [school_id, newElectionId, p.name, p.candidate_classes, p.voting_classes, p.gender_rule]
-      );
-      postMap.set(p.id, postResult.insertId);
-    }
-
-    // 6. Duplicate Candidates
-    const [candRows] = await connection.execute(
-      "SELECT voter_id, post_id, photo, symbol, symbol_name FROM candidates WHERE election_id = ? AND school_id = ?",
-      [originalElectionId, school_id]
-    );
-
-    for (const c of candRows) {
-      const newVoterId = voterMap.get(c.voter_id);
-      const newPostId = postMap.get(c.post_id);
-
-      if (newVoterId && newPostId) {
-        await connection.execute(
-          `INSERT INTO candidates (school_id, election_id, voter_id, post_id, photo, symbol, symbol_name) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [school_id, newElectionId, newVoterId, newPostId, c.photo, c.symbol, c.symbol_name]
-        );
-      }
-    }
-
-    await connection.commit();
-    res.json({ 
-      message: "Election duplicated successfully", 
-      election_id: newElectionId,
-      election_code: election_code
-    });
-
-  } catch (error) {
-    if (connection) await connection.rollback();
-    console.error("Duplicate Error:", error);
-    res.status(500).json({ message: "Server error duplicating election", error: error.message });
-  } finally {
-    if (connection) connection.release();
-  }
-};
-
-exports.duplicateElection = async (req, res) => {
-  let connection;
-  try {
-    const { id: originalElectionId } = req.params;
-    const school_id = req.user.school_id;
-    const created_by = req.user.id;
     
     // Options for selective cloning
     const { 
@@ -1046,17 +1073,37 @@ exports.duplicateElection = async (req, res) => {
 
     const original = originalRows[0];
 
-    // 2. Count existing elections to generate new code
+    // 2. Fetch School Plan Limits
+    const [schoolInfo] = await connection.execute(`
+      SELECT s.custom_max_elections, p.max_elections 
+      FROM schools s
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      WHERE s.id = ?
+    `, [school_id]);
+
+    const maxElections = (schoolInfo[0]?.custom_max_elections !== null && schoolInfo[0]?.custom_max_elections !== undefined) 
+      ? schoolInfo[0].custom_max_elections 
+      : (schoolInfo[0]?.max_elections || 1);
+
+    // 3. Count existing elections to generate new code and check limit
     const [countRows] = await connection.execute(
       "SELECT COUNT(*) as count FROM elections WHERE school_id = ?",
       [school_id]
     );
+
+    if (countRows[0].count >= maxElections) {
+      await connection.rollback();
+      return res.status(403).json({ 
+        message: `Election limit reached. Your current plan allows a maximum of ${maxElections} elections. Please upgrade your plan.` 
+      });
+    }
+
     const [schoolRows] = await connection.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
     const school_code = schoolRows[0].code;
     const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
     const election_code = `${school_code}-EL${nextNumber}`;
 
-    // 3. Create new election (Status: DRAFT)
+    // 4. Create new election (Status: DRAFT)
     const [elecResult] = await connection.execute(
       `INSERT INTO elections (school_id, name, start_time, end_time, created_by, election_code, status) 
        VALUES (?, ?, ?, ?, ?, ?, 'DRAFT')`,
@@ -1077,7 +1124,7 @@ exports.duplicateElection = async (req, res) => {
     const voterMap = new Map();
     const postMap = new Map();
 
-    // 4. Duplicate Sections
+    // 5. Duplicate Sections (election-specific ones)
     if (includeSections) {
       const [sectionRows] = await connection.execute(
         "SELECT id, name FROM sections WHERE election_id = ? AND school_id = ?",
@@ -1092,7 +1139,7 @@ exports.duplicateElection = async (req, res) => {
       }
     }
 
-    // 5. Duplicate Classes
+    // 6. Duplicate Classes (election-specific ones)
     if (includeClasses) {
       const [classRows] = await connection.execute(
         "SELECT id, name, section_id FROM classes WHERE election_id = ? AND school_id = ?",
@@ -1108,7 +1155,7 @@ exports.duplicateElection = async (req, res) => {
       }
     }
 
-    // 6. Duplicate Voters
+    // 7. Duplicate Voters
     if (includeVoters) {
       const [voterRows] = await connection.execute(
         "SELECT id, admission_no, name, class_id, sex, division, is_blocked FROM voters WHERE election_id = ? AND school_id = ?",
@@ -1116,7 +1163,8 @@ exports.duplicateElection = async (req, res) => {
       );
 
       for (const v of voterRows) {
-        const newClassId = classMap.get(v.class_id) || null;
+        // If class_id was election-specific, use new one; otherwise keep as is (global)
+        const newClassId = classMap.get(v.class_id) || v.class_id;
         const [voterResult] = await connection.execute(
           `INSERT INTO voters (school_id, election_id, admission_no, name, class_id, sex, division, is_blocked) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -1126,10 +1174,10 @@ exports.duplicateElection = async (req, res) => {
       }
     }
 
-    // 7. Duplicate Posts
+    // 8. Duplicate Posts
     if (includePosts) {
       const [postRows] = await connection.execute(
-        "SELECT id, name, candidate_classes, voting_classes, gender_rule FROM posts WHERE election_id = ? AND school_id = ?",
+        "SELECT id, name, candidate_classes, voting_classes, gender_rule, priority FROM posts WHERE election_id = ? AND school_id = ?",
         [originalElectionId, school_id]
       );
 
@@ -1143,25 +1191,25 @@ exports.duplicateElection = async (req, res) => {
           if (typeof votClasses === 'string') votClasses = JSON.parse(votClasses);
           
           if (Array.isArray(candClasses)) {
-             candClasses = candClasses.map(id => classMap.get(id)).filter(id => id !== undefined);
+             candClasses = candClasses.map(id => classMap.get(id) || id);
           }
           if (Array.isArray(votClasses)) {
-             votClasses = votClasses.map(id => classMap.get(id)).filter(id => id !== undefined);
+             votClasses = votClasses.map(id => classMap.get(id) || id);
           }
         } catch (e) {
           console.error("Error mapping classes for post:", e);
         }
 
         const [postResult] = await connection.execute(
-          `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule) 
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [school_id, newElectionId, p.name, JSON.stringify(candClasses), JSON.stringify(votClasses), p.gender_rule]
+          `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule, priority) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [school_id, newElectionId, p.name, JSON.stringify(candClasses), JSON.stringify(votClasses), p.gender_rule, p.priority || 0]
         );
         postMap.set(p.id, postResult.insertId);
       }
     }
 
-    // 8. Duplicate Candidates
+    // 9. Duplicate Candidates
     if (includeCandidates && includeVoters && includePosts) {
       const [candRows] = await connection.execute(
         "SELECT voter_id, post_id, photo, symbol, symbol_name FROM candidates WHERE election_id = ? AND school_id = ?",
@@ -1247,12 +1295,68 @@ exports.importPostStructure = async (req, res) => {
         return res.status(400).json({ message: "Source election has no posts to import" });
       }
 
-      // Insert into target
+      // Fetch classes for source election
+      const [sourceClasses] = await connection.execute(
+        `SELECT c.id, c.name, s.name as section_name 
+         FROM classes c 
+         LEFT JOIN sections s ON c.section_id = s.id 
+         WHERE c.election_id = ? AND c.school_id = ?`,
+        [from_election_id, school_id]
+      );
+
+      // Fetch classes for target election
+      const [targetClasses] = await connection.execute(
+        `SELECT c.id, c.name, s.name as section_name 
+         FROM classes c 
+         LEFT JOIN sections s ON c.section_id = s.id 
+         WHERE c.election_id = ? AND c.school_id = ?`,
+        [target_election_id, school_id]
+      );
+
+      // Build mapping map
+      const classMap = new Map();
+      const targetClassByUniqueKey = new Map();
+
+      for (const tc of targetClasses) {
+        const key = `${tc.section_name || ''} | ${tc.name}`.toLowerCase();
+        targetClassByUniqueKey.set(key, tc.id);
+      }
+
+      for (const sc of sourceClasses) {
+        const key = `${sc.section_name || ''} | ${sc.name}`.toLowerCase();
+        if (targetClassByUniqueKey.has(key)) {
+          classMap.set(sc.id, targetClassByUniqueKey.get(key));
+        } else {
+          // Fallback: search by name only
+          const fallbackTarget = targetClasses.find(tc => tc.name.toLowerCase() === sc.name.toLowerCase());
+          if (fallbackTarget) {
+            classMap.set(sc.id, fallbackTarget.id);
+          }
+        }
+      }
+
+      // Insert into target with mapped class IDs
       for (const p of posts) {
+        let candClasses = [];
+        let votClasses = [];
+        try {
+           candClasses = JSON.parse(p.candidate_classes || "[]");
+           votClasses = JSON.parse(p.voting_classes || "[]");
+           
+           if (Array.isArray(candClasses)) {
+              candClasses = candClasses.map(id => classMap.get(Number(id)) || id);
+           }
+           if (Array.isArray(votClasses)) {
+              votClasses = votClasses.map(id => classMap.get(Number(id)) || id);
+           }
+        } catch (e) {
+           console.error("Error parsing/mapping imported post classes:", e);
+        }
+
         await connection.execute(
           `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule) 
            VALUES (?, ?, ?, ?, ?, ?)`,
-          [school_id, target_election_id, p.name, p.candidate_classes, p.voting_classes, p.gender_rule]
+          [school_id, target_election_id, p.name, JSON.stringify(candClasses), JSON.stringify(votClasses), p.gender_rule]
         );
       }
 
@@ -1297,7 +1401,10 @@ exports.getPublicElection = async (req, res) => {
     const { code } = req.params;
 
     const [rows] = await db.execute(
-      `SELECT id, name, nomination_open, status FROM elections WHERE election_code = ?`,
+      `SELECT e.id, e.name, e.nomination_open, e.status, s.code as school_code 
+       FROM elections e 
+       JOIN schools s ON e.school_id = s.id 
+       WHERE e.election_code = ?`,
       [code]
     );
 

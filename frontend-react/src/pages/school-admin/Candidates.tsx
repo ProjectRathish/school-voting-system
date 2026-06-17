@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, Alert, CircularProgress, IconButton,
-  FormControl, InputLabel, Select, MenuItem, Avatar, Chip, Autocomplete, TextField, Tooltip, Grid, Snackbar, alpha
+  FormControl, InputLabel, Select, MenuItem, Avatar, Chip, Autocomplete, TextField, Tooltip, Grid, Snackbar, alpha,
+  Stack, Divider
 } from '@mui/material';
-import { Plus, Trash2, User, Sparkles, Edit, Camera, Image, Download, Upload, Search, X } from 'lucide-react';
+import { Plus, Trash2, User, Sparkles, Edit, Camera, Image as ImageIcon, Download, Upload, Search, X, FileText, Printer, Eye } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axiosInstance from '../../api/axiosInstance';
+import axiosInstance, { getMediaUrl } from '../../api/axiosInstance';
 import getCroppedImg from '../../utils/cropImage';
 import Cropper from 'react-easy-crop';
 import { Slider } from '@mui/material';
@@ -22,31 +23,9 @@ const filter = createFilterOptions({
   limit: 50, // Only show first 50 matches to keep typing smooth
 });
 
-const BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+const BASE_URL = getMediaUrl();
 
-const getPostColor = (postName: string) => {
-  const colors = [
-    { bg: '#eef2ff', text: '#4338ca', border: '#c7d2fe' }, // Indigo
-    { bg: '#faf5ff', text: '#7e22ce', border: '#e9d5ff' }, // Purple
-    { bg: '#fdf2f8', text: '#be185d', border: '#fbcfe8' }, // Pink
-    { bg: '#fff1f2', text: '#be123c', border: '#fecdd3' }, // Rose
-    { bg: '#fff7ed', text: '#c2410c', border: '#ffedd5' }, // Orange
-    { bg: '#fefce8', text: '#a16207', border: '#fef08a' }, // Yellow
-    { bg: '#f0fdf4', text: '#15803d', border: '#bbf7d0' }, // Green
-    { bg: '#ecfeff', text: '#0e7490', border: '#cffafe' }, // Cyan
-    { bg: '#eff6ff', text: '#1d4ed8', border: '#bfdbfe' }, // Blue
-    { bg: '#f5f3ff', text: '#6d28d9', border: '#ddd6fe' }, // Violet
-  ];
-  
-  if (!postName) return colors[0];
-  
-  let hash = 0;
-  for (let i = 0; i < postName.length; i++) {
-    hash = postName.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  
-  return colors[Math.abs(hash) % colors.length];
-};
+
 
 const Candidates = () => {
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
@@ -55,6 +34,10 @@ const Candidates = () => {
   const [candidateForm, setCandidateForm] = useState({ voter_id: '', post_id: '', symbol_name: '' });
   const [editingCandidate, setEditingCandidate] = useState<any>(null);
   const [editOpen, setEditOpen] = useState(false);
+
+  // Profile Detail states
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedCandidateDetail, setSelectedCandidateDetail] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -82,6 +65,7 @@ const Candidates = () => {
   const [filterClass, setFilterClass] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+
   const printRef = useRef<HTMLDivElement>(null);
   const webcamRef = useRef<Webcam>(null);
   const [cameraOpen, setCameraOpen] = useState(false);
@@ -113,6 +97,23 @@ const Candidates = () => {
       if (selectedPost) params.append('post_id', selectedPost);
       return (await axiosInstance.get(`/candidates/get-candidates?${params}`)).data;
     }
+  });
+
+  const filteredCandidatesCount = useMemo(() => {
+    if (!Array.isArray(candidates)) return 0;
+    return candidates.filter((c: any) => {
+      const matchSearch = searchTerm === '' || 
+        c.candidate_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.admission_no?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchGender = filterGender === '' || c.sex === filterGender;
+      const matchClass = filterClass === '' || c.class_name === filterClass;
+      return matchSearch && matchGender && matchClass;
+    }).length;
+  }, [candidates, searchTerm, filterGender, filterClass]);
+
+  const { data: school } = useQuery({
+    queryKey: ['school-me'],
+    queryFn: async () => (await axiosInstance.get('/schools/me')).data
   });
 
   const isConfiguring = selectedElectionStatus === 'CONFIGURING' || selectedElectionStatus === 'DRAFT';
@@ -412,11 +413,33 @@ const Candidates = () => {
       .footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 10px; color: #94a3b8; padding: 10px; }
     `;
 
+    const schoolName = school?.name || 'School Election';
+
     let html = `<html><head><title>Candidate List - ${selectedElectionName}</title><style>${style}</style></head><body>`;
-    html += `<h1>${selectedElectionName} - Candidate List</h1>`;
+    html += `
+      <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #6366f1; padding-bottom: 15px;">
+        <div style="font-size: 10pt; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">${schoolName}</div>
+        <div style="font-size: 18pt; font-weight: 900; color: #1e1e28; text-transform: uppercase;">${selectedElectionName} - CANDIDATE LIST</div>
+      </div>
+    `;
     html += `<table><thead><tr><th>Candidate</th><th>Adm No</th><th>Class</th><th>Post</th><th>Symbol</th><th>Symbol Name</th></tr></thead><tbody>`;
 
-    candidates.forEach((c: any) => {
+    // Sort candidates by post_priority, then by post_name, then by candidate_name
+    const sortedCandidates = [...candidates].sort((a: any, b: any) => {
+      // Sort by priority (asc)
+      const priorityA = a.post_priority || 0;
+      const priorityB = b.post_priority || 0;
+      if (priorityA !== priorityB) return priorityA - priorityB;
+      
+      // If priority same, sort by post name
+      const postCompare = a.post_name.localeCompare(b.post_name);
+      if (postCompare !== 0) return postCompare;
+      
+      // If post name same, sort by candidate name
+      return a.candidate_name.localeCompare(b.candidate_name);
+    });
+
+    sortedCandidates.forEach((c: any) => {
       html += `
         <tr>
           <td>
@@ -487,7 +510,7 @@ const Candidates = () => {
 
   const handleDownloadPoster = async (c: any) => {
     const canvas = document.createElement('canvas');
-    const scale = 2; // High DPI
+    const scale = 2;
     canvas.width = 1000 * scale;
     canvas.height = 1414 * scale;
     const ctx = canvas.getContext('2d');
@@ -495,104 +518,632 @@ const Candidates = () => {
     
     ctx.scale(scale, scale);
 
-    // 1. Background
-    const gradient = ctx.createLinearGradient(0, 0, 0, 1414);
-    gradient.addColorStop(0, '#6366f1');
-    gradient.addColorStop(1, '#4338ca');
+    // 1. Vibrant Background
+    const gradient = ctx.createLinearGradient(0, 0, 1000, 1414);
+    gradient.addColorStop(0, '#4f46e5');
+    gradient.addColorStop(0.5, '#6366f1');
+    gradient.addColorStop(1, '#818cf8');
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 1000, 1414);
 
-    // 2. White Card Area
+    // 2. Decorative Elements
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.beginPath();
+    ctx.arc(1000, 0, 400, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, 1414, 300, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Main Card
     ctx.fillStyle = 'white';
     if (ctx.roundRect) {
       ctx.beginPath();
-      ctx.roundRect(50, 50, 900, 1314, 40);
+      ctx.roundRect(40, 40, 920, 1334, 30);
       ctx.fill();
     } else {
-      ctx.fillRect(50, 50, 900, 1314);
+      ctx.fillRect(40, 40, 920, 1334);
     }
-
-    // 3. Header Text
-    ctx.fillStyle = '#1e1e28';
-    ctx.textAlign = 'center';
-    ctx.font = '800 40px Inter, system-ui, sans-serif';
-    ctx.fillText('VOTE FOR', 500, 150);
-    
-    ctx.font = '900 80px Inter, system-ui, sans-serif';
-    ctx.fillStyle = '#6366f1';
-    ctx.fillText(c.post_name.toUpperCase(), 500, 240);
 
     const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onerror = (e) => {
+        console.error("Image load failed for:", src, e);
+        reject(new Error(`Failed to load ${src.includes('candidates') ? 'Photo' : 'Symbol'}. Please ensure both are uploaded.`));
+      };
       img.src = src;
     });
 
     try {
-      const photoImg = await loadImage(`${BASE_URL}${c.photo}?v=${Date.now()}`);
-      const symbolImg = await loadImage(`${BASE_URL}${c.symbol}?v=${Date.now()}`);
+      const photoUrl = `${BASE_URL}${c.photo}`;
+      const symbolUrl = `${BASE_URL}${c.symbol}`;
       
-      // Draw Photo (Circular)
+      const photoImg = await loadImage(photoUrl);
+      const symbolImg = await loadImage(symbolUrl);
+      
+      // 4. Header
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#4f46e5';
+      ctx.font = '900 36px Inter, sans-serif';
+      ctx.fillText('VOTE FOR', 500, 120);
+      
+      ctx.font = '900 86px Inter, sans-serif';
+      ctx.fillText(c.post_name.toUpperCase(), 500, 210);
+
+      // 5. Candidate Photo with Stylish Border
       ctx.save();
       ctx.beginPath();
-      ctx.arc(500, 550, 200, 0, Math.PI * 2);
+      ctx.arc(500, 560, 230, 0, Math.PI * 2);
       ctx.clip();
-      ctx.drawImage(photoImg, 300, 350, 400, 400);
+      ctx.drawImage(photoImg, 270, 330, 460, 460);
       ctx.restore();
       
-      // Border for Photo
-      ctx.strokeStyle = '#6366f1';
-      ctx.lineWidth = 10;
+      ctx.strokeStyle = '#4f46e5';
+      ctx.lineWidth = 12;
       ctx.beginPath();
-      ctx.arc(500, 550, 205, 0, Math.PI * 2);
+      ctx.arc(500, 560, 236, 0, Math.PI * 2);
       ctx.stroke();
 
-      // 5. Candidate Name
-      ctx.fillStyle = '#1e1e28';
-      ctx.font = '900 70px Inter, system-ui, sans-serif';
-      ctx.fillText(c.candidate_name, 500, 850);
+      // 6. Candidate Name
+      ctx.fillStyle = '#111827';
+      ctx.font = '900 84px Inter, sans-serif';
+      ctx.fillText(c.candidate_name, 500, 900);
 
-      // 6. Symbol Area
-      ctx.fillStyle = '#f8fafc';
+      // 7. Symbol Container
+      const symbolY = 980;
+      ctx.fillStyle = '#f3f4f6';
       if (ctx.roundRect) {
         ctx.beginPath();
-        ctx.roundRect(350, 950, 300, 300, 20);
+        ctx.roundRect(300, symbolY, 400, 320, 24);
         ctx.fill();
       } else {
-        ctx.fillRect(350, 950, 300, 300);
+        ctx.fillRect(300, symbolY, 400, 320);
       }
       
-      ctx.drawImage(symbolImg, 400, 980, 200, 200);
+      ctx.drawImage(symbolImg, 380, symbolY + 30, 240, 240);
       
-      ctx.fillStyle = '#6366f1';
-      ctx.font = '700 50px Inter, system-ui, sans-serif';
-      ctx.fillText(c.symbol_name || 'My Symbol', 500, 1220);
+      ctx.fillStyle = '#4f46e5';
+      ctx.font = '800 48px Inter, sans-serif';
+      ctx.fillText(c.symbol_name || 'CANDIDATE SYMBOL', 500, symbolY + 320);
 
-      // 7. Footer
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '600 25px Inter, system-ui, sans-serif';
-      ctx.fillText(`${selectedElectionName} | School General Election`, 500, 1350);
+      // 8. Footer
+      const schoolName = school?.name || 'School Election';
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '700 24px Inter, sans-serif';
+      ctx.fillText(schoolName.toUpperCase(), 500, 1330);
+      ctx.font = '600 20px Inter, sans-serif';
+      ctx.fillText(`${selectedElectionName} • Official Campaign Material`, 500, 1360);
 
       const link = document.createElement('a');
-      link.download = `Poster_${c.candidate_name.replace(/\s+/g, '_')}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.download = `Campaign_Poster_${c.candidate_name.replace(/\s+/g, '_')}.png`;
+      link.href = canvas.toDataURL('image/png', 1.0);
       link.click();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Could not generate poster. Make sure images are loaded.");
+      setError(`Poster Error: ${err.message || "Unknown Error"}. Try clearing browser cache or re-uploading the images.`);
     }
+  };
+
+
+
+  const handlePrintAllPosters = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const schoolName = school?.name || 'School Election';
+    const electionName = selectedElectionName || 'Election';
+
+    let postersHtml = '';
+    candidates?.forEach((c: any) => {
+      const photoUrl = `${BASE_URL}${c.photo}`;
+      const symbolUrl = `${BASE_URL}${c.symbol}`;
+      
+      postersHtml += `
+        <div class="poster-page">
+          <div class="poster-container">
+            <div class="inner-card">
+              <div class="top-branding">
+                <div class="school-name">${schoolName.toUpperCase()}</div>
+                <div class="election-title">${electionName}</div>
+              </div>
+
+              <div class="voter-call">
+                <div class="vote-for">VOTE FOR</div>
+                <div class="candidate-name">${c.candidate_name}</div>
+              </div>
+              
+              <div class="media-row">
+                <div class="photo-box">
+                  <img src="${photoUrl}" />
+                </div>
+                <div class="symbol-box">
+                  <img src="${symbolUrl}" />
+                  <div class="symbol-name">${c.symbol_name || 'Symbol'}</div>
+                </div>
+              </div>
+
+              <div class="post-title">${c.post_name}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Campaign Posters - ${electionName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; }
+            
+            .poster-page {
+              page-break-after: always;
+              width: 210mm;
+              height: 297mm;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background: #fff;
+            }
+            
+            .poster-container {
+              width: 100%;
+              height: 100%;
+              padding: 10mm;
+              background: #4f46e5;
+              display: flex;
+              flex-direction: column;
+            }
+            
+            .inner-card {
+              flex: 1;
+              background: white;
+              border-radius: 6mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 12mm 10mm;
+            }
+
+            .top-branding {
+              text-align: center;
+              width: 100%;
+              border-bottom: 1mm solid #f1f5f9;
+              padding-bottom: 5mm;
+              margin-bottom: 8mm;
+            }
+
+            .school-name { 
+              font-size: 6mm; 
+              font-weight: 700; 
+              color: #64748b; 
+              letter-spacing: 1mm;
+              text-transform: uppercase;
+              margin-bottom: 1mm;
+            }
+
+            .election-title { 
+              font-size: 8mm; 
+              font-weight: 900; 
+              color: #111827; 
+              text-transform: uppercase; 
+              line-height: 1.1;
+            }
+            
+            .voter-call {
+              text-align: center;
+              margin-bottom: 8mm;
+            }
+
+            .vote-for { 
+              font-size: 12mm; 
+              font-weight: 900; 
+              color: #4f46e5; 
+              letter-spacing: 2mm; 
+              margin-bottom: 2mm;
+            }
+            
+            .candidate-name { 
+              font-size: 24mm; 
+              font-weight: 900; 
+              color: #111827; 
+              line-height: 1;
+              word-break: break-word;
+            }
+            
+            .media-row {
+              display: flex;
+              gap: 8mm;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              margin-bottom: 8mm;
+            }
+
+            .photo-box img { 
+              width: 80mm; 
+              height: 80mm; 
+              border-radius: 3mm; 
+              object-fit: cover; 
+              border: 3mm solid #4f46e5;
+            }
+            
+            .symbol-box {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              background: #f8fafc;
+              padding: 4mm;
+              border-radius: 3mm;
+              width: 75mm;
+            }
+
+            .symbol-box img { 
+              width: 65mm; 
+              height: 65mm; 
+              object-fit: contain;
+            }
+
+            .symbol-name {
+              font-size: 8mm;
+              font-weight: 800;
+              color: #4f46e5;
+              margin-top: 3mm;
+              text-align: center;
+              text-transform: uppercase;
+            }
+
+            .post-title {
+              font-size: 18mm;
+              font-weight: 900;
+              color: #4f46e5;
+              text-transform: uppercase;
+              margin-top: auto;
+              text-align: center;
+              border-top: 1mm solid #f1f5f9;
+              width: 100%;
+              padding-top: 5mm;
+            }
+            
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { size: A4; margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${postersHtml}
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 1000);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintPoster = async (c: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const schoolName = school?.name || 'School Election';
+    const electionName = selectedElectionName || 'Election';
+    const photoUrl = `${BASE_URL}${c.photo}`;
+    const symbolUrl = `${BASE_URL}${c.symbol}`;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Poster - ${c.candidate_name}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; }
+            .poster-container {
+              width: 210mm;
+              height: 297mm;
+              padding: 10mm;
+              background: #4f46e5;
+              display: flex;
+              flex-direction: column;
+            }
+            .inner-card {
+              flex: 1;
+              background: white;
+              border-radius: 6mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 12mm 10mm;
+            }
+            .top-branding {
+              text-align: center;
+              width: 100%;
+              border-bottom: 1mm solid #f1f5f9;
+              padding-bottom: 5mm;
+              margin-bottom: 8mm;
+            }
+            .school-name { 
+              font-size: 6mm; 
+              font-weight: 700; 
+              color: #64748b; 
+              letter-spacing: 1mm;
+              text-transform: uppercase;
+              margin-bottom: 1mm;
+            }
+            .election-title { 
+              font-size: 8mm; 
+              font-weight: 900; 
+              color: #111827; 
+              text-transform: uppercase; 
+              line-height: 1.1;
+            }
+            .voter-call {
+              text-align: center;
+              margin-bottom: 8mm;
+            }
+            .vote-for { 
+              font-size: 12mm; 
+              font-weight: 900; 
+              color: #4f46e5; 
+              letter-spacing: 2mm; 
+              margin-bottom: 2mm;
+            }
+            .candidate-name { 
+              font-size: 24mm; 
+              font-weight: 900; 
+              color: #111827; 
+              line-height: 1;
+            }
+            .media-row {
+              display: flex;
+              gap: 8mm;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              margin-bottom: 8mm;
+            }
+            .photo-box img { 
+              width: 80mm; 
+              height: 80mm; 
+              border-radius: 3mm; 
+              object-fit: cover; 
+              border: 3mm solid #4f46e5;
+            }
+            .symbol-box {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              background: #f8fafc;
+              padding: 4mm;
+              border-radius: 3mm;
+              width: 75mm;
+            }
+            .symbol-box img { 
+              width: 65mm; 
+              height: 65mm; 
+              object-fit: contain;
+            }
+            .symbol-name {
+              font-size: 8mm;
+              font-weight: 800;
+              color: #4f46e5;
+              margin-top: 3mm;
+              text-transform: uppercase;
+            }
+            .post-title {
+              font-size: 18mm;
+              font-weight: 900;
+              color: #4f46e5;
+              text-transform: uppercase;
+              margin-top: auto;
+              text-align: center;
+              border-top: 1mm solid #f1f5f9;
+              width: 100%;
+              padding-top: 5mm;
+            }
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { size: A4; margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="poster-container">
+            <div class="inner-card">
+              <div class="top-branding">
+                <div class="school-name">${schoolName.toUpperCase()}</div>
+                <div class="election-title">${electionName}</div>
+              </div>
+
+              <div class="voter-call">
+                <div class="vote-for">VOTE FOR</div>
+                <div class="candidate-name">${c.candidate_name}</div>
+              </div>
+              
+              <div class="media-row">
+                <div class="photo-box">
+                  <img src="${photoUrl}" />
+                </div>
+                <div class="symbol-box">
+                  <img src="${symbolUrl}" />
+                  <div class="symbol-name">${c.symbol_name || 'Symbol'}</div>
+                </div>
+              </div>
+
+              <div class="post-title">${c.post_name}</div>
+            </div>
+          </div>
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintNominationForm = () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const schoolName = school?.name || 'Your School Name';
+    const electionName = selectedElectionName || 'Current Election';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Nomination Form - ${electionName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { font-family: 'Inter', sans-serif; padding: 30px; color: #1a1a1a; line-height: 1.4; margin: 0; }
+            .header-container { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 3px solid #000; padding-bottom: 15px; }
+            .header-text { flex: 1; text-align: left; }
+            .school-name { font-size: 13px; font-weight: 700; text-transform: uppercase; margin: 0; color: #666; letter-spacing: 0.5px; }
+            .form-title { font-size: 26px; font-weight: 950; margin-top: 5px; color: #000; letter-spacing: -0.8px; text-transform: uppercase; line-height: 1; }
+            .election-name { font-size: 18px; font-weight: 800; color: #4338ca; margin-top: 8px; line-height: 1.1; }
+            
+            .photo-box { width: 105px; height: 125px; border: 2.5px solid #000; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 9px; color: #000; flex-shrink: 0; margin-left: 25px; background: #fff; }
+            
+            .section { margin-bottom: 25px; }
+            .section-title { font-size: 13px; font-weight: 800; text-transform: uppercase; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 18px; color: #000; }
+            .field-row { display: flex; margin-bottom: 22px; gap: 30px; }
+            .field { flex: 1; border-bottom: 2px solid #000; height: 32px; position: relative; }
+            .field-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: #444; position: absolute; top: -16px; left: 0; }
+            
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 35px; margin-top: 10px; }
+            .signature-box { border: 1.5px solid #000; height: 80px; margin-top: 5px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; font-size: 9px; color: #000; font-weight: 600; }
+            
+            .declaration { font-size: 12px; margin-top: 10px; border: 1.5px solid #000; padding: 12px; background: #fff; line-height: 1.6; }
+            
+            .footer { margin-top: 40px; text-align: center; font-size: 9px; color: #555; border-top: 2px solid #000; padding-top: 15px; font-weight: 700; }
+            
+            @media print {
+              body { padding: 0; }
+              @page { size: A4; margin: 1cm; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-container">
+            <div class="header-text">
+              <div class="school-name">${schoolName}</div>
+              <div class="form-title">CANDIDATE<br>NOMINATION FORM</div>
+              <div class="election-name">${electionName}</div>
+            </div>
+            <div class="photo-box">
+              AFFIX<br>PHOTO HERE
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">I. Candidate Information</div>
+            <div class="field-row">
+              <div class="field"><span class="field-label">Full Name of Candidate</span></div>
+              <div class="field" style="flex: 0.5;"><span class="field-label">Admission Number</span></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><span class="field-label">Class & Section</span></div>
+              <div class="field" style="flex: 0.5;"><span class="field-label">Gender</span></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">II. Nomination Details</div>
+            <div class="field-row">
+              <div class="field" style="flex: 1.5;"><span class="field-label">Post Contesting For</span></div>
+              <div class="field"><span class="field-label">Date of Filing</span></div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">III. Endorsements (Proposers)</div>
+            <div class="grid">
+              <div>
+                <div class="field"><span class="field-label">Proposer 1: Name & Adm No.</span></div>
+                <div class="signature-box">Signature of Proposer 1</div>
+              </div>
+              <div>
+                <div class="field"><span class="field-label">Proposer 2: Name & Adm No.</span></div>
+                <div class="signature-box">Signature of Proposer 2</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">IV. Candidate Declaration</div>
+            <div class="declaration">
+              I, the undersigned candidate, do hereby solemnly declare that I am willing to stand for the election mentioned above. I confirm that I satisfy all eligibility requirements and promise to uphold the values and discipline of the school.
+            </div>
+            <div class="grid" style="margin-top: 25px;">
+              <div>
+                 <div class="field" style="margin-top: 40px;"><span class="field-label">Place & Date</span></div>
+              </div>
+              <div>
+                <div class="signature-box" style="border: 2.5px solid #000; height: 90px; color: #000; font-weight: 900;">Full Signature of Candidate</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer">
+            OFFICIAL DOCUMENT • ${schoolName} E-VOTING SYSTEM • © ${new Date().getFullYear()}
+          </div>
+          
+          <script>
+            window.onload = () => {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 0.5 }}>Candidate Management</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary', mb: 0.5 }}>Candidate Management</Typography>
           <Typography variant="body2" color="text.secondary">Register and manage candidates for {selectedElectionName || 'the current election'}.</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', md: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <Button 
+            variant="outlined" 
+            startIcon={<Printer size={20} />} 
+            onClick={() => {
+              if (!candidates || candidates.length === 0) {
+                setError("No candidates found to print posters.");
+                return;
+              }
+              handlePrintAllPosters();
+            }}
+            sx={{ borderRadius: 2, height: 44, px: 3, fontWeight: 700 }}
+          >
+            Print All Posters
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<Download size={20} />} 
+            onClick={handlePrintNominationForm}
+            sx={{ borderRadius: 2, height: 44, px: 3, fontWeight: 700 }}
+          >
+            Download Nomination Form
+          </Button>
           <Button 
             variant="outlined" 
             startIcon={<Search size={20} />} 
@@ -780,8 +1331,8 @@ const Candidates = () => {
                   <InputLabel>Class</InputLabel>
                   <Select value={filterClass} label="Class" onChange={e => setFilterClass(e.target.value)}>
                     <MenuItem value="">All Classes</MenuItem>
-                    {Array.from(new Set(candidates?.map((c: any) => c.class_name))).map((cl: any) => (
-                      <MenuItem key={cl} value={cl}>{cl}</MenuItem>
+                    {Array.from(new Set(candidates?.map((c: any) => c.class_name) || [])).map((cl: any) => (
+                      <MenuItem key={cl as string} value={cl as string}>{cl as string}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -800,6 +1351,42 @@ const Candidates = () => {
             </>
           )}
         </Grid>
+
+        {/* Active Filter Status Message - Matching Voters.tsx style */}
+        <Box sx={{ 
+          px: 3, 
+          py: 1.5, 
+          bgcolor: 'rgba(0,0,0,0.02)', 
+          borderTop: '1px solid', 
+          borderColor: 'divider', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          mt: 3,
+          mx: -3,
+          mb: -3,
+          borderRadius: '0 0 8px 8px'
+        }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+            {isLoading ? "Updating list..." : `Showing ${filteredCandidatesCount} candidates matching your filters`}
+          </Typography>
+          {(searchTerm || selectedPost || filterGender || filterClass) && (
+            <Button 
+              variant="text" 
+              color="error" 
+              size="small" 
+              onClick={() => { 
+                setSearchTerm(''); 
+                setSelectedPost(''); 
+                setFilterGender(''); 
+                setFilterClass(''); 
+              }}
+              sx={{ fontWeight: 700, fontSize: '0.75rem' }}
+            >
+              Clear All Filters
+            </Button>
+          )}
+        </Box>
       </Paper>
 
       {selectedElectionId && (
@@ -820,10 +1407,10 @@ const Candidates = () => {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-              ) : candidates?.filter((c: any) => {
+              ) : (Array.isArray(candidates) ? candidates : []).filter((c: any) => {
                   const matchSearch = searchTerm === '' || 
-                    c.candidate_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    c.admission_no.toLowerCase().includes(searchTerm.toLowerCase());
+                    c.candidate_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    c.admission_no?.toLowerCase().includes(searchTerm.toLowerCase());
                   const matchGender = filterGender === '' || c.sex === filterGender;
                   const matchClass = filterClass === '' || c.class_name === filterClass;
                   return matchSearch && matchGender && matchClass;
@@ -831,21 +1418,24 @@ const Candidates = () => {
                 <TableRow><TableCell colSpan={8} align="center" sx={{ color: 'text.secondary', py: 8 }}>
                   No candidates found matching the filters.
                 </TableCell></TableRow>
-              ) : candidates?.filter((c: any) => {
+              ) : (Array.isArray(candidates) ? candidates : []).filter((c: any) => {
                   const matchSearch = searchTerm === '' || 
-                    c.candidate_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    c.admission_no.toLowerCase().includes(searchTerm.toLowerCase());
+                    c.candidate_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    c.admission_no?.toLowerCase().includes(searchTerm.toLowerCase());
                   const matchGender = filterGender === '' || c.sex === filterGender;
                   const matchClass = filterClass === '' || c.class_name === filterClass;
                   return matchSearch && matchGender && matchClass;
                 }).map((c: any) => {
-                  const postColor = getPostColor(c.post_name);
                   return (
-                    <TableRow key={c.id} sx={{ 
-                      backgroundColor: alpha(postColor.bg, 0.5),
-                      '&:hover': { backgroundColor: alpha(postColor.bg, 0.8) },
-                      transition: 'background-color 0.2s'
-                    }}>
+                    <TableRow 
+                      key={c.id} 
+                      onClick={() => { setSelectedCandidateDetail(c); setDetailOpen(true); }}
+                      sx={{ 
+                        '&:hover': { backgroundColor: 'action.hover' },
+                        transition: 'background-color 0.2s',
+                        cursor: 'pointer'
+                      }}
+                    >
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                           <Avatar 
@@ -853,7 +1443,8 @@ const Candidates = () => {
                             sx={{ 
                               width: 48, 
                               height: 48, 
-                              bgcolor: postColor.text,
+                              bgcolor: 'primary.light',
+                              color: 'primary.contrastText',
                               boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
                             }}
                           >
@@ -874,12 +1465,9 @@ const Candidates = () => {
                         <Chip 
                           label={c.post_name} 
                           size="small" 
+                          variant="outlined"
                           sx={{ 
-                            bgcolor: 'white', 
-                            color: postColor.text, 
-                            fontWeight: 900,
-                            border: '2px solid',
-                            borderColor: postColor.text,
+                            fontWeight: 700,
                             borderRadius: '6px',
                             textTransform: 'uppercase',
                             fontSize: '0.7rem'
@@ -915,41 +1503,48 @@ const Candidates = () => {
                       <Typography variant="caption" color="text.secondary">No Symbol</Typography>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 800, color: postColor.text, fontSize: '0.95rem' }}>{c.symbol_name || 'N/A'}</Typography>
+                    <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '0.95rem' }}>{c.symbol_name || 'N/A'}</Typography>
                   </TableCell>
-                  <TableCell align="right">
-                    {isConfiguring && (
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                        <Tooltip title="Edit Candidate">
-                          <IconButton onClick={() => {
-                            setEditingCandidate(c);
-                             setCandidateForm({ 
-                              voter_id: c.voter_id, 
-                              post_id: c.post_id,
-                              symbol_name: c.symbol_name || ''
-                            });
-                            setPhoto(null);
-                            setSymbol(null);
-                            setPhotoPreview(c.photo ? `${BASE_URL}${c.photo}?v=${new Date().getTime()}` : null);
-                            setSymbolPreview(c.symbol ? `${BASE_URL}${c.symbol}?v=${new Date().getTime()}` : null);
-                            setEditOpen(true);
-                          }} color="primary" size="small">
-                            <Edit size={18} />
-                          </IconButton>
-                        </Tooltip>
-                         <Tooltip title="Download Campaign Poster">
-                          <IconButton onClick={() => handleDownloadPoster(c)} color="secondary" size="small">
-                            <Download size={18} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Remove Candidate">
-                          <IconButton onClick={() => deleteCandidateMutation.mutate(c.id)} color="error" size="small">
-                            <Trash2 size={16} />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    )}
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                      <Tooltip title="View Candidate Profile">
+                        <IconButton onClick={() => { setSelectedCandidateDetail(c); setDetailOpen(true); }} color="primary" size="small">
+                          <Eye size={18} />
+                        </IconButton>
+                      </Tooltip>
+                      {isConfiguring && (
+                        <>
+                          <Tooltip title="Edit Candidate">
+                            <IconButton onClick={() => {
+                              setEditingCandidate(c);
+                               setCandidateForm({ 
+                                voter_id: c.voter_id, 
+                                post_id: c.post_id,
+                                symbol_name: c.symbol_name || ''
+                              });
+                              setPhoto(null);
+                              setSymbol(null);
+                              setPhotoPreview(c.photo ? `${BASE_URL}${c.photo}?v=${new Date().getTime()}` : null);
+                              setSymbolPreview(c.symbol ? `${BASE_URL}${c.symbol}?v=${new Date().getTime()}` : null);
+                              setEditOpen(true);
+                            }} color="primary" size="small">
+                              <Edit size={18} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Print Campaign Poster (A4 PDF)">
+                            <IconButton onClick={() => handlePrintPoster(c)} color="info" size="small">
+                              <Printer size={18} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Remove Candidate">
+                            <IconButton onClick={() => deleteCandidateMutation.mutate(c.id)} color="error" size="small">
+                              <Trash2 size={16} />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
                   );
@@ -1263,7 +1858,7 @@ const Candidates = () => {
                     <img src={symbolPreview} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '15px' }} alt="Symbol" />
                   ) : (
                     <>
-                      <Image size={28} color="#6366f1" />
+                      <ImageIcon size={28} color="#6366f1" />
                       <Typography variant="caption" sx={{ mt: 1, color: 'primary.main', fontWeight: 600 }}>Change Symbol</Typography>
                     </>
                   )}
@@ -1366,7 +1961,7 @@ const Candidates = () => {
             {ELECTION_SYMBOLS.filter(s => s.name.toLowerCase().includes(searchSymbol.toLowerCase())).map((symbol) => {
               const isSelected = selectedSymbolsForPrint.includes(symbol.id);
               return (
-                <Grid item xs={4} sm={3} md={2} key={symbol.id}>
+                <Grid size={{ xs: 4, sm: 3, md: 2 }} key={symbol.id}>
                   <Paper 
                     variant="outlined" 
                     sx={{ 
@@ -1470,6 +2065,220 @@ const Candidates = () => {
             })}
           </Grid>
         </DialogContent>
+      </Dialog>
+
+      {/* Candidate Detail Dialog */}
+      <Dialog 
+        open={detailOpen} 
+        onClose={() => setDetailOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            overflow: 'hidden',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 800, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          pb: 1.5,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: theme => theme.palette.mode === 'dark' ? '#252538' : '#f8fafc',
+        }}>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>Candidate Profile</Typography>
+          <IconButton onClick={() => setDetailOpen(false)} size="small">
+            <X size={20} />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 4 }}>
+          {selectedCandidateDetail && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+              {/* Profile Card Header */}
+              <Box sx={{ display: 'flex', gap: 3, alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, textAlign: { xs: 'center', sm: 'left' } }}>
+                <Avatar 
+                  src={selectedCandidateDetail.photo ? `${BASE_URL}${selectedCandidateDetail.photo}?v=${new Date().getTime()}` : undefined} 
+                  sx={{ 
+                    width: 120, 
+                    height: 120, 
+                    border: '4px solid',
+                    borderColor: 'primary.main',
+                    boxShadow: '0 8px 24px rgba(99, 102, 241, 0.25)',
+                  }}
+                >
+                  {selectedCandidateDetail.candidate_name?.charAt(0) || <User size={48} />}
+                </Avatar>
+                
+                <Box sx={{ flexGrow: 1 }}>
+                  <Typography variant="h5" sx={{ fontWeight: 900, mb: 1, letterSpacing: '-0.5px' }}>
+                    {selectedCandidateDetail.candidate_name}
+                  </Typography>
+                  <Stack direction="row" spacing={1.5} justifyContent={{ xs: 'center', sm: 'flex-start' }} flexWrap="wrap" useFlexGap sx={{ gap: 1 }}>
+                    <Chip 
+                      label={selectedCandidateDetail.post_name} 
+                      color="primary"
+                      size="small"
+                      sx={{ fontWeight: 800, textTransform: 'uppercase', fontSize: '0.7rem' }}
+                    />
+                    <Chip 
+                      label={selectedCandidateDetail.sex === 'M' ? 'Male' : 'Female'} 
+                      color={selectedCandidateDetail.sex === 'M' ? 'info' : 'secondary'} 
+                      size="small"
+                      sx={{ fontWeight: 800, fontSize: '0.7rem' }}
+                    />
+                    {selectedCandidateDetail.is_blocked === 1 && (
+                      <Chip label="DISQUALIFIED" color="error" size="small" sx={{ fontWeight: 900, fontSize: '0.7rem' }} />
+                    )}
+                  </Stack>
+                </Box>
+              </Box>
+
+              <Divider sx={{ my: 1 }} />
+
+              {/* Grid of Details */}
+              <Grid container spacing={2.5}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1.2 }}>
+                    Admission Number
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 700, fontFamily: 'monospace', mt: 0.5 }}>
+                    {selectedCandidateDetail.admission_no}
+                  </Typography>
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1.2 }}>
+                    Class & Division
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 700, mt: 0.5 }}>
+                    {selectedCandidateDetail.class_name} {selectedCandidateDetail.division ? `(Division ${selectedCandidateDetail.division})` : ''}
+                  </Typography>
+                </Grid>
+              </Grid>
+
+              <Divider sx={{ my: 1 }} />
+
+              {/* Symbol Box */}
+              <Box sx={{ p: 2.5, borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: theme => theme.palette.mode === 'dark' ? '#252538' : '#f8fafc', display: 'flex', alignItems: 'center', gap: 3.5 }}>
+                {selectedCandidateDetail.symbol ? (
+                  <Box sx={{ 
+                    width: 70, 
+                    height: 70, 
+                    p: 0.8, 
+                    border: '2px solid', 
+                    borderColor: 'primary.main', 
+                    borderRadius: 2.5, 
+                    bgcolor: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.06)'
+                  }}>
+                    <img 
+                      src={`${BASE_URL}${selectedCandidateDetail.symbol}?v=${new Date().getTime()}`} 
+                      alt={selectedCandidateDetail.symbol_name} 
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+                    />
+                  </Box>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">No Symbol</Typography>
+                )}
+                <Box>
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1 }}>
+                    Campaign Symbol
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5 }}>
+                    {selectedCandidateDetail.symbol_name || 'Unspecified Symbol'}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ 
+          p: 3, 
+          borderTop: '1px solid', 
+          borderColor: 'divider',
+          justifyContent: 'space-between',
+          bgcolor: theme => theme.palette.mode === 'dark' ? '#252538' : '#f8fafc',
+          flexWrap: 'wrap',
+          gap: 1.5
+        }}>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button 
+              variant="outlined" 
+              size="small" 
+              startIcon={<Printer size={16} />}
+              onClick={() => { handlePrintPoster(selectedCandidateDetail); }}
+              sx={{ fontWeight: 700, borderRadius: 1.5 }}
+            >
+              Print Poster
+            </Button>
+            <Button 
+              variant="outlined" 
+              size="small" 
+              startIcon={<Download size={16} />}
+              onClick={() => { handleDownloadPoster(selectedCandidateDetail); }}
+              sx={{ fontWeight: 700, borderRadius: 1.5 }}
+            >
+              Poster PNG
+            </Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            {isConfiguring && (
+              <>
+                <Button 
+                  variant="contained" 
+                  color="primary"
+                  size="small"
+                  startIcon={<Edit size={16} />}
+                  onClick={() => {
+                    const c = selectedCandidateDetail;
+                    setEditingCandidate(c);
+                    setCandidateForm({ 
+                      voter_id: c.voter_id, 
+                      post_id: c.post_id,
+                      symbol_name: c.symbol_name || ''
+                    });
+                    setPhoto(null);
+                    setSymbol(null);
+                    setPhotoPreview(c.photo ? `${BASE_URL}${c.photo}?v=${new Date().getTime()}` : null);
+                    setSymbolPreview(c.symbol ? `${BASE_URL}${c.symbol}?v=${new Date().getTime()}` : null);
+                    setDetailOpen(false);
+                    setEditOpen(true);
+                  }}
+                  sx={{ fontWeight: 700, borderRadius: 1.5 }}
+                >
+                  Edit
+                </Button>
+                <Button 
+                  variant="contained" 
+                  color="error"
+                  size="small"
+                  startIcon={<Trash2 size={16} />}
+                  onClick={() => {
+                    deleteCandidateMutation.mutate(selectedCandidateDetail.id);
+                    setDetailOpen(false);
+                  }}
+                  sx={{ fontWeight: 700, borderRadius: 1.5 }}
+                >
+                  Remove
+                </Button>
+              </>
+            )}
+            <Button onClick={() => setDetailOpen(false)} variant="text" size="small" sx={{ fontWeight: 700 }}>
+              Close
+            </Button>
+          </Box>
+        </DialogActions>
       </Dialog>
     </Box>
   );

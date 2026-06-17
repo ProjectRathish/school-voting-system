@@ -65,6 +65,7 @@ exports.login = async (req, res) => {
 
     res.json({
       token,
+      id: user.id,
       role: user.role,
       school_id: user.school_id,
       school_code: school_code,
@@ -92,25 +93,36 @@ exports.boothLogin = async (req, res) => {
     const user = rows[0];
     if (user.role !== 'BOOTH_OFFICER') return res.status(403).json({ message: "Not a booth officer" });
 
-    const [assignments] = await db.execute(
-      `SELECT a.booth_id, a.election_id, e.name as election_name
-       FROM election_officer_assignments a
-       JOIN elections e ON a.election_id = e.id
-       WHERE a.user_id = ? AND e.status != 'CLOSED'
+    let assigned_booth_id = user.booth_id;
+    
+    // Find all elections that are not CLOSED for this school
+    const [allElections] = await db.execute(
+      `SELECT id, name, status FROM elections 
+       WHERE school_id = ? AND status != 'CLOSED'
        ORDER BY (CASE 
-         WHEN e.status = 'ACTIVE' THEN 1 
-         WHEN e.status = 'PAUSED' THEN 2 
-         WHEN e.status = 'READY' THEN 3 
-         ELSE 4 END) ASC
-       LIMIT 1`,
+         WHEN status = 'ACTIVE' THEN 1 
+         WHEN status = 'PAUSED' THEN 2 
+         WHEN status = 'READY' THEN 3 
+         ELSE 4 END) ASC`,
+      [school_id]
+    );
+
+    // Check for specific assignments for this officer
+    const [assignedRows] = await db.execute(
+      "SELECT election_id FROM election_officer_assignments WHERE user_id = ?",
       [user.id]
     );
 
-    let assigned_booth_id = assignments.length > 0 ? assignments[0].booth_id : user.booth_id;
-    let assigned_election_id = assignments.length > 0 ? assignments[0].election_id : null;
-    // Don't hard-block login if no booth is assigned yet. 
-    // This allows officers to still log in and change passwords.
-    // If needed, the frontend will show a "No assignment" message.
+    let elections = allElections;
+    if (assignedRows.length > 0) {
+      const assignedIds = assignedRows.map(r => r.election_id);
+      elections = allElections.filter(e => assignedIds.includes(e.id));
+    }
+
+    let assigned_election_id = elections.length > 0 ? elections[0].id : null;
+    let assigned_election_name = elections.length > 0 ? elections[0].name : null;
+
+    // Verify password
 
 
     const match = await bcrypt.compare(password, user.password_hash);
@@ -124,13 +136,76 @@ exports.boothLogin = async (req, res) => {
         school_code: school_code,
         booth_id: assigned_booth_id,
         election_id: assigned_election_id,
+        election_name: assigned_election_name,
+        available_elections: elections,
         must_change_password: user.must_change_password
       },
       process.env.JWT_SECRET,
       { expiresIn: "12h" }
     );
 
-    res.json({ token, role: user.role, school_id: user.school_id, school_code: school_code, booth_id: assigned_booth_id, election_id: assigned_election_id, must_change_password: user.must_change_password });
+    res.json({ 
+      token, 
+      id: user.id,
+      role: user.role, 
+      school_id: user.school_id, 
+      school_code: school_code, 
+      booth_id: assigned_booth_id, 
+      election_id: assigned_election_id, 
+      election_name: assigned_election_name,
+      available_elections: elections,
+      must_change_password: user.must_change_password 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getProfile = async (req, res) => {
+  try {
+    const user_id = req.user.id;
+    const [rows] = await db.execute("SELECT * FROM users WHERE id=?", [user_id]);
+    if (rows.length === 0) return res.status(404).json({ message: "User not found" });
+    
+    const user = rows[0];
+    let available_elections = [];
+    let assigned_election_id = null;
+
+    if (user.role === 'BOOTH_OFFICER') {
+      const [allElections] = await db.execute(
+        `SELECT id, name, status FROM elections 
+         WHERE school_id = ? AND status != 'CLOSED'
+         ORDER BY (CASE 
+           WHEN status = 'ACTIVE' THEN 1 
+           WHEN status = 'PAUSED' THEN 2 
+           WHEN status = 'READY' THEN 3 
+           ELSE 4 END) ASC`,
+        [user.school_id]
+      );
+
+      const [assignedRows] = await db.execute(
+        "SELECT election_id FROM election_officer_assignments WHERE user_id = ?",
+        [user_id]
+      );
+
+      if (assignedRows.length > 0) {
+        const assignedIds = assignedRows.map(r => r.election_id);
+        available_elections = allElections.filter(e => assignedIds.includes(e.id));
+      } else {
+        available_elections = allElections;
+      }
+      
+      assigned_election_id = available_elections.length > 0 ? available_elections[0].id : null;
+    }
+
+    res.json({
+      ...req.user,
+      booth_id: user.booth_id,
+      available_elections: available_elections,
+      election_id: assigned_election_id,
+      must_change_password: user.must_change_password
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
@@ -156,11 +231,102 @@ exports.createBoothOfficer = async (req, res) => {
 
 exports.getBoothOfficers = async (req, res) => {
   try {
-    const [rows] = await db.execute("SELECT id, username, plain_password, created_at, booth_id FROM users WHERE school_id=? AND role='BOOTH_OFFICER'", [req.user.school_id]);
+    const [rows] = await db.execute(`
+      SELECT u.id, u.username, u.plain_password, u.created_at, u.booth_id, b.booth_number,
+             GROUP_CONCAT(eoa.election_id) as assigned_election_ids
+      FROM users u 
+      LEFT JOIN polling_booths b ON u.booth_id = b.id 
+      LEFT JOIN election_officer_assignments eoa ON u.id = eoa.user_id
+      WHERE u.school_id=? AND u.role='BOOTH_OFFICER'
+      GROUP BY u.id
+    `, [req.user.school_id]);
     res.json({ data: rows });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.assignBooth = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { booth_id } = req.body;
+    const school_id = req.user.school_id;
+
+    // Check if already assigned elsewhere
+    if (booth_id) {
+      const [existing] = await db.execute(
+        "SELECT booth_id FROM users WHERE id=? AND school_id=?",
+        [id, school_id]
+      );
+      if (existing.length > 0 && existing[0].booth_id && existing[0].booth_id !== parseInt(booth_id)) {
+        return res.status(400).json({ message: "Officer is already assigned to another booth. Please unassign them first." });
+      }
+    }
+
+    await db.execute(
+      "UPDATE users SET booth_id=? WHERE id=? AND school_id=? AND role='BOOTH_OFFICER'",
+      [booth_id || null, id, school_id]
+    );
+
+    res.json({ message: "Booth assigned successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.setElectionAccess = async (req, res) => {
+  let connection;
+  try {
+    const { id } = req.params;
+    const { election_ids } = req.body; // Array of IDs
+    const school_id = req.user.school_id;
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    // Verify user and get their booth_id
+    const [userRows] = await connection.execute(
+      "SELECT booth_id FROM users WHERE id=? AND school_id=? AND role='BOOTH_OFFICER'",
+      [id, school_id]
+    );
+
+    if (userRows.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: "Officer not found" });
+    }
+
+    const booth_id = userRows[0].booth_id;
+
+    // Delete existing assignments
+    await connection.execute(
+      "DELETE FROM election_officer_assignments WHERE user_id=?",
+      [id]
+    );
+
+    // Insert new ones if provided
+    if (election_ids && election_ids.length > 0) {
+      if (!booth_id) {
+        await connection.rollback();
+        return res.status(400).json({ message: "Officer must be assigned to a booth before restricting election access." });
+      }
+      
+      const values = election_ids.map(eid => [eid, booth_id, id]);
+      await connection.query(
+        "INSERT INTO election_officer_assignments (election_id, booth_id, user_id) VALUES ?",
+        [values]
+      );
+    }
+
+    await connection.commit();
+    res.json({ message: "Election access updated successfully" });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -179,6 +345,38 @@ exports.resetBoothOfficerPassword = async (req, res) => {
     const hash = await bcrypt.hash(req.body.new_password, 10);
     await db.execute("UPDATE users SET password_hash=?, plain_password=?, must_change_password=0 WHERE id=? AND school_id=?", [hash, req.body.new_password, req.params.id, req.user.school_id]);
     res.json({ message: "Reset" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.updateBoothOfficer = async (req, res) => {
+  try {
+    const { username } = req.body;
+    const { id } = req.params;
+    const school_id = req.user.school_id;
+
+    if (!username) {
+      return res.status(400).json({ message: "Username is required" });
+    }
+
+    // Check if username already exists for another user in this school
+    const [existing] = await db.execute(
+      "SELECT id FROM users WHERE username=? AND school_id=? AND id != ?",
+      [username, school_id, id]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ message: "Username already taken" });
+    }
+
+    await db.execute(
+      "UPDATE users SET username=? WHERE id=? AND school_id=? AND role='BOOTH_OFFICER'",
+      [username, id, school_id]
+    );
+
+    res.json({ message: "Officer updated successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error" });

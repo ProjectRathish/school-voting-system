@@ -12,9 +12,11 @@ exports.createPost = async (req, res) => {
   const {
    election_id,
    name,
+   priority,
    gender_rule,
    candidate_classes,
-   voting_classes
+   voting_classes,
+   allow_nota
   } = req.body;
 
 
@@ -49,15 +51,17 @@ exports.createPost = async (req, res) => {
 
   const [result] = await db.execute(
    `INSERT INTO posts
-    (school_id,election_id,name,gender_rule,candidate_classes,voting_classes)
-    VALUES (?,?,?,?,?,?)`,
+    (school_id,election_id,name,priority,gender_rule,candidate_classes,voting_classes,allow_nota)
+    VALUES (?,?,?,?,?,?,?,?)`,
    [
     school_id,
     election_id,
     name,
+    priority || 0,
     gender_rule || "ANY",
     JSON.stringify(candidate_classes || []),
-    JSON.stringify(voting_classes || [])
+    JSON.stringify(voting_classes || []),
+    allow_nota !== undefined ? allow_nota : 1
    ]
   );
 
@@ -97,11 +101,14 @@ exports.getPosts = async (req, res) => {
      id,
      election_id,
      name,
+     priority,
      gender_rule,
      candidate_classes,
-     voting_classes
+     voting_classes,
+     allow_nota
     FROM posts
-    WHERE school_id=? AND election_id=?`,
+    WHERE school_id=? AND election_id=?
+    ORDER BY priority ASC, name ASC`,
    [school_id, election_id]
   );
 
@@ -143,10 +150,12 @@ exports.getPost = async (req, res) => {
    `SELECT
      id,
      name,
+     priority,
      gender_rule,
      candidate_classes,
      voting_classes,
-     election_id
+     election_id,
+     allow_nota
     FROM posts
     WHERE id=? AND school_id=?`,
    [post_id, school_id]
@@ -184,7 +193,7 @@ exports.updatePost = async (req, res) => {
 
   const school_id = req.user.school_id;
   const { post_id } = req.params;
-  const { name, gender_rule, candidate_classes, voting_classes } = req.body;
+  const { name, priority, gender_rule, candidate_classes, voting_classes, allow_nota } = req.body;
 
   const [existing] = await db.execute(
    `SELECT id FROM posts WHERE id=? AND school_id=?`,
@@ -205,6 +214,11 @@ exports.updatePost = async (req, res) => {
    updateValues.push(name);
   }
 
+  if (priority !== undefined) {
+   updateFields.push("priority=?");
+   updateValues.push(priority);
+  }
+
   if (gender_rule) {
    updateFields.push("gender_rule=?");
    updateValues.push(gender_rule);
@@ -218,6 +232,11 @@ exports.updatePost = async (req, res) => {
   if (voting_classes) {
    updateFields.push("voting_classes=?");
    updateValues.push(JSON.stringify(voting_classes));
+  }
+
+  if (allow_nota !== undefined) {
+   updateFields.push("allow_nota=?");
+   updateValues.push(allow_nota);
   }
 
   if (updateFields.length === 0) {

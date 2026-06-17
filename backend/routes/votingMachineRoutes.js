@@ -68,6 +68,30 @@ router.delete(
   votingMachineController.deleteMachine
 );
 
+// Reset hardware binding (Admin only)
+router.post(
+  "/:machine_id/reset-binding",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  votingMachineController.resetBinding
+);
+
+// Bulk delete all machines (Admin only)
+router.delete(
+  "/bulk-delete",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  votingMachineController.bulkDeleteMachines
+);
+
+// Release a busy machine (Admin and Booth Officer)
+router.post(
+  "/:machine_id/release",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN", "BOOTH_OFFICER"),
+  votingMachineController.releaseMachine
+);
+
 // Fetch ballot for the currently assigned voter on a machine
 router.get(
   "/ballot/fetch",
@@ -78,6 +102,12 @@ router.get(
 router.post(
   "/vote/cast",
   votingMachineController.castVote
+);
+
+// Ping from machine to update last_ping
+router.post(
+  "/ping",
+  votingMachineController.pingMachine
 );
 
 module.exports = router;

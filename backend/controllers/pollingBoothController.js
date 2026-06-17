@@ -4,44 +4,32 @@ const db = require("../config/db");
 exports.createPollingBooth = async (req, res) => {
   try {
     const school_id = req.user.school_id;
-    const { election_id, booth_number, location, capacity } = req.body;
+    const { booth_number, location, capacity } = req.body;
 
     // Validate required fields
-    if (!election_id || !booth_number || !location) {
+    if (!booth_number || !location) {
       return res.status(400).json({
-        message: "election_id, booth_number, and location are required"
+        message: "booth_number and location are required"
       });
     }
 
-    // Verify election exists and belongs to this school
-    const [electionRows] = await db.execute(
-      `SELECT id FROM elections WHERE id=? AND school_id=?`,
-      [election_id, school_id]
-    );
-
-    if (electionRows.length === 0) {
-      return res.status(404).json({
-        message: "Election not found"
-      });
-    }
-
-    // Check if booth number already exists for this election
+    // Check if booth number already exists for this school
     const [existingBooth] = await db.execute(
-      `SELECT id FROM polling_booths WHERE booth_number=? AND election_id=?`,
-      [booth_number, election_id]
+      `SELECT id FROM polling_booths WHERE booth_number=? AND school_id=?`,
+      [booth_number, school_id]
     );
 
     if (existingBooth.length > 0) {
       return res.status(400).json({
-        message: "Polling booth with this number already exists for this election"
+        message: "Polling booth with this number already exists in your school"
       });
     }
 
     // Create the polling booth
     const [result] = await db.execute(
-      `INSERT INTO polling_booths (school_id, election_id, booth_number, location, capacity, status)
-       VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
-      [school_id, election_id, booth_number, location, capacity || null]
+      `INSERT INTO polling_booths (school_id, booth_number, location, capacity, status)
+       VALUES (?, ?, ?, ?, 'ACTIVE')`,
+      [school_id, booth_number, location, capacity || null]
     );
 
     res.status(201).json({
@@ -166,25 +154,17 @@ exports.updatePollingBooth = async (req, res) => {
       });
     }
 
-    // If booth_number is being updated, check for uniqueness within the SAME election
+    // If booth_number is being updated, check for uniqueness within the school
     if (booth_number !== undefined) {
-      // First, get the election_id of the booth being updated
-      const [[currentBooth]] = await db.execute(
-        `SELECT election_id FROM polling_booths WHERE id=?`,
-        [booth_id]
+      const [dupBooth] = await db.execute(
+        `SELECT id FROM polling_booths WHERE booth_number=? AND school_id=? AND id != ?`,
+        [booth_number, school_id, booth_id]
       );
 
-      if (currentBooth) {
-        const [dupBooth] = await db.execute(
-          `SELECT id FROM polling_booths WHERE booth_number=? AND election_id=? AND id != ?`,
-          [booth_number, currentBooth.election_id, booth_id]
-        );
-
-        if (dupBooth.length > 0) {
-          return res.status(400).json({
-            message: `Polling booth with number ${booth_number} already exists in this election.`
-          });
-        }
+      if (dupBooth.length > 0) {
+        return res.status(400).json({
+          message: `Polling booth with number ${booth_number} already exists in your school.`
+        });
       }
     }
 
@@ -225,19 +205,25 @@ exports.deletePollingBooth = async (req, res) => {
     }
 
     // Start cleanup of dependencies
-    // 1. Delete associated voting machines for this booth
+    // 1. Unassign any officers currently assigned to this booth
+    await db.execute(
+      `UPDATE users SET booth_id = NULL WHERE booth_id=? AND school_id=?`,
+      [booth_id, school_id]
+    );
+
+    // 2. Delete associated voting machines for this booth
     await db.execute(
       `DELETE FROM voting_machines WHERE booth_id=? AND school_id=?`,
       [booth_id, school_id]
     );
 
-    // 2. Delete officer assignments for this booth
+    // 3. Delete officer assignments for this booth in the election assignments table
     await db.execute(
       `DELETE FROM election_officer_assignments WHERE booth_id=?`,
       [booth_id]
     );
 
-    // 3. Finally delete the polling booth
+    // 4. Finally delete the polling booth
     await db.execute(
       `DELETE FROM polling_booths WHERE id=? AND school_id=?`,
       [booth_id, school_id]
@@ -267,18 +253,12 @@ exports.assignVoter = async (req, res) => {
        return res.status(400).json({ message: "admission_no and booth_id are required" });
     }
 
-    // 1. Discover the active election for this booth directly from the database
-    // This solves the stale JWT token issue where election_id isn't present in req.user
-    const [boothRows] = await db.execute(
-       "SELECT election_id FROM polling_booths WHERE id=? AND school_id=?",
-       [booth_id, school_id]
-    );
+    // 1. Get the election_id. In global booth mode, this must be provided or found.
+    const election_id = req.body.election_id || req.user.election_id;
 
-    if (boothRows.length === 0) {
-       return res.status(404).json({ message: "Booth not found" });
+    if (!election_id) {
+       return res.status(400).json({ message: "election_id is required for voter assignment" });
     }
-
-    const election_id = boothRows[0].election_id;
 
     // Verify election is currently ACTIVE
     const [electionRows] = await db.execute(
@@ -333,8 +313,11 @@ exports.assignVoter = async (req, res) => {
        if (post.voting_classes) {
           try {
              const classes = JSON.parse(post.voting_classes);
-             if (classes && classes.length > 0 && !classes.includes(voter.class_id)) {
-                 return false;
+             if (classes && classes.length > 0) {
+                 const classStrArray = classes.map(String);
+                 if (!classStrArray.includes(String(voter.class_id))) {
+                     return false;
+                 }
              }
           } catch(e) {}
        }
@@ -346,8 +329,8 @@ exports.assignVoter = async (req, res) => {
     }
 
     // Check for a free machine in this booth
-    let machineQuery = "SELECT id, machine_name FROM voting_machines WHERE booth_id=? AND school_id=? AND election_id=? AND status='FREE'";
-    let machineParams = [booth_id, school_id, election_id];
+    let machineQuery = "SELECT id, machine_name FROM voting_machines WHERE booth_id=? AND school_id=? AND status='FREE'";
+    let machineParams = [booth_id, school_id];
 
     if (req.body.machine_id) {
        machineQuery += " AND id=?";
@@ -378,6 +361,8 @@ exports.assignVoter = async (req, res) => {
       "UPDATE voting_machines SET status='BUSY', current_voter_id=? WHERE id=?",
       [voter.id, machine.id]
     );
+
+    // Real-time update events removed (replaced by client-side polling)
 
     res.json({
        message: "Voter successfully activated and assigned to machine",

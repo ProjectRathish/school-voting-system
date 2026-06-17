@@ -83,17 +83,6 @@ router.patch(
  candidateController.updateCandidateStatus
 );
 
-router.get("/public/eligible-posts", candidateController.getEligiblePosts);
-router.post("/public/self-nominate", (req, res, next) => {
- try {
-  const upload = require("../middleware/uploadCandidate");
-  upload.fields([
-   { name: 'photo', maxCount: 1 },
-   { name: 'symbol', maxCount: 1 }
-  ])(req, res, next);
- } catch (err) {
-  next();
- }
-}, candidateController.selfNominate);
+
 
 module.exports = router;

@@ -41,7 +41,7 @@ exports.generateElectionReport = async (req, res) => {
 
     // 4. Fetch Results per Post
     const [posts] = await db.execute(
-      "SELECT id, name FROM posts WHERE election_id = ? AND school_id = ?",
+      "SELECT id, name, priority FROM posts WHERE election_id = ? AND school_id = ? ORDER BY priority ASC, name ASC",
       [id, school_id]
     );
 

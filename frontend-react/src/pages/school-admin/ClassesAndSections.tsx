@@ -98,7 +98,7 @@ const ClassesAndSections = () => {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 4 }}>Classes & Sections</Typography>
+      <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary', mb: 4 }}>Classes & Sections</Typography>
 
       <Snackbar
         open={!!success}

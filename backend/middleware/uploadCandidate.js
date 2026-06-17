@@ -7,18 +7,18 @@ const fs = require("fs");
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     try {
-      const school_code = req.user.school_code || `school_${req.user.school_id}`;
+      let school_code = 'public';
+      if (req.user) {
+        school_code = req.user.school_code || `school_${req.user.school_id}`;
+      }
+      
       const election_id = req.body.election_id;
       
-      if (!election_id) {
-        return cb(new Error("Election ID is required for file upload"));
-      }
-
-      const field = file.fieldname;
-      const subDir = field === "photo" ? "photos" : "symbols";
-      
-      // Target: uploads/candidates/[school_code]/[election_id]/[photos|symbols]/
-      const targetDir = path.join(__dirname, "../uploads/candidates", school_code, String(election_id), subDir);
+      // For public nominations, we'll store in a simple public folder first
+      // The controller will then relocate it if needed, or we just keep it there.
+      const targetDir = req.user 
+        ? path.join(__dirname, "../uploads/candidates", school_code, String(election_id), file.fieldname === "photo" ? "photos" : "symbols")
+        : path.join(__dirname, "../uploads/public", String(election_id || 'temp'), file.fieldname === "photo" ? "photos" : "symbols");
       
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
@@ -39,14 +39,10 @@ const storage = multer.diskStorage({
     }
     
     // File naming: 
-    // photo: photo-{admission_no}.jpg
-    // symbol: symbol-{admission_no}.png
-    let filename;
-    if (field === "photo") {
-      filename = `photo-${admission_no}.jpg`;
-    } else if (field === "symbol") {
-      filename = `symbol-${admission_no}.png`;
-    }
+    // photo: photo-{admission_no}.{ext}
+    // symbol: symbol-{admission_no}.{ext}
+    const ext = path.extname(file.originalname) || (field === "photo" ? ".jpg" : ".png");
+    const filename = `${field}-${admission_no}${ext}`;
     
     cb(null, filename);
   }
@@ -54,24 +50,11 @@ const storage = multer.diskStorage({
 
 // File filter - JPG for photo and PNG for symbol
 const fileFilter = (req, file, cb) => {
-  const field = file.fieldname;
-  
-  if (field === "photo") {
-    // Allow only JPG for photo
-    if (file.mimetype === "image/jpeg") {
-      cb(null, true);
-    } else {
-      cb(new Error("Photo must be JPG format"));
-    }
-  } else if (field === "symbol") {
-    // Allow only PNG for symbol
-    if (file.mimetype === "image/png") {
-      cb(null, true);
-    } else {
-      cb(new Error("Symbol must be PNG format"));
-    }
+  const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
   } else {
-    cb(new Error("Invalid file field"));
+    cb(new Error("Invalid file type. Only JPG, PNG, and WebP are allowed."));
   }
 };
 
@@ -79,8 +62,8 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
-  }
+    fileSize: 5 * 1024 * 1024 // 5MB limit (reduced from 50MB for security)
+  },
 });
 
 module.exports = upload;

@@ -20,7 +20,7 @@ import {
   Tooltip,
   alpha
 } from '@mui/material';
-import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3 } from 'lucide-react';
+import { Plus, Edit, Trash2, Play, Save, Settings, Search, Pause, Square, CheckSquare, Eye, EyeOff, Sparkles, BarChart3, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
@@ -51,6 +51,13 @@ const Elections = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [duplicationOptions, setDuplicationOptions] = useState({
+    includeSections: true,
+    includeClasses: true,
+    includeVoters: false,
+    includePosts: true,
+    includeCandidates: false
+  });
 
   const queryClient = useQueryClient();
   const { setSelectedElection, selectedElectionId, selectedElectionName, selectedElectionStatus, clearSelection } = useElectionStore();
@@ -150,6 +157,24 @@ const Elections = () => {
     }
   });
 
+  const duplicateElectionMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number, data: any }) => await axiosInstance.post(`/elections/${id}/duplicate`, data),
+    onSuccess: (resp) => {
+      setSuccess('Election duplicated successfully!');
+      setDuplicatingElectionId(null);
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['elections'] });
+      queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
+      setTimeout(() => setSuccess(null), 4000);
+      
+      // Optionally switch context to the new one
+      const newId = resp.data.election_id;
+      const newName = formData.name || 'Copy of Election';
+      setSelectedElection(String(newId), newName, 'DRAFT');
+    },
+    onError: (err: any) => setError(err.response?.data?.message || 'Duplication failed')
+  });
+
   const handleContextSwitch = (election: any, isClearing: boolean) => {
     if (isClearing) {
       clearSelection();
@@ -174,6 +199,14 @@ const Elections = () => {
 
     if (start >= end) {
       setError('Start date/time must be earlier than the end date/time');
+      return;
+    }
+
+    if (duplicatingElectionId) {
+      duplicateElectionMutation.mutate({ 
+        id: duplicatingElectionId, 
+        data: { ...formData, ...duplicationOptions } 
+      });
       return;
     }
 
@@ -225,7 +258,7 @@ const Elections = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px' }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary' }}>
             Elections
           </Typography>
           <Typography variant="body2" color="text.secondary">Create and manage your school voting events</Typography>
@@ -516,6 +549,27 @@ const Elections = () => {
                       </>
                     )}
 
+                    {/* Duplicate Election */}
+                    {(election.status !== 'ACTIVE' && election.status !== 'PAUSED') && (
+                      <Tooltip title="Duplicate Election">
+                        <IconButton 
+                          color="info" 
+                          onClick={() => {
+                            setDuplicatingElectionId(election.id);
+                            setFormData({
+                              name: `Copy of ${election.name}`,
+                              start_time: dayjs(election.start_time).format('YYYY-MM-DDTHH:mm'),
+                              end_time: dayjs(election.end_time).format('YYYY-MM-DDTHH:mm')
+                            });
+                            setOpen(true);
+                          }}
+                          disabled={updateStatusMutation.isPending || duplicateElectionMutation.isPending}
+                        >
+                          <Copy size={18} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+
                     {/* Delete Election (Not allowed once active) */}
                     {(election.status !== 'ACTIVE' && election.status !== 'PAUSED') && (
                       <Tooltip title="Delete Election">
@@ -544,8 +598,8 @@ const Elections = () => {
         maxWidth="sm" 
         fullWidth
       >
-        <DialogTitle>
-          {editingElection ? 'Edit Election' : 'Create New Election'}
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {editingElection ? 'Edit Election' : duplicatingElectionId ? 'Duplicate Election' : 'Create New Election'}
         </DialogTitle>
         <DialogContent>
           {!editingElection && stats?.plan && (
@@ -586,6 +640,67 @@ const Elections = () => {
               </LocalizationProvider>
             </Box>
 
+            {duplicatingElectionId && (
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Duplication Options
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                  <Button 
+                    variant={duplicationOptions.includeSections ? "contained" : "outlined"} 
+                    size="small" 
+                    onClick={() => setDuplicationOptions({...duplicationOptions, includeSections: !duplicationOptions.includeSections})}
+                    sx={{ justifyContent: 'flex-start', borderRadius: 2 }}
+                    startIcon={duplicationOptions.includeSections ? <CheckSquare size={16} /> : <Square size={16} />}
+                  >
+                    Sections
+                  </Button>
+                  <Button 
+                    variant={duplicationOptions.includeClasses ? "contained" : "outlined"} 
+                    size="small" 
+                    onClick={() => setDuplicationOptions({...duplicationOptions, includeClasses: !duplicationOptions.includeClasses})}
+                    sx={{ justifyContent: 'flex-start', borderRadius: 2 }}
+                    startIcon={duplicationOptions.includeClasses ? <CheckSquare size={16} /> : <Square size={16} />}
+                  >
+                    Classes
+                  </Button>
+                  <Button 
+                    variant={duplicationOptions.includePosts ? "contained" : "outlined"} 
+                    size="small" 
+                    onClick={() => setDuplicationOptions({...duplicationOptions, includePosts: !duplicationOptions.includePosts})}
+                    sx={{ justifyContent: 'flex-start', borderRadius: 2 }}
+                    startIcon={duplicationOptions.includePosts ? <CheckSquare size={16} /> : <Square size={16} />}
+                  >
+                    Positions
+                  </Button>
+                  <Button 
+                    variant={duplicationOptions.includeVoters ? "contained" : "outlined"} 
+                    size="small" 
+                    onClick={() => setDuplicationOptions({...duplicationOptions, includeVoters: !duplicationOptions.includeVoters})}
+                    sx={{ justifyContent: 'flex-start', borderRadius: 2 }}
+                    startIcon={duplicationOptions.includeVoters ? <CheckSquare size={16} /> : <Square size={16} />}
+                  >
+                    Voters
+                  </Button>
+                  <Button 
+                    variant={duplicationOptions.includeCandidates ? "contained" : "outlined"} 
+                    size="small" 
+                    disabled={!duplicationOptions.includeVoters || !duplicationOptions.includePosts}
+                    onClick={() => setDuplicationOptions({...duplicationOptions, includeCandidates: !duplicationOptions.includeCandidates})}
+                    sx={{ justifyContent: 'flex-start', borderRadius: 2, gridColumn: 'span 2' }}
+                    startIcon={duplicationOptions.includeCandidates ? <CheckSquare size={16} /> : <Square size={16} />}
+                  >
+                    Candidates (Requires Voters & Positions)
+                  </Button>
+                </Box>
+                {!duplicationOptions.includeVoters && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', fontStyle: 'italic' }}>
+                    Note: Candidates can only be duplicated if both Voters and Positions are also selected.
+                  </Typography>
+                )}
+              </Box>
+            )}
+
 
           </Box>
         </DialogContent>
@@ -598,9 +713,9 @@ const Elections = () => {
             sx={{ fontWeight: 700 }}
             startIcon={upsertElectionMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <Save size={20} />}
           >
-            {upsertElectionMutation.isPending 
-              ? (editingElection ? 'Updating...' : 'Creating...') 
-              : (editingElection ? 'Update Election' : 'Create Election')}
+            {upsertElectionMutation.isPending || duplicateElectionMutation.isPending 
+              ? (editingElection ? 'Updating...' : duplicatingElectionId ? 'Duplicating...' : 'Creating...') 
+              : (editingElection ? 'Update Election' : duplicatingElectionId ? 'Duplicate Election' : 'Create Election')}
           </Button>
         </DialogActions>
       </Dialog>

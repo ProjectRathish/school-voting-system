@@ -12,7 +12,7 @@ import {
   Sparkles, QrCode, Printer, Link as LinkIcon 
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import axiosInstance from '../../api/axiosInstance';
+import axiosInstance, { getMediaUrl } from '../../api/axiosInstance';
 import { useElectionStore } from '../../store/electionStore';
 import { useAuthStore } from '../../store/authStore';
 
@@ -158,7 +158,7 @@ const NominationManagement = () => {
     <Box>
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', md: 'flex-start' }, flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
         <Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px', mb: 1 }}>Nomination Management</Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary', mb: 1 }}>Nomination Management</Typography>
             
             {/* Current Context Banner */}
             <Box sx={{ 
@@ -314,7 +314,7 @@ const NominationManagement = () => {
                 <TableRow key={nom.id} hover>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar src={nom.photo ? `${import.meta.env.VITE_API_URL}/uploads/${nom.photo}` : undefined}>
+                      <Avatar src={nom.photo ? `${getMediaUrl()}${nom.photo}` : undefined}>
                         {nom.candidate_name.charAt(0)}
                       </Avatar>
                       <Box>
@@ -385,7 +385,7 @@ const NominationManagement = () => {
             <Box sx={{ p: 1 }}>
                <Box sx={{ display: 'flex', gap: 3, mb: 4 }}>
                   <Avatar 
-                    src={selectedNomination.photo ? `${import.meta.env.VITE_API_URL}/uploads/${selectedNomination.photo}` : undefined}
+                    src={selectedNomination.photo ? `${getMediaUrl()}${selectedNomination.photo}` : undefined}
                     sx={{ width: 100, height: 100, borderRadius: 3, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                   />
                   <Box>

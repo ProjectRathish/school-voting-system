@@ -12,6 +12,7 @@ const { requireRole } = require("../middleware/roleMiddleware");
 
 router.post("/login", authController.login);
 router.post("/booth-login", authController.boothLogin);
+router.get("/me", requireAuth, authController.getProfile);
 
 // Add endpoint to create booth officers.
 // Must be authenticated and must be a SCHOOL_ADMIN
@@ -29,6 +30,14 @@ router.get(
   authController.getBoothOfficers
 );
 
+// Update a booth officer (username)
+router.put(
+  "/booth-officers/:id",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  authController.updateBoothOfficer
+);
+
 // Delete a booth officer
 router.delete(
   "/booth-officers/:id",
@@ -43,6 +52,22 @@ router.put(
   requireAuth,
   requireRole("SCHOOL_ADMIN"),
   authController.resetBoothOfficerPassword
+);
+
+// Assign a booth officer to a polling booth
+router.put(
+  "/booth-officers/:id/assign-booth",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  authController.assignBooth
+);
+
+// Manage election access for a booth officer
+router.put(
+  "/booth-officers/:id/election-access",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  authController.setElectionAccess
 );
 
 // Change self password

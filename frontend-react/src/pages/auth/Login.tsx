@@ -56,18 +56,23 @@ const Login = () => {
         password
       });
 
-      const { token, role, user_id, school_id, booth_id, school_name, school_logo, must_change_password } = response.data;
+      const { 
+        token, role, id, school_id, booth_id, election_id, school_name, school_logo, 
+        must_change_password, available_elections 
+      } = response.data;
       
       login({
-        id: user_id || 0,
+        id: id || 0,
         username,
         role,
         school_id,
         booth_id,
+        election_id,
         school_code: schoolCode,
         school_name,
         school_logo,
-        must_change_password
+        must_change_password,
+        available_elections
       }, token);
 
       if (role === 'SUPER_ADMIN') navigate('/super-admin');

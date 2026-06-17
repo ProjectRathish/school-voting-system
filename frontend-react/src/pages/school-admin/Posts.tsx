@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, TextField, Alert, CircularProgress, IconButton,
-  Chip, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar, alpha
+  Chip, FormControl, InputLabel, Select, MenuItem, Tooltip, Snackbar, alpha, Switch, FormControlLabel
 } from '@mui/material';
 import { Plus, Trash2, Edit, Sparkles, Settings, Search, Copy } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,7 +17,7 @@ const Posts = () => {
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
   const isConfiguring = selectedElectionStatus === 'DRAFT' || selectedElectionStatus === 'CONFIGURING';
   const [postForm, setPostForm] = useState({
-    name: '', gender_rule: 'ANY', candidate_classes: [] as number[], voting_classes: [] as number[]
+    name: '', priority: 0, gender_rule: 'ANY', allow_nota: 1, candidate_classes: [] as number[], voting_classes: [] as number[]
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -73,7 +73,7 @@ const Posts = () => {
       setSuccess(editingPost ? 'Post updated!' : 'Post created!');
       setOpenPost(false);
       setEditingPost(null);
-      setPostForm({ name: '', gender_rule: 'ANY', candidate_classes: [], voting_classes: [] });
+      setPostForm({ name: '', priority: 0, gender_rule: 'ANY', allow_nota: 1, candidate_classes: [], voting_classes: [] });
       queryClient.invalidateQueries({ queryKey: ['posts', selectedElectionId] });
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error saving post')
@@ -83,7 +83,9 @@ const Posts = () => {
     setEditingPost(post);
     setPostForm({
       name: post.name,
+      priority: post.priority || 0,
       gender_rule: post.gender_rule,
+      allow_nota: post.allow_nota !== undefined ? post.allow_nota : 1,
       candidate_classes: post.candidate_classes || [],
       voting_classes: post.voting_classes || []
     });
@@ -102,7 +104,7 @@ const Posts = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px' }}>Post Management</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary' }}>Post Management</Typography>
         <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', md: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
           <TextField
             size="small"
@@ -129,7 +131,7 @@ const Posts = () => {
               <Button 
                 variant="contained" 
                 startIcon={<Plus size={20} />} 
-                onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', gender_rule: 'ANY', candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} 
+                onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', priority: 0, gender_rule: 'ANY', allow_nota: 1, candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} 
                 disabled={!selectedElectionId}
                 sx={{ borderRadius: 2, height: { xs: 44, sm: 40 }, fontWeight: 700 }}
               >
@@ -234,8 +236,10 @@ const Posts = () => {
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                <TableCell sx={{ fontWeight: 800 }}>Order</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Post Name</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Gender Rule</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>NOTA</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Candidate Classes</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Voting Classes</TableCell>
                 {isConfiguring && <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>}
@@ -243,13 +247,14 @@ const Posts = () => {
             </TableHead>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={isConfiguring ? 5 : 4} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={isConfiguring ? 7 : 6} align="center"><CircularProgress size={24} /></TableCell></TableRow>
               ) : (posts?.filter((post: any) => post.name.toLowerCase().includes(searchQuery.toLowerCase())) || []).length === 0 ? (
-                <TableRow><TableCell colSpan={isConfiguring ? 5 : 4} align="center" sx={{ color: 'text.secondary' }}>
+                <TableRow><TableCell colSpan={isConfiguring ? 7 : 6} align="center" sx={{ color: 'text.secondary' }}>
                   {searchQuery ? 'No posts match your search' : 'No posts created yet'}
                 </TableCell></TableRow>
-              ) : (posts?.filter((post: any) => post.name.toLowerCase().includes(searchQuery.toLowerCase())) || []).map((post: any) => (
+              ) : (posts?.filter((post: any) => post.name.toLowerCase().includes(searchQuery.toLowerCase())) || []).sort((a,b) => a.priority - b.priority).map((post: any) => (
                 <TableRow key={post.id}>
+                  <TableCell sx={{ fontWeight: 700, color: 'primary.main' }}>#{post.priority || 0}</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>{post.name}</TableCell>
                   <TableCell>
                     <Chip
@@ -257,6 +262,14 @@ const Posts = () => {
                       color={post.gender_rule === 'M' ? 'info' : post.gender_rule === 'F' ? 'secondary' : 'default'}
                       size="small"
                     />
+                  </TableCell>
+                  <TableCell>
+                     <Chip 
+                        label={post.allow_nota !== 0 ? 'Enabled' : 'Disabled'} 
+                        color={post.allow_nota !== 0 ? 'success' : 'error'} 
+                        size="small" 
+                        variant="outlined"
+                     />
                   </TableCell>
                   <TableCell sx={{ minWidth: 200 }}>
                     {Array.isArray(post.candidate_classes) && post.candidate_classes.length > 0
@@ -310,9 +323,20 @@ const Posts = () => {
         <DialogContent>
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>{error}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 1 }}>
-            <TextField label="Post Name" fullWidth placeholder="e.g. Head Boy, House Captain"
+            <TextField
+              fullWidth
+              label="Position Name"
               value={postForm.name}
-              onChange={e => setPostForm(p => ({ ...p, name: e.target.value }))}
+              onChange={(e) => setPostForm({ ...postForm, name: e.target.value.toUpperCase() })}
+              placeholder="E.G. SCHOOL CAPTAIN"
+            />
+            <TextField
+              fullWidth
+              label="Display Order (Priority)"
+              type="number"
+              value={postForm.priority}
+              onChange={(e) => setPostForm({ ...postForm, priority: parseInt(e.target.value) || 0 })}
+              helperText="Lower numbers appear first (e.g., 1 for School Captain, 2 for Vice Captain)"
             />
             <FormControl fullWidth>
               <InputLabel>Gender Eligibility</InputLabel>
@@ -405,6 +429,17 @@ const Posts = () => {
                   );
                 })}
               </Box>
+            </Box>
+            <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: 'background.default' }}>
+               <FormControlLabel
+                  control={<Switch checked={!!postForm.allow_nota} onChange={(e) => setPostForm(p => ({ ...p, allow_nota: e.target.checked ? 1 : 0 }))} />}
+                  label={
+                     <Box>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>Enable NOTA</Typography>
+                        <Typography variant="caption" color="text.secondary">Allow "None of the Above" option for this post</Typography>
+                     </Box>
+                  }
+               />
             </Box>
           </Box>
         </DialogContent>

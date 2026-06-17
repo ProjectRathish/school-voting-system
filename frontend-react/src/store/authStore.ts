@@ -14,6 +14,7 @@ interface User {
   school_name?: string;
   school_logo?: string;
   must_change_password?: number;
+  available_elections?: any[];
 }
 
 interface AuthState {
@@ -22,6 +23,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (user: User, token: string) => void;
   logout: () => void;
+  updateUser: (data: Partial<User>) => void;
   setPasswordChanged: () => void;
 }
 
@@ -33,6 +35,9 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       login: (user, token) => set({ user, token, isAuthenticated: true }),
       logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      updateUser: (data) => set((state) => ({
+        user: state.user ? { ...state.user, ...data } : null
+      })),
       setPasswordChanged: () => set((state) => ({
         user: state.user ? { ...state.user, must_change_password: 0 } : null
       })),

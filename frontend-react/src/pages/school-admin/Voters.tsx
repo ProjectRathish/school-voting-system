@@ -375,7 +375,7 @@ const Voters = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, mb: 4, flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1.5px' }}>Voter Management</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary' }}>Voter Management</Typography>
         <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', md: 'auto' }, flexWrap: 'wrap' }}>
           {isConfiguring && (
             <>

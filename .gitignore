@@ -1,5 +1,7 @@
 # Node.js
 node_modules/
+artifact_link/
+check_schools.js
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

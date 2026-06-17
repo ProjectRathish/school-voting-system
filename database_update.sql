@@ -331,7 +331,7 @@ CREATE TABLE `votes` (
   `school_id` int(11) NOT NULL,
   `election_id` int(11) NOT NULL,
   `post_id` int(11) NOT NULL,
-  `candidate_id` int(11) NOT NULL,
+  `candidate_id` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `voter_class_id` int(11) DEFAULT NULL,
   `voter_section_id` int(11) DEFAULT NULL,

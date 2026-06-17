@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Box, Typography, Paper, Grid, Button, Chip, Alert, CircularProgress,
+  Box, Typography, Paper, Grid, Button, Alert, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, Card, CardContent,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress,
+  Snackbar
 } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Download, Trophy, Users, BarChart3, Sparkles } from 'lucide-react';
+import { Download, Trophy, Users, BarChart3, Sparkles, ExternalLink, Copy, Check, Share2 } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
@@ -47,7 +48,19 @@ const Results = () => {
   });
 
   const selectedElectionData = elections?.find((e: any) => e.id == selectedElection);
-  const canViewResults = ['CLOSED', 'ACTIVE', 'PAUSED'].includes(selectedElectionData?.status);
+  const canViewResults = selectedElectionData?.status === 'CLOSED';
+
+  const [copied, setCopied] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+
+  const handleCopyLink = () => {
+    const electionCode = selectedElectionData?.election_code || selectedElection;
+    const link = `${window.location.protocol}//${window.location.host}/public-results/${electionCode}`;
+    navigator.clipboard.writeText(link);
+    setCopied(true);
+    setSnackbarOpen(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleExport = async () => {
     try {
@@ -65,11 +78,38 @@ const Results = () => {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700 }}>Results & Analytics</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary' }}>Results & Analytics</Typography>
         {canViewResults && (
-          <Button variant="outlined" startIcon={<Download size={20} />} onClick={handleExport}>
-            Export Excel
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button 
+              variant="contained" 
+              color="primary"
+              startIcon={<ExternalLink size={18} />} 
+              onClick={() => {
+                const electionCode = selectedElectionData?.election_code || selectedElection;
+                window.open(`/public-results/${electionCode}`, '_blank');
+              }}
+              sx={{
+                background: theme => theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(135deg, #818cf8 0%, #a78bfa 100%)'
+                  : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)'
+              }}
+            >
+              Launch Presentation Screen
+            </Button>
+            <Button 
+              variant="outlined" 
+              color="primary"
+              startIcon={copied ? <Check size={18} /> : <Copy size={18} />} 
+              onClick={handleCopyLink}
+            >
+              {copied ? 'Link Copied!' : 'Copy Public Link'}
+            </Button>
+            <Button variant="outlined" startIcon={<Download size={18} />} onClick={handleExport}>
+              Export Excel
+            </Button>
+          </Box>
         )}
       </Box>
 
@@ -151,12 +191,12 @@ const Results = () => {
               }
             }}
           >
-            {elections?.filter((el: any) => ['CLOSED', 'ACTIVE', 'PAUSED'].includes(el.status)).map((el: any) => (
+            {elections?.filter((el: any) => el.status === 'CLOSED').map((el: any) => (
               <MenuItem key={el.id} value={el.id}>
-                 {el.name} {el.status !== 'CLOSED' && `(${el.status})`}
+                 {el.name}
               </MenuItem>
             ))}
-            {elections?.filter((el: any) => ['CLOSED', 'ACTIVE', 'PAUSED'].includes(el.status)).length === 0 && (
+            {elections?.filter((el: any) => el.status === 'CLOSED').length === 0 && (
               <MenuItem disabled value="">
                 No valid elections found
               </MenuItem>
@@ -164,9 +204,15 @@ const Results = () => {
           </Select>
         </FormControl>
       </Paper>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 3, ml: 1, fontWeight: 500 }}>
-        Note: You can view live turnout and results for <b>Active</b> elections or final results for <b>Closed</b> ones.
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, ml: 1, fontWeight: 500 }}>
+        Note: Final results can only be viewed for <b>Closed</b> elections.
       </Typography>
+
+      {canViewResults && (
+        <Alert severity="info" icon={<Share2 size={20} />} sx={{ mb: 3, borderRadius: 2 }}>
+          This election is closed. You can display the results on a big screen or projector using the <b>Launch Presentation Screen</b> button above, or share the public link with students to view the winner's spotlight page.
+        </Alert>
+      )}
 
 
       {selectedElection && canViewResults && (
@@ -298,6 +344,12 @@ const Results = () => {
           )}
         </>
       )}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        message="Public results link copied to clipboard!"
+      />
     </Box>
   );
 };

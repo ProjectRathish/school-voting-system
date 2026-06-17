@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Paper, TextField, Button, Alert, CircularProgress,
   Stepper, Step, StepLabel, MenuItem, Select, FormControl, InputLabel,
-  Card, CardContent, Avatar, Divider, Container
+  Card, CardContent, Avatar, Divider, Container, Dialog, DialogTitle, DialogContent, DialogActions, Slider
 } from '@mui/material';
-import { Sparkles, ArrowRight, CheckCircle2, User, Image as ImageIcon, Camera } from 'lucide-react';
+import { Sparkles, ArrowRight, CheckCircle2, User, Image as ImageIcon, Camera, Scissors } from 'lucide-react';
 import axiosInstance from '../../api/axiosInstance';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../../utils/cropImage';
 
 const NominationPortal = () => {
   const { code } = useParams();
@@ -24,6 +26,13 @@ const NominationPortal = () => {
   
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+  // Cropping state
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
 
   useEffect(() => {
     const fetchElection = async () => {
@@ -78,8 +87,30 @@ const NominationPortal = () => {
   const handlePhotoChange = (e: any) => {
     if (e.target.files?.[0]) {
       const file = e.target.files[0];
-      setPhoto(file);
-      setPhotoPreview(URL.createObjectURL(file));
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImageToCrop(reader.result as string);
+        setCropDialogOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onCropComplete = (_: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCropSave = async () => {
+    if (imageToCrop && croppedAreaPixels) {
+      try {
+        const croppedImage = await getCroppedImg(imageToCrop, croppedAreaPixels);
+        setPhoto(croppedImage as File);
+        setPhotoPreview(URL.createObjectURL(croppedImage as Blob));
+        setCropDialogOpen(false);
+      } catch (e) {
+        console.error(e);
+        setError('Error cropping image');
+      }
     }
   };
 
@@ -242,6 +273,38 @@ const NominationPortal = () => {
           )}
         </Paper>
       </Container>
+
+      {/* Crop Dialog */}
+      <Dialog open={cropDialogOpen} onClose={() => setCropDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>Crop Candidate Photo</DialogTitle>
+        <DialogContent sx={{ height: 400, position: 'relative' }}>
+          {imageToCrop && (
+            <Cropper
+              image={imageToCrop}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              onCropChange={setCrop}
+              onCropComplete={onCropComplete}
+              onZoomChange={setZoom}
+            />
+          )}
+        </DialogContent>
+        <Box sx={{ p: 3 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>Zoom Control</Typography>
+          <Slider
+            value={zoom}
+            min={1}
+            max={3}
+            step={0.1}
+            onChange={(_, value) => setZoom(value as number)}
+          />
+        </Box>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setCropDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleCropSave} startIcon={<Scissors size={18} />}>Save Crop</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -16,7 +16,8 @@ import {
   alpha,
   Dialog,
   DialogContent,
-  Chip
+  Chip,
+  LinearProgress
 } from '@mui/material';
 import { 
   Search, 
@@ -42,6 +43,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../../api/axiosInstance';
 import { useQuery } from '@tanstack/react-query';
 import ThemeToggle from '../../components/common/ThemeToggle';
+import evmIcon from '../../assets/evm_icon.png';
 
 // Simulated BEEP sound for tactile feedback
 // EVM characteristic long beep sound
@@ -82,6 +84,12 @@ const TerminalSession = () => {
   const [isCasting, setIsCasting] = useState(false);
   const [successDialog, setSuccessDialog] = useState(false);
 
+  // Session timeout (3 minutes = 180s, warning at 30s)
+  const SESSION_TIMEOUT = 180;
+  const WARNING_THRESHOLD = 30;
+  const [sessionCountdown, setSessionCountdown] = useState(SESSION_TIMEOUT);
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+
   const getFullUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
@@ -94,6 +102,7 @@ const TerminalSession = () => {
      
      playBeep(2.0, 880);
      setSelections(prev => ({ ...prev, [postId]: candId }));
+     resetInactivityTimer();
      
      // Automatic transition to next post after a short delay (for the beep)
      setTimeout(() => {
@@ -116,7 +125,7 @@ const TerminalSession = () => {
 
   // 2. Fetch Ballot Data
   const { data: ballotData, isLoading: ballotLoading, error: ballotError } = useQuery({
-    queryKey: ['ballot', token],
+    queryKey: ['ballot', token, machine?.current_voter_id],
     queryFn: async () => {
        const res = await axiosInstance.get('/machines/ballot/fetch', {
           headers: { 'machine-token': token }
@@ -125,6 +134,43 @@ const TerminalSession = () => {
     },
     enabled: !!token && machine?.status === 'BUSY'
   });
+
+  // Reset selections and step when a new voter session is initialized or machine is FREE
+  useEffect(() => {
+    setSelections({});
+    setStep(0);
+    setSessionCountdown(SESSION_TIMEOUT);
+    setShowTimeoutWarning(false);
+  }, [machine?.current_voter_id, machine?.status]);
+
+  // Session inactivity timeout — only active when machine is BUSY (voter is in session)
+  useEffect(() => {
+    if (machine?.status !== 'BUSY' || successDialog) return;
+
+    const interval = setInterval(() => {
+      setSessionCountdown(prev => {
+        if (prev <= 1) {
+          // Auto-reset session
+          setSelections({});
+          setStep(0);
+          setShowTimeoutWarning(false);
+          clearInterval(interval);
+          return SESSION_TIMEOUT;
+        }
+        if (prev <= WARNING_THRESHOLD && !showTimeoutWarning) {
+          setShowTimeoutWarning(true);
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [machine?.status, successDialog, showTimeoutWarning]);
+
+  const resetInactivityTimer = () => {
+    setSessionCountdown(SESSION_TIMEOUT);
+    setShowTimeoutWarning(false);
+  };
 
   useEffect(() => {
     if (token) {
@@ -259,17 +305,28 @@ const TerminalSession = () => {
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
         >
           <Box sx={{ 
-            width: 120, height: 120, borderRadius: '50%', 
-            background: alpha(theme.palette.primary.main, 0.1),
+            width: 150, height: 150, borderRadius: '50%', 
+            background: theme.palette.mode === 'dark' ? '#f5f5f5' : alpha(theme.palette.primary.main, 0.1),
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'primary.main', mb: 4
+            mb: 4, overflow: 'hidden', p: 3
           }}>
-            <SmartphoneIcon size={64} />
+            <Box component="img" src={evmIcon} sx={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.9, mixBlendMode: 'multiply' }} />
           </Box>
         </motion.div>
 
-        <Typography variant="h3" sx={{ fontWeight: 900, textAlign: 'center', mb: 2 }}>
-           Wating for Voter...
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          <Typography variant="h2" sx={{ fontWeight: 900, mb: 0.5, letterSpacing: '-1px' }}>
+             {machine.machine_name}
+          </Typography>
+          {machine.booth_name && (
+            <Typography variant="h5" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 2 }}>
+               Booth {machine.booth_name}
+            </Typography>
+          )}
+        </Box>
+
+        <Typography variant="h4" sx={{ fontWeight: 700, textAlign: 'center', mb: 2, color: 'primary.main' }}>
+           Waiting for Voter...
         </Typography>
         <Typography color="text.secondary" variant="h6" sx={{ textAlign: 'center', mb: 6, opacity: 0.7 }}>
            The ballot will automatically load once authorized by the booth officer.
@@ -336,7 +393,7 @@ const TerminalSession = () => {
                   style={{ height: '100%' }}
                >
                    <Typography variant="h5" sx={{ fontWeight: 900, textAlign: 'center', mb: 3, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 2 }}>
-                      Ballot Paper: {posts[step].post_name}
+                      Ballot: {posts[step].post_name}
                    </Typography>
 
                    {/* EVM Style Vertical List */}
@@ -367,15 +424,15 @@ const TerminalSession = () => {
                                {/* Candidate Info */}
                                <Box sx={{ flexGrow: 1, px: { xs: 1, md: 3 }, display: 'flex', alignItems: 'center', gap: 2 }}>
                                   <Avatar 
-                                     src={getFullUrl(c.photo)} 
-                                     sx={{ width: { xs: 50, md: 70 }, height: { xs: 50, md: 70 }, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+                                     src={c.candidate_id === -1 ? undefined : getFullUrl(c.photo)} 
+                                     sx={{ width: { xs: 50, md: 70 }, height: { xs: 50, md: 70 }, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: c.candidate_id === -1 ? 'error.main' : undefined }}
                                   >
-                                     <User />
+                                     {c.candidate_id === -1 ? <span style={{ fontSize: 24, fontWeight: 'bold' }}>X</span> : <User />}
                                   </Avatar>
                                   <Box sx={{ flexGrow: 1 }}>
-                                     <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1, fontSize: { xs: '1rem', md: '1.25rem' } }}>{c.candidate_name}</Typography>
+                                     <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1, fontSize: { xs: '1rem', md: '1.25rem' }, color: c.candidate_id === -1 ? 'error.main' : 'inherit' }}>{c.candidate_name}</Typography>
                                      <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mt: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        {c.symbol_name || 'Independent Candidate'}
+                                        {c.candidate_id === -1 ? 'NOTA' : (c.symbol_name || 'Independent Candidate')}
                                      </Typography>
                                   </Box>
                                   {/* Actual Symbol Image instead of just text */}
@@ -434,15 +491,26 @@ const TerminalSession = () => {
                      Please verify your selections before final submission.
                   </Typography>
 
+                  {error && <Alert severity="error" sx={{ mb: 4, borderRadius: 3, fontWeight: 700 }}>{error}</Alert>}
+
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                      {posts.map((post: any) => {
                         const sel = selections[post.post_id];
                         const cand = post.candidates.find((c: any) => c.candidate_id === sel);
                         return (
                            <Paper key={post.post_id} sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 3, borderRadius: 3 }}>
-                              <Box sx={{ bgcolor: 'secondary.main', color: 'white', p: 1.5, borderRadius: 2 }}>
-                                 <Sparkles />
-                              </Box>
+                              {cand ? (
+                                 <Avatar 
+                                    src={cand.candidate_id === -1 ? undefined : getFullUrl(cand.photo)} 
+                                    sx={{ width: 60, height: 60, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: cand.candidate_id === -1 ? 'error.main' : undefined }}
+                                 >
+                                    {cand.candidate_id === -1 ? <span style={{ fontSize: 24, fontWeight: 'bold' }}>X</span> : <User />}
+                                 </Avatar>
+                              ) : (
+                                 <Box sx={{ bgcolor: 'secondary.main', color: 'white', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 60, height: 60 }}>
+                                    <Sparkles />
+                                 </Box>
+                              )}
                               <Box sx={{ flexGrow: 1 }}>
                                  <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary' }}>{post.post_name}</Typography>
                                  <Typography variant="h6" sx={{ fontWeight: 700 }}>{cand?.candidate_name || 'NOT SELECTED'}</Typography>
@@ -488,6 +556,7 @@ const TerminalSession = () => {
                endIcon={<ArrowRight />} 
                variant="contained"
                onClick={() => setStep(s => s + 1)}
+               disabled={!posts[step] || selections[posts[step].post_id] === undefined}
                sx={{ px: 8, py: 2, borderRadius: 3, fontWeight: 700 }}
             >
                Next Post
@@ -498,7 +567,7 @@ const TerminalSession = () => {
                variant="contained" 
                color="success"
                onClick={handleCastVote}
-               disabled={isCasting}
+               disabled={isCasting || posts.some(p => selections[p.post_id] === undefined)}
                sx={{ 
                   px: 10, py: 2.5, borderRadius: 3, fontWeight: 900, fontSize: '1.2rem',
                   boxShadow: '0 8px 25px rgba(76, 175, 80, 0.4)'
@@ -508,6 +577,37 @@ const TerminalSession = () => {
             </Button>
          )}
       </Box>
+
+      {/* Session Timeout Warning Dialog */}
+      <Dialog
+        open={showTimeoutWarning && machine?.status === 'BUSY' && !successDialog}
+        disableEscapeKeyDown
+        PaperProps={{ sx: { borderRadius: 4, p: 3, textAlign: 'center', minWidth: 340 } }}
+      >
+        <DialogContent>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1, color: 'warning.main' }}>Session Expiring</Typography>
+          <Typography color="text.secondary" sx={{ mb: 3 }}>
+            No activity detected. Session will reset in:
+          </Typography>
+          <Typography variant="h2" sx={{ fontWeight: 900, color: sessionCountdown <= 10 ? 'error.main' : 'warning.main', mb: 2 }}>
+            {sessionCountdown}s
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={(sessionCountdown / WARNING_THRESHOLD) * 100}
+            color={sessionCountdown <= 10 ? 'error' : 'warning'}
+            sx={{ borderRadius: 2, height: 8, mb: 3 }}
+          />
+          <Button
+            variant="contained"
+            size="large"
+            onClick={resetInactivityTimer}
+            sx={{ borderRadius: 3, px: 4, fontWeight: 700 }}
+          >
+            Continue Voting
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       {/* Success Dialog */}
       <Dialog 

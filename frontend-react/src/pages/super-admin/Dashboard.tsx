@@ -55,8 +55,6 @@ const SuperAdminDashboard = () => {
   const statCards = [
     { title: 'Total Schools', value: stats?.totalSchools || 0, icon: <School size={24} />, color: '#3f51b5', bg: '/assets/dashboard/bg_blue.png' },
     { title: 'Pending Enquiries', value: stats?.pendingEnquiries || 0, icon: <HelpCircle size={24} />, color: '#f50057', bg: '/assets/dashboard/bg_red.png' },
-    { title: 'Active Elections', value: stats?.activeElections || 0, icon: <Vote size={24} />, color: '#4caf50', bg: '/assets/dashboard/bg_green.png' },
-    { title: 'Expiring Soon', value: stats?.expiringSoon || 0, icon: <Clock size={24} />, color: '#ff9800', bg: '/assets/dashboard/bg_orange.png' },
   ];
 
   return (
@@ -72,7 +70,7 @@ const SuperAdminDashboard = () => {
 
       <Grid container spacing={3}>
         {statCards.map((stat, index) => (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
             <Card sx={{ 
               height: '100%', 
               borderRadius: 4,

@@ -1,5 +1,6 @@
 const db = require("../config/db");
 const XLSX = require("xlsx");
+const { logAction } = require('../utils/auditLogger');
 
 exports.uploadVoters = async (req, res) => {
   try {
@@ -100,6 +101,19 @@ exports.uploadVoters = async (req, res) => {
         errors
     });
 
+    if (inserted > 0) {
+      logAction({
+        school_id,
+        user_id: req.user.id,
+        user_name: req.user.name || req.user.email,
+        role: req.user.role,
+        action: 'BULK_IMPORT_VOTERS',
+        entity_type: 'Voter',
+        entity_name: `Election #${election_id}`,
+        details: { election_id, inserted, errors: errors.length }
+      });
+    }
+
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -179,6 +193,17 @@ exports.createVoter = async (req, res) => {
      0
     ]
   );
+
+  logAction({
+    school_id,
+    user_id: req.user.id,
+    user_name: req.user.name || req.user.email,
+    role: req.user.role,
+    action: 'ADD_VOTER',
+    entity_type: 'Voter',
+    entity_name: name,
+    details: { election_id, admission_no }
+  });
 
   res.json({
    message: "Voter added successfully",

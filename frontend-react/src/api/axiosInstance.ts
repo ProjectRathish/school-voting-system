@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   // If viewing on a local network IP but the .env hardcodes localhost, force dynamic IP fallback
   if (envUrl && envUrl.includes('localhost') && window.location.hostname !== 'localhost') {
@@ -9,6 +9,8 @@ const getBaseUrl = () => {
   }
   return envUrl || `${window.location.protocol}//${window.location.hostname}:5000/api`;
 };
+
+export const getMediaUrl = () => getBaseUrl().replace('/api', '');
 
 const axiosInstance = axios.create({
   baseURL: getBaseUrl(),
@@ -20,6 +22,15 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Hardware Binding: Inject persistent device ID for voting terminals
+    let deviceId = localStorage.getItem('evm_device_id');
+    if (!deviceId) {
+      deviceId = `DEV-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+      localStorage.setItem('evm_device_id', deviceId);
+    }
+    config.headers['device-id'] = deviceId;
+
     return config;
   },
   (error) => {
