@@ -139,7 +139,7 @@ exports.approveSchool = async (req, res) => {
 
 exports.createSchool = async (req, res) => {
   try {
-    const { name, contact_person, contact_email, contact_phone, location, admin_password, plan_id, custom_max_voters, custom_max_elections } = req.body;
+    const { name, contact_person, contact_email, contact_phone, location, admin_password, plan_id, custom_max_voters, custom_max_elections, custom_max_booths, custom_max_machines, custom_max_officers } = req.body;
 
     if (!name || !contact_person || !contact_email || !contact_phone || !admin_password || !plan_id) {
       return res.status(400).json({ message: "Required fields missing" });
@@ -158,8 +158,8 @@ exports.createSchool = async (req, res) => {
 
     const admin_username = code;
     const [schoolResult] = await db.execute(
-      "INSERT INTO schools (name, contact_person, email, phone, code, location, plan_id, custom_max_voters, custom_max_elections) VALUES (?,?,?,?,?,?,?,?,?)",
-      [name, contact_person, contact_email, contact_phone, code, location, plan_id, custom_max_voters || null, custom_max_elections || null]
+      "INSERT INTO schools (name, contact_person, email, phone, code, location, plan_id, custom_max_voters, custom_max_elections, custom_max_booths, custom_max_machines, custom_max_officers) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+      [name, contact_person, contact_email, contact_phone, code, location, plan_id, custom_max_voters || null, custom_max_elections || null, custom_max_booths || null, custom_max_machines || null, custom_max_officers || null]
     );
 
     const school_id = schoolResult.insertId;
@@ -192,7 +192,7 @@ exports.getSuggestedSchoolCode = async (req, res) => {
 exports.getSchools = async (req, res) => {
   try {
     const [rows] = await db.execute(`
-      SELECT s.*, p.name as plan_name, p.max_voters, p.max_elections 
+      SELECT s.*, p.name as plan_name, p.max_voters, p.max_elections, p.max_booths, p.max_machines, p.max_officers 
       FROM schools s
       LEFT JOIN subscription_plans p ON s.plan_id = p.id
       ORDER BY s.created_at DESC
@@ -219,7 +219,7 @@ exports.getSchool = async (req, res) => {
 exports.updateSchool = async (req, res) => {
   try {
     const { school_id } = req.params;
-    const { name, location, contact_person, email, phone, plan_id, custom_max_voters, custom_max_elections, subscription_status, subscription_expiry } = req.body;
+    const { name, location, contact_person, email, phone, plan_id, custom_max_voters, custom_max_elections, custom_max_booths, custom_max_machines, custom_max_officers, subscription_status, subscription_expiry } = req.body;
 
     const [existing] = await db.execute(`SELECT id FROM schools WHERE id = ?`, [school_id]);
     if (existing.length === 0) return res.status(404).json({ message: "School not found" });
@@ -235,6 +235,9 @@ exports.updateSchool = async (req, res) => {
     if (plan_id) { updateFields.push("plan_id = ?"); updateValues.push(plan_id); }
     if (custom_max_voters !== undefined) { updateFields.push("custom_max_voters = ?"); updateValues.push(custom_max_voters); }
     if (custom_max_elections !== undefined) { updateFields.push("custom_max_elections = ?"); updateValues.push(custom_max_elections); }
+    if (custom_max_booths !== undefined) { updateFields.push("custom_max_booths = ?"); updateValues.push(custom_max_booths); }
+    if (custom_max_machines !== undefined) { updateFields.push("custom_max_machines = ?"); updateValues.push(custom_max_machines); }
+    if (custom_max_officers !== undefined) { updateFields.push("custom_max_officers = ?"); updateValues.push(custom_max_officers); }
     if (subscription_status) { updateFields.push("subscription_status = ?"); updateValues.push(subscription_status); }
     if (subscription_expiry !== undefined) { updateFields.push("subscription_expiry = ?"); updateValues.push(subscription_expiry); }
 

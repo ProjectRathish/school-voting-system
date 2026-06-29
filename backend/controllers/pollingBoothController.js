@@ -25,6 +25,30 @@ exports.createPollingBooth = async (req, res) => {
       });
     }
 
+    // Fetch School Plan Limits for booths
+    const [schoolInfo] = await db.execute(`
+      SELECT s.custom_max_booths, p.max_booths 
+      FROM schools s
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      WHERE s.id = ?
+    `, [school_id]);
+
+    const maxBooths = (schoolInfo[0]?.custom_max_booths !== null && schoolInfo[0]?.custom_max_booths !== undefined) 
+      ? schoolInfo[0].custom_max_booths 
+      : (schoolInfo[0]?.max_booths || 5);
+
+    // Count existing booths
+    const [countRows] = await db.execute(
+      "SELECT COUNT(*) as count FROM polling_booths WHERE school_id = ?",
+      [school_id]
+    );
+
+    if (countRows[0].count >= maxBooths) {
+      return res.status(403).json({
+        message: `Limit reached: Your current plan allows a maximum of ${maxBooths} polling booths.`
+      });
+    }
+
     // Create the polling booth
     const [result] = await db.execute(
       `INSERT INTO polling_booths (school_id, booth_number, location, capacity, status)

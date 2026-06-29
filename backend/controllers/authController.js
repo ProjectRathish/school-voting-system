@@ -216,6 +216,30 @@ exports.createBoothOfficer = async (req, res) => {
   try {
     const { username, password, booth_id } = req.body;
     const school_id = req.user.school_id;
+    // Fetch School Plan Limits for officers
+    const [schoolInfo] = await db.execute(`
+      SELECT s.custom_max_officers, p.max_officers 
+      FROM schools s
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      WHERE s.id = ?
+    `, [school_id]);
+
+    const maxOfficers = (schoolInfo[0]?.custom_max_officers !== null && schoolInfo[0]?.custom_max_officers !== undefined) 
+      ? schoolInfo[0].custom_max_officers 
+      : (schoolInfo[0]?.max_officers || 5);
+
+    // Count existing officers
+    const [countRows] = await db.execute(
+      "SELECT COUNT(*) as count FROM users WHERE school_id = ? AND role = 'BOOTH_OFFICER'",
+      [school_id]
+    );
+
+    if (countRows[0].count >= maxOfficers) {
+      return res.status(403).json({
+        message: `Limit reached: Your current plan allows a maximum of ${maxOfficers} booth officers.`
+      });
+    }
+
     const hash = await bcrypt.hash(password, 10);
     const [result] = await db.execute(
       `INSERT INTO users (school_id, username, password_hash, plain_password, role, must_change_password, booth_id)

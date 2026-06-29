@@ -17,6 +17,9 @@ const Plans = () => {
     name: '',
     max_voters: 0,
     max_elections: 0,
+    max_booths: 0,
+    max_machines: 0,
+    max_officers: 0,
     price: 0,
     duration_months: 12,
     description: '',
@@ -63,6 +66,9 @@ const Plans = () => {
         name: plan.name,
         max_voters: plan.max_voters,
         max_elections: plan.max_elections,
+        max_booths: plan.max_booths || 5,
+        max_machines: plan.max_machines || 10,
+        max_officers: plan.max_officers || 5,
         price: plan.price,
         duration_months: plan.duration_months || 12,
         description: plan.description || '',
@@ -74,6 +80,9 @@ const Plans = () => {
         name: '',
         max_voters: 450,
         max_elections: 1,
+        max_booths: 2,
+        max_machines: 2,
+        max_officers: 2,
         price: 0,
         duration_months: 12,
         description: '',
@@ -121,6 +130,9 @@ const Plans = () => {
               <TableCell sx={{ fontWeight: 700 }}>Plan Name</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Max Voters</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Max Elections</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Max Booths</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Max Machines</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Max Officers</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Price (INR)</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Duration</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
@@ -143,6 +155,9 @@ const Plans = () => {
                 </TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{plan.max_voters}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>{plan.max_elections}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{plan.max_booths}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{plan.max_machines}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{plan.max_officers}</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>₹{plan.price}</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>
                   {plan.duration_months >= 12
@@ -195,6 +210,30 @@ const Plans = () => {
                 required 
                 value={formData.max_elections}
                 onChange={(e) => setFormData({...formData, max_elections: parseInt(e.target.value)})}
+              />
+              <TextField 
+                label="Max Booths" 
+                type="number" 
+                fullWidth 
+                required 
+                value={formData.max_booths}
+                onChange={(e) => setFormData({...formData, max_booths: parseInt(e.target.value)})}
+              />
+              <TextField 
+                label="Max Machines" 
+                type="number" 
+                fullWidth 
+                required 
+                value={formData.max_machines}
+                onChange={(e) => setFormData({...formData, max_machines: parseInt(e.target.value)})}
+              />
+              <TextField 
+                label="Max Officers" 
+                type="number" 
+                fullWidth 
+                required 
+                value={formData.max_officers}
+                onChange={(e) => setFormData({...formData, max_officers: parseInt(e.target.value)})}
               />
               <TextField 
                 label="Price (INR)" 

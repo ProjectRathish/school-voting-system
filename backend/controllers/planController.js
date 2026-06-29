@@ -25,10 +25,10 @@ exports.getPublicPlans = async (req, res) => {
 // Create a plan
 exports.createPlan = async (req, res) => {
   try {
-    const { name, max_voters, max_elections, price, duration_months, description } = req.body;
+    const { name, max_voters, max_elections, max_booths, max_machines, max_officers, price, duration_months, description } = req.body;
     await db.execute(
-      "INSERT INTO subscription_plans (name, max_voters, max_elections, price, duration_months, description) VALUES (?, ?, ?, ?, ?, ?)",
-      [name, max_voters, max_elections, price, duration_months || 12, description]
+      "INSERT INTO subscription_plans (name, max_voters, max_elections, max_booths, max_machines, max_officers, price, duration_months, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [name, max_voters, max_elections, max_booths || 5, max_machines || 10, max_officers || 5, price, duration_months || 12, description]
     );
     res.status(201).json({ message: "Plan created successfully" });
   } catch (error) {
@@ -41,10 +41,10 @@ exports.createPlan = async (req, res) => {
 exports.updatePlan = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, max_voters, max_elections, price, duration_months, description, is_active } = req.body;
+    const { name, max_voters, max_elections, max_booths, max_machines, max_officers, price, duration_months, description, is_active } = req.body;
     await db.execute(
-      "UPDATE subscription_plans SET name=?, max_voters=?, max_elections=?, price=?, duration_months=?, description=?, is_active=? WHERE id=?",
-      [name, max_voters, max_elections, price, duration_months || 12, description, is_active ? 1 : 0, id]
+      "UPDATE subscription_plans SET name=?, max_voters=?, max_elections=?, max_booths=?, max_machines=?, max_officers=?, price=?, duration_months=?, description=?, is_active=? WHERE id=?",
+      [name, max_voters, max_elections, max_booths || 5, max_machines || 10, max_officers || 5, price, duration_months || 12, description, is_active ? 1 : 0, id]
     );
     res.json({ message: "Plan updated successfully" });
   } catch (error) {

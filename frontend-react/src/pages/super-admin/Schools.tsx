@@ -691,6 +691,33 @@ const Schools = () => {
               />
             </Box>
 
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+              <TextField 
+                label="Custom Max Booths" 
+                type="number" 
+                fullWidth 
+                helperText="Use plan limit if empty"
+                value={editingSchool?.custom_max_booths || ''} 
+                onChange={e => setEditingSchool({...editingSchool, custom_max_booths: e.target.value ? parseInt(e.target.value) : null})} 
+              />
+              <TextField 
+                label="Custom Max Machines" 
+                type="number" 
+                fullWidth 
+                helperText="Use plan limit if empty"
+                value={editingSchool?.custom_max_machines || ''} 
+                onChange={e => setEditingSchool({...editingSchool, custom_max_machines: e.target.value ? parseInt(e.target.value) : null})} 
+              />
+              <TextField 
+                label="Custom Max Officers" 
+                type="number" 
+                fullWidth 
+                helperText="Use plan limit if empty"
+                value={editingSchool?.custom_max_officers || ''} 
+                onChange={e => setEditingSchool({...editingSchool, custom_max_officers: e.target.value ? parseInt(e.target.value) : null})} 
+              />
+            </Box>
+
             <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
               <Select
                 fullWidth

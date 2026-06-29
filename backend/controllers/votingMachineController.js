@@ -45,6 +45,30 @@ exports.registerMachine = async (req, res) => {
     }
     const school_code = schoolRows[0].code;
 
+    // Fetch School Plan Limits for machines
+    const [schoolInfo] = await db.execute(`
+      SELECT s.custom_max_machines, p.max_machines 
+      FROM schools s
+      LEFT JOIN subscription_plans p ON s.plan_id = p.id
+      WHERE s.id = ?
+    `, [school_id]);
+
+    const maxMachines = (schoolInfo[0]?.custom_max_machines !== null && schoolInfo[0]?.custom_max_machines !== undefined) 
+      ? schoolInfo[0].custom_max_machines 
+      : (schoolInfo[0]?.max_machines || 10);
+
+    // Count existing machines
+    const [countRows] = await db.execute(
+      "SELECT COUNT(*) as count FROM voting_machines WHERE school_id = ?",
+      [school_id]
+    );
+
+    if (countRows[0].count >= maxMachines) {
+      return res.status(403).json({
+        message: `Limit reached: Your current plan allows a maximum of ${maxMachines} voting machines.`
+      });
+    }
+
     // Check if machine_name already exists in this booth
     const [duplicateCheck] = await db.execute(
       `SELECT id FROM voting_machines WHERE booth_id=? AND machine_name=?`,
