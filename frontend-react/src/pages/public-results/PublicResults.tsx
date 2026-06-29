@@ -497,306 +497,355 @@ const PublicResults = () => {
                   </Typography>
                 </Box>
 
-                {/* Podium View */}
-                <Grid container spacing={4} justifyContent="center" alignItems="flex-end" sx={{ mb: 6 }}>
-                  {/* 2nd Place Card */}
-                  {secondPlace && (
-                    <Grid item xs={12} sm={4} md={3} order={{ xs: 2, sm: 1 }} sx={{ display: 'flex', justifyContent: 'center' }}>
-                      <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.25 }}
-                        style={{ width: '100%', maxWidth: 300 }}
-                      >
-                        <Card sx={{
-                          position: 'relative',
-                          overflow: 'visible',
-                          border: '1.5px solid rgba(148, 163, 184, 0.2)',
-                          background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.08) 0%, rgba(148, 163, 184, 0.02) 100%)',
-                          boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                          borderRadius: 4
-                        }}>
-                          <Box sx={{
-                            position: 'absolute', top: -25, left: '50%', transform: 'translateX(-50%)',
-                            bgcolor: '#cbd5e1', width: 45, height: 45, borderRadius: '50%',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: '#0f172a', fontWeight: 800, fontSize: '1.2rem',
-                            border: '4px solid #0a0f1d', boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
-                          }}>
-                            2nd
-                          </Box>
-                          
-                          <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
-                            <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-                              <Avatar
-                                src={secondPlace.photo ? `${MEDIA_URL}${secondPlace.photo}` : undefined}
-                                sx={{
-                                  width: 100, height: 100, mx: 'auto',
-                                  border: '3px solid #cbd5e1',
-                                  boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
-                                }}
-                              />
-                              {secondPlace.symbol && (
-                                <Avatar
-                                  src={`${MEDIA_URL}${secondPlace.symbol}`}
-                                  sx={{
-                                    width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
-                                    bgcolor: 'white', border: '2.5px solid #cbd5e1', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-                                  }}
-                                />
-                              )}
-                            </Box>
-
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5 }}>
-                              {secondPlace.candidate_name}
-                            </Typography>
-                            
-                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
-                              Symbol: {secondPlace.symbol_name || 'Official'}
-                            </Typography>
-
-                            {showVotes && (
-                              <Box sx={{ mt: 2 }}>
-                                <Typography variant="h5" sx={{ fontWeight: 900, color: '#cbd5e1' }}>
-                                  {secondPlace.vote_count} <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>votes</span>
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={currentPost.total_votes > 0 ? (secondPlace.vote_count / currentPost.total_votes) * 100 : 0}
-                                    sx={{ flexGrow: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#cbd5e1' } }}
-                                  />
-                                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#cbd5e1' }}>
-                                    {currentPost.total_votes > 0 ? ((secondPlace.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    </Grid>
-                  )}
-
-                  {/* 1st Place Winner Card */}
-                  {firstPlace && (
-                    <Grid item xs={12} sm={4} md={4} order={{ xs: 1, sm: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
-                      <motion.div
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1.05, opacity: 1 }}
-                        transition={{ type: 'spring', stiffness: 100, delay: 0.1 }}
-                        style={{ width: '100%', maxWidth: 360, zIndex: 10 }}
-                      >
-                        <Card sx={{
-                          position: 'relative',
-                          overflow: 'visible',
-                          border: '2.5px solid #fbbf24',
-                          background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.03) 100%)',
-                          boxShadow: '0 15px 45px rgba(251, 191, 36, 0.25), 0 0 30px rgba(99, 102, 241, 0.15)',
-                          borderRadius: 5
-                        }}>
-                          {/* Winner top tag */}
-                          <Box sx={{
-                            position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
-                            bgcolor: '#fbbf24', color: '#0f172a', py: 0.6, px: 2.5, borderRadius: 5,
-                            display: 'flex', alignItems: 'center', gap: 0.8, fontWeight: 900,
-                            fontSize: '0.85rem', letterSpacing: 1.5, textTransform: 'uppercase',
-                            boxShadow: '0 8px 20px rgba(251, 191, 36, 0.4)', border: '3px solid #0a0f1d'
-                          }}>
-                            <Trophy size={16} /> WINNER
-                          </Box>
-
-                          <CardContent sx={{ pt: 5, pb: 4, textAlign: 'center' }}>
-                            <Box sx={{ position: 'relative', display: 'inline-block', mb: 3.5 }}>
-                              <Box sx={{
-                                position: 'absolute', inset: -10, borderRadius: '50%',
-                                background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, transparent, #fbbf24)',
-                                animation: 'spin 4s linear infinite',
-                                '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
-                              }} />
-                              <Avatar
-                                src={firstPlace.photo ? `${MEDIA_URL}${firstPlace.photo}` : undefined}
-                                sx={{
-                                  width: 140, height: 140, mx: 'auto',
-                                  border: '4px solid #fbbf24',
-                                  position: 'relative', zIndex: 1,
-                                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-                                }}
-                              />
-                              {firstPlace.symbol && (
-                                <Avatar
-                                  src={`${MEDIA_URL}${firstPlace.symbol}`}
-                                  sx={{
-                                    width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
-                                    bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
-                                    zIndex: 2
-                                  }}
-                                />
-                              )}
-                            </Box>
-
-                            <Typography variant="h5" sx={{ fontWeight: 900, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px' }}>
-                              {firstPlace.candidate_name}
-                            </Typography>
-                            
-                            <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
-                              Symbol: {firstPlace.symbol_name || 'Official'}
-                            </Typography>
-
-                            {showVotes && (
-                              <Box sx={{ mt: 3, px: 2 }}>
-                                <Typography variant="h3" sx={{ fontWeight: 950, color: '#fbbf24', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
-                                  {firstPlace.vote_count} <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>votes</span>
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5 }}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={currentPost.total_votes > 0 ? (firstPlace.vote_count / currentPost.total_votes) * 100 : 0}
-                                    sx={{
-                                      flexGrow: 1, height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.05)',
-                                      '& .MuiLinearProgress-bar': { bgcolor: '#fbbf24' }
-                                    }}
-                                  />
-                                  <Typography variant="body2" sx={{ fontWeight: 800, color: '#fbbf24' }}>
-                                    {currentPost.total_votes > 0 ? ((firstPlace.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    </Grid>
-                  )}
-
-                  {/* 3rd Place Card */}
-                  {thirdPlace && (
-                    <Grid item xs={12} sm={4} md={3} order={3} sx={{ display: 'flex', justifyContent: 'center' }}>
-                      <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ delay: 0.35 }}
-                        style={{ width: '100%', maxWidth: 300 }}
-                      >
-                        <Card sx={{
-                          position: 'relative',
-                          overflow: 'visible',
-                          border: '1.5px solid rgba(180, 83, 9, 0.2)',
-                          background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.08) 0%, rgba(217, 119, 6, 0.02) 100%)',
-                          boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-                          borderRadius: 4
-                        }}>
-                          <Box sx={{
-                            position: 'absolute', top: -25, left: '50%', transform: 'translateX(-50%)',
-                            bgcolor: '#b45309', width: 45, height: 45, borderRadius: '50%',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: 'white', fontWeight: 800, fontSize: '1.1rem',
-                            border: '4px solid #0a0f1d', boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
-                          }}>
-                            3rd
-                          </Box>
-                          
-                          <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
-                            <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-                              <Avatar
-                                src={thirdPlace.photo ? `${MEDIA_URL}${thirdPlace.photo}` : undefined}
-                                sx={{
-                                  width: 100, height: 100, mx: 'auto',
-                                  border: '3px solid #b45309',
-                                  boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
-                                }}
-                              />
-                              {thirdPlace.symbol && (
-                                <Avatar
-                                  src={`${MEDIA_URL}${thirdPlace.symbol}`}
-                                  sx={{
-                                    width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
-                                    bgcolor: 'white', border: '2.5px solid #b45309', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
-                                  }}
-                                />
-                              )}
-                            </Box>
-
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5 }}>
-                              {thirdPlace.candidate_name}
-                            </Typography>
-                            
-                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
-                              Symbol: {thirdPlace.symbol_name || 'Official'}
-                            </Typography>
-
-                            {showVotes && (
-                              <Box sx={{ mt: 2 }}>
-                                <Typography variant="h5" sx={{ fontWeight: 900, color: '#d97706' }}>
-                                  {thirdPlace.vote_count} <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>votes</span>
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={currentPost.total_votes > 0 ? (thirdPlace.vote_count / currentPost.total_votes) * 100 : 0}
-                                    sx={{ flexGrow: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#d97706' } }}
-                                  />
-                                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#d97706' }}>
-                                    {currentPost.total_votes > 0 ? ((thirdPlace.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%
-                                  </Typography>
-                                </Box>
-                              </Box>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </motion.div>
-                    </Grid>
-                  )}
-                </Grid>
-
-                {/* Other Candidates List (Rank 4+) */}
-                {remainingCandidates.length > 0 && (
-                  <Box sx={{ maxWidth: 800, mx: 'auto', mt: 6 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 2.5, px: 1, color: '#94a3b8' }}>
-                      Runner-Ups Breakdown
-                    </Typography>
+                {/* Podium or No Votes View */}
+                {candidates.length === 0 || candidates.every((c: any) => (c.vote_count || 0) === 0) ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8 }}>
                     <Paper sx={{
-                      borderRadius: 4, bgcolor: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.05)',
-                      overflow: 'hidden', backdropFilter: 'blur(8px)'
+                      p: 6,
+                      borderRadius: 5,
+                      bgcolor: 'rgba(15, 23, 42, 0.4)',
+                      border: '1.5px solid rgba(255, 255, 255, 0.08)',
+                      textAlign: 'center',
+                      maxWidth: 600,
+                      mx: 'auto',
+                      backdropFilter: 'blur(10px)'
                     }}>
-                      {remainingCandidates.map((c: any, index: number) => {
-                        const rank = index + 4;
-                        return (
-                          <Box key={c.candidate_id} sx={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            p: 2, borderBottom: index === remainingCandidates.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)',
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }, transition: 'background-color 0.2s'
-                          }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Typography sx={{ width: 30, textAlign: 'center', color: '#94a3b8', fontWeight: 800 }}>
-                                #{rank}
-                              </Typography>
-                              <Avatar src={c.photo ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 40, height: 40 }} />
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {c.symbol && <Avatar src={`${MEDIA_URL}${c.symbol}`} sx={{ width: 20, height: 20, bgcolor: 'white' }} />}
-                                <Typography sx={{ fontWeight: 700, color: 'white' }}>{c.candidate_name}</Typography>
-                              </Box>
+                      <Box sx={{
+                        width: 80,
+                        height: 80,
+                        bgcolor: 'rgba(255, 255, 255, 0.05)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mx: 'auto',
+                        mb: 3
+                      }}>
+                        <Trophy size={40} color="#64748b" />
+                      </Box>
+                      <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: 'white', fontFamily: 'Outfit' }}>
+                        No Votes Cast
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#94a3b8', mb: 4, fontFamily: 'Outfit' }}>
+                        No votes were recorded for this category in this election.
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+                        {candidates.map((c: any) => (
+                          <Box key={c.candidate_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'rgba(255,255,255,0.03)', px: 2.5, py: 1.5, borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <Avatar src={c.photo ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 36, height: 36 }} />
+                            <Box sx={{ textAlign: 'left' }}>
+                              <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 700, fontFamily: 'Outfit' }}>{c.candidate_name}</Typography>
+                              <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>{c.symbol_name || 'Candidate'}</Typography>
                             </Box>
-
-                            {showVotes && (
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, width: 220 }}>
-                                <Box sx={{ flexGrow: 1 }}>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={currentPost.total_votes > 0 ? (c.vote_count / currentPost.total_votes) * 100 : 0}
-                                    sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#94a3b8' } }}
-                                  />
-                                </Box>
-                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#94a3b8', minWidth: 70, textAlign: 'right' }}>
-                                  {c.vote_count} <span style={{ fontSize: '0.75rem', fontWeight: 400 }}>({currentPost.total_votes > 0 ? ((c.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%)</span>
-                                </Typography>
-                              </Box>
-                            )}
                           </Box>
-                        );
-                      })}
+                        ))}
+                      </Box>
                     </Paper>
                   </Box>
+                ) : (
+                  <>
+                    {/* Podium View */}
+                    <Grid container spacing={4} justifyContent="center" alignItems="flex-end" sx={{ mb: 6 }}>
+                      {/* 2nd Place Card */}
+                      {secondPlace && (
+                        <Grid item xs={12} sm={4} md={3} order={{ xs: 2, sm: 1 }} sx={{ display: 'flex', justifyContent: 'center' }}>
+                          <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: 0.25 }}
+                            style={{ width: '100%', maxWidth: 300 }}
+                          >
+                            <Card sx={{
+                              position: 'relative',
+                              overflow: 'visible',
+                              border: '1.5px solid rgba(148, 163, 184, 0.2)',
+                              background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.08) 0%, rgba(148, 163, 184, 0.02) 100%)',
+                              boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                              borderRadius: 4
+                            }}>
+                              <Box sx={{
+                                position: 'absolute', top: -25, left: '50%', transform: 'translateX(-50%)',
+                                bgcolor: '#cbd5e1', width: 45, height: 45, borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#0f172a', fontWeight: 800, fontSize: '1.2rem',
+                                border: '4px solid #0a0f1d', boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                              }}>
+                                2nd
+                              </Box>
+                              
+                              <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
+                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
+                                  <Avatar
+                                    src={secondPlace.photo ? `${MEDIA_URL}${secondPlace.photo}` : undefined}
+                                    sx={{
+                                      width: 100, height: 100, mx: 'auto',
+                                      border: '3px solid #cbd5e1',
+                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
+                                    }}
+                                  />
+                                  {secondPlace.symbol && (
+                                    <Avatar
+                                      src={`${MEDIA_URL}${secondPlace.symbol}`}
+                                      sx={{
+                                        width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
+                                        bgcolor: 'white', border: '2.5px solid #cbd5e1', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+
+                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5 }}>
+                                  {secondPlace.candidate_name}
+                                </Typography>
+                                
+                                <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
+                                  Symbol: {secondPlace.symbol_name || 'Official'}
+                                </Typography>
+
+                                {showVotes && (
+                                  <Box sx={{ mt: 2 }}>
+                                    <Typography variant="h5" sx={{ fontWeight: 900, color: '#cbd5e1' }}>
+                                      {secondPlace.vote_count} <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>votes</span>
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={currentPost.total_votes > 0 ? (secondPlace.vote_count / currentPost.total_votes) * 100 : 0}
+                                        sx={{ flexGrow: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#cbd5e1' } }}
+                                      />
+                                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#cbd5e1' }}>
+                                        {currentPost.total_votes > 0 ? ((secondPlace.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        </Grid>
+                      )}
+
+                      {/* 1st Place Winner Card */}
+                      {firstPlace && (
+                        <Grid item xs={12} sm={4} md={4} order={{ xs: 1, sm: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
+                          <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1.05, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 100, delay: 0.1 }}
+                            style={{ width: '100%', maxWidth: 360, zIndex: 10 }}
+                          >
+                            <Card sx={{
+                              position: 'relative',
+                              overflow: 'visible',
+                              border: '2.5px solid #fbbf24',
+                              background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.03) 100%)',
+                              boxShadow: '0 15px 45px rgba(251, 191, 36, 0.25), 0 0 30px rgba(99, 102, 241, 0.15)',
+                              borderRadius: 5
+                            }}>
+                              {/* Winner top tag */}
+                              <Box sx={{
+                                position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
+                                bgcolor: '#fbbf24', color: '#0f172a', py: 0.6, px: 2.5, borderRadius: 5,
+                                display: 'flex', alignItems: 'center', gap: 0.8, fontWeight: 900,
+                                fontSize: '0.85rem', letterSpacing: 1.5, textTransform: 'uppercase',
+                                boxShadow: '0 8px 20px rgba(251, 191, 36, 0.4)', border: '3px solid #0a0f1d'
+                              }}>
+                                <Trophy size={16} /> WINNER
+                              </Box>
+
+                              <CardContent sx={{ pt: 5, pb: 4, textAlign: 'center' }}>
+                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 3.5 }}>
+                                  <Box sx={{
+                                    position: 'absolute', inset: -10, borderRadius: '50%',
+                                    background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, transparent, #fbbf24)',
+                                    animation: 'spin 4s linear infinite',
+                                    '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
+                                  }} />
+                                  <Avatar
+                                    src={firstPlace.photo ? `${MEDIA_URL}${firstPlace.photo}` : undefined}
+                                    sx={{
+                                      width: 140, height: 140, mx: 'auto',
+                                      border: '4px solid #fbbf24',
+                                      position: 'relative', zIndex: 1,
+                                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+                                    }}
+                                  />
+                                  {firstPlace.symbol && (
+                                    <Avatar
+                                      src={`${MEDIA_URL}${firstPlace.symbol}`}
+                                      sx={{
+                                        width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
+                                        bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
+                                        zIndex: 2
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+
+                                <Typography variant="h5" sx={{ fontWeight: 900, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px' }}>
+                                  {firstPlace.candidate_name}
+                                </Typography>
+                                
+                                <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
+                                  Symbol: {firstPlace.symbol_name || 'Official'}
+                                </Typography>
+
+                                {showVotes && (
+                                  <Box sx={{ mt: 3, px: 2 }}>
+                                    <Typography variant="h3" sx={{ fontWeight: 950, color: '#fbbf24', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
+                                      {firstPlace.vote_count} <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>votes</span>
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5 }}>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={currentPost.total_votes > 0 ? (firstPlace.vote_count / currentPost.total_votes) * 100 : 0}
+                                        sx={{
+                                          flexGrow: 1, height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.05)',
+                                          '& .MuiLinearProgress-bar': { bgcolor: '#fbbf24' }
+                                        }}
+                                      />
+                                      <Typography variant="body2" sx={{ fontWeight: 800, color: '#fbbf24' }}>
+                                        {currentPost.total_votes > 0 ? ((firstPlace.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        </Grid>
+                      )}
+
+                      {/* 3rd Place Card */}
+                      {thirdPlace && (
+                        <Grid item xs={12} sm={4} md={3} order={3} sx={{ display: 'flex', justifyContent: 'center' }}>
+                          <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ delay: 0.35 }}
+                            style={{ width: '100%', maxWidth: 300 }}
+                          >
+                            <Card sx={{
+                              position: 'relative',
+                              overflow: 'visible',
+                              border: '1.5px solid rgba(180, 83, 9, 0.2)',
+                              background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.08) 0%, rgba(217, 119, 6, 0.02) 100%)',
+                              boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+                              borderRadius: 4
+                            }}>
+                              <Box sx={{
+                                position: 'absolute', top: -25, left: '50%', transform: 'translateX(-50%)',
+                                bgcolor: '#b45309', width: 45, height: 45, borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: 'white', fontWeight: 800, fontSize: '1.1rem',
+                                border: '4px solid #0a0f1d', boxShadow: '0 4px 10px rgba(0,0,0,0.3)'
+                              }}>
+                                3rd
+                              </Box>
+                              
+                              <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
+                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
+                                  <Avatar
+                                    src={thirdPlace.photo ? `${MEDIA_URL}${thirdPlace.photo}` : undefined}
+                                    sx={{
+                                      width: 100, height: 100, mx: 'auto',
+                                      border: '3px solid #b45309',
+                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
+                                    }}
+                                  />
+                                  {thirdPlace.symbol && (
+                                    <Avatar
+                                      src={`${MEDIA_URL}${thirdPlace.symbol}`}
+                                      sx={{
+                                        width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
+                                        bgcolor: 'white', border: '2.5px solid #b45309', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+
+                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5 }}>
+                                  {thirdPlace.candidate_name}
+                                </Typography>
+                                
+                                <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
+                                  Symbol: {thirdPlace.symbol_name || 'Official'}
+                                </Typography>
+
+                                {showVotes && (
+                                  <Box sx={{ mt: 2 }}>
+                                    <Typography variant="h5" sx={{ fontWeight: 900, color: '#d97706' }}>
+                                      {thirdPlace.vote_count} <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>votes</span>
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={currentPost.total_votes > 0 ? (thirdPlace.vote_count / currentPost.total_votes) * 100 : 0}
+                                        sx={{ flexGrow: 1, height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#d97706' } }}
+                                      />
+                                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#d97706' }}>
+                                        {currentPost.total_votes > 0 ? ((thirdPlace.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        </Grid>
+                      )}
+                    </Grid>
+
+                    {/* Other Candidates List (Rank 4+) */}
+                    {remainingCandidates.length > 0 && (
+                      <Box sx={{ maxWidth: 800, mx: 'auto', mt: 6 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, mb: 2.5, px: 1, color: '#94a3b8' }}>
+                          Runner-Ups Breakdown
+                        </Typography>
+                        <Paper sx={{
+                          borderRadius: 4, bgcolor: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.05)',
+                          overflow: 'hidden', backdropFilter: 'blur(8px)'
+                        }}>
+                          {remainingCandidates.map((c: any, index: number) => {
+                            const rank = index + 4;
+                            return (
+                              <Box key={c.candidate_id} sx={{
+                                display: 'flex', alignItems: 'center', justifycontent: 'space-between',
+                                p: 2, borderBottom: index === remainingCandidates.length - 1 ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                                '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' }, transition: 'background-color 0.2s'
+                              }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Typography sx={{ width: 30, textAlign: 'center', color: '#94a3b8', fontWeight: 800 }}>
+                                    #{rank}
+                                  </Typography>
+                                  <Avatar src={c.photo ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 40, height: 40 }} />
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {c.symbol && <Avatar src={`${MEDIA_URL}${c.symbol}`} sx={{ width: 20, height: 20, bgcolor: 'white' }} />}
+                                    <Typography sx={{ fontWeight: 700, color: 'white' }}>{c.candidate_name}</Typography>
+                                  </Box>
+                                </Box>
+
+                                {showVotes && (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, width: 220 }}>
+                                    <Box sx={{ flexGrow: 1 }}>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={currentPost.total_votes > 0 ? (c.vote_count / currentPost.total_votes) * 100 : 0}
+                                        sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.05)', '& .MuiLinearProgress-bar': { bgcolor: '#94a3b8' } }}
+                                      />
+                                    </Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#94a3b8', minWidth: 70, textAlign: 'right' }}>
+                                      {c.vote_count} <span style={{ fontSize: '0.75rem', fontWeight: 400 }}>({currentPost.total_votes > 0 ? ((c.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%)</span>
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Box>
+                            );
+                          })}
+                        </Paper>
+                      </Box>
+                    )}
+                  </>
                 )}
               </motion.div>
             </AnimatePresence>
