@@ -548,12 +548,12 @@ const PublicResults = () => {
                     <Grid container spacing={4} justifyContent="center" alignItems="flex-end" sx={{ mb: 6 }}>
                       {/* 2nd Place Card */}
                       {secondPlace && (
-                        <Grid item xs={12} sm={4} md={3} order={{ xs: 2, sm: 1 }} sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Grid item xs={12} sm={4} md={3.5} order={{ xs: 2, sm: 1 }} sx={{ display: 'flex', justifyContent: 'center' }}>
                           <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.25 }}
-                            style={{ width: '100%', maxWidth: 300 }}
+                            style={{ width: '100%', maxWidth: 320 }}
                           >
                             <Card sx={{
                               position: 'relative',
@@ -594,7 +594,7 @@ const PublicResults = () => {
                                   )}
                                 </Box>
 
-                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5, wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                   {secondPlace.candidate_name}
                                 </Typography>
                                 
@@ -627,12 +627,12 @@ const PublicResults = () => {
 
                       {/* 1st Place Winner Card */}
                       {firstPlace && (
-                        <Grid item xs={12} sm={4} md={4} order={{ xs: 1, sm: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Grid item xs={12} sm={4} md={3.5} order={{ xs: 1, sm: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
                           <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
                             animate={{ scale: 1.05, opacity: 1 }}
                             transition={{ type: 'spring', stiffness: 100, delay: 0.1 }}
-                            style={{ width: '100%', maxWidth: 360, zIndex: 10 }}
+                            style={{ width: '100%', maxWidth: 320, zIndex: 10 }}
                           >
                             <Card sx={{
                               position: 'relative',
@@ -682,7 +682,7 @@ const PublicResults = () => {
                                   )}
                                 </Box>
 
-                                <Typography variant="h5" sx={{ fontWeight: 900, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px' }}>
+                                <Typography variant="h5" sx={{ fontWeight: 900, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                   {firstPlace.candidate_name}
                                 </Typography>
                                 
@@ -718,12 +718,12 @@ const PublicResults = () => {
 
                       {/* 3rd Place Card */}
                       {thirdPlace && (
-                        <Grid item xs={12} sm={4} md={3} order={3} sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Grid item xs={12} sm={4} md={3.5} order={3} sx={{ display: 'flex', justifyContent: 'center' }}>
                           <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.35 }}
-                            style={{ width: '100%', maxWidth: 300 }}
+                            style={{ width: '100%', maxWidth: 320 }}
                           >
                             <Card sx={{
                               position: 'relative',
@@ -764,7 +764,7 @@ const PublicResults = () => {
                                   )}
                                 </Box>
 
-                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5, wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                   {thirdPlace.candidate_name}
                                 </Typography>
                                 
