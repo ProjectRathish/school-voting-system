@@ -34,6 +34,12 @@ jobs:
             cd frontend-react
             npm ci --prefer-offline
             npm run build
+
+            echo "📂 Deploying frontend to public_html/election/..."
+            rm -rf ~/public_html/election/*
+            cp -r dist/* ~/public_html/election/
+            echo "✅ Frontend deployed!"
+
             cd ..
 
             echo "🔄 Updating backend dependencies..."
@@ -44,4 +50,4 @@ jobs:
             pm2 restart school-voting || pm2 start server.js --name school-voting
             pm2 save
 
-            echo "✅ Deployment complete!"
+            echo "✅ Full deployment complete!"
