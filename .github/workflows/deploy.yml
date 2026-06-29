@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout code (just to validate the push succeeded) ──────────────
+      # ── 1. Checkout code ─────────────────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -35,10 +35,17 @@ jobs:
             npm ci --prefer-offline
             npm run build
 
-            echo "📂 Deploying frontend to public_html/election/..."
-            rm -rf ~/public_html/election/*
-            cp -r dist/* ~/public_html/election/
-            echo "✅ Frontend deployed!"
+            echo "📂 Deploying frontend..."
+            echo "Current dir: $(pwd)"
+            echo "Home dir: $HOME"
+            echo "Looking for public_html..."
+            ls $HOME/ | grep -i public || echo "No public_html in HOME"
+
+            FRONTEND_DEST="${{ secrets.FRONTEND_PUBLIC_DIR }}"
+            echo "Copying to: $FRONTEND_DEST"
+            rm -rf "$FRONTEND_DEST"/*
+            cp -r dist/* "$FRONTEND_DEST"/
+            echo "✅ Frontend deployed to $FRONTEND_DEST!"
 
             cd ..
 
