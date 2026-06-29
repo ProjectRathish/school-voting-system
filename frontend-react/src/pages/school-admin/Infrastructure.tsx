@@ -7,7 +7,7 @@ import {
   Grid, Chip, FormControl, InputLabel, Select, MenuItem,
   InputAdornment, Snackbar, alpha
 } from '@mui/material';
-import { Plus, Trash2, Monitor, UserPlus, Unlink, Sparkles, Edit } from 'lucide-react';
+import { Plus, Trash2, Monitor, UserPlus, Unlink, Sparkles, Edit, Landmark } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
@@ -260,12 +260,17 @@ const Infrastructure = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Box sx={{ 
-                              p: 0.5, 
-                              borderRadius: 1, 
-                              bgcolor: 'primary.main', 
-                              display: 'flex'
+                              width: 42,
+                              height: 42,
+                              borderRadius: 1.5, 
+                              bgcolor: 'primary.main',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              boxShadow: '0 2px 8px rgba(99,102,241,0.3)'
                             }}>
-                              <Box component="img" src={evmIcon} sx={{ width: 32, height: 32 }} />
+                              <Landmark size={22} color="white" />
                             </Box>
                             <Box>
                               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
@@ -387,7 +392,35 @@ const Infrastructure = () => {
                         <TableRow><TableCell colSpan={5} align="center" sx={{ py: 4 }}>No machines registered</TableCell></TableRow>
                       ) : machines?.map((m: any) => (
                         <TableRow key={m.id}>
-                          <TableCell sx={{ fontWeight: 600 }}>{m.machine_name}</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                              <Box sx={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 1,
+                                bgcolor: '#ffffff',
+                                border: '1.5px solid',
+                                borderColor: 'primary.main',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                                overflow: 'hidden',
+                                p: 0.25
+                              }}>
+                                <Box
+                                  component="img"
+                                  src={evmIcon}
+                                  sx={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'contain'
+                                  }}
+                                />
+                              </Box>
+                              {m.machine_name}
+                            </Box>
+                          </TableCell>
                           <TableCell><code style={{ color: '#d32f2f' }}>{m.machine_code}</code></TableCell>
                           <TableCell>Booth #{m.booth_number || m.booth_id}</TableCell>
                           <TableCell>

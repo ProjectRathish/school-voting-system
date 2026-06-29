@@ -258,66 +258,115 @@ const Results = () => {
 
               {/* Results by Post */}
               {results?.results?.map((post: any) => (
-                <Paper key={post.post_id} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+                <Paper key={post.post_id} sx={{ p: 3, mb: 3, borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
                     🏆 {post.post_name}
                   </Typography>
 
-                  <Grid container spacing={3}>
-                    <Grid size={{ xs: 12, md: 7 }}>
-                      <TableContainer>
-                        <Table>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Rank</TableCell>
-                              <TableCell>Candidate</TableCell>
-                              <TableCell>Votes</TableCell>
-                              <TableCell sx={{ minWidth: 150 }}>Progress</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {post.candidates?.map((c: any, idx: number) => {
-                              const total = post.candidates.reduce((s: number, x: any) => s + (x.vote_count || 0), 0);
-                              const pct = total > 0 ? ((c.vote_count || 0) / total) * 100 : 0;
-                              return (
-                                <TableRow key={c.candidate_id}
-                                  sx={{ backgroundColor: idx === 0 ? 'success.light' : 'transparent', opacity: idx === 0 ? 0.9 : 1 }}>
-                                  <TableCell>
-                                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                                  </TableCell>
-                                  <TableCell sx={{ fontWeight: idx === 0 ? 700 : 400 }}>
-                                    {c.candidate_name}
-                                  </TableCell>
-                                  <TableCell sx={{ fontWeight: 700 }}>{c.vote_count}</TableCell>
-                                  <TableCell>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <LinearProgress variant="determinate" value={pct}
-                                        sx={{ flexGrow: 1, height: 8, borderRadius: 4 }} />
-                                      <Typography variant="caption">{pct.toFixed(0)}%</Typography>
-                                    </Box>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
+                  {/* UNCONTESTED POST — single candidate auto-winner */}
+                  {post.is_uncontested ? (
+                    <Box sx={{
+                      background: 'linear-gradient(135deg, #fef9c3 0%, #fde68a 50%, #fef3c7 100%)',
+                      border: '2px solid #f59e0b',
+                      borderRadius: 3,
+                      p: 3,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      {/* Decorative background sparkle */}
+                      <Box sx={{
+                        position: 'absolute', right: -20, top: -20,
+                        fontSize: 120, opacity: 0.07, userSelect: 'none', lineHeight: 1
+                      }}>🏆</Box>
+
+                      {/* Badge */}
+                      <Box sx={{
+                        width: 80, height: 80, borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0, boxShadow: '0 8px 24px rgba(245,158,11,0.4)'
+                      }}>
+                        <Trophy size={40} color="white" />
+                      </Box>
+
+                      <Box sx={{ flexGrow: 1 }}>
+                        <Box sx={{
+                          display: 'inline-block', px: 1.5, py: 0.5, mb: 1,
+                          bgcolor: '#f59e0b', borderRadius: 1,
+                        }}>
+                          <Typography variant="caption" sx={{ color: 'white', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1.5, fontSize: '0.65rem' }}>
+                            Uncontested Winner
+                          </Typography>
+                        </Box>
+                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#78350f', lineHeight: 1.2 }}>
+                          {post.candidates[0]?.candidate_name}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: '#92400e', mt: 0.5, fontWeight: 500 }}>
+                          Only candidate for this post — automatically declared winner. No voting was required.
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ) : (
+                    /* CONTESTED POST — normal vote table + pie chart */
+                    <Grid container spacing={3}>
+                      <Grid size={{ xs: 12, md: 7 }}>
+                        <TableContainer>
+                          <Table>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Rank</TableCell>
+                                <TableCell>Candidate</TableCell>
+                                <TableCell>Votes</TableCell>
+                                <TableCell sx={{ minWidth: 150 }}>Progress</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {post.candidates?.map((c: any, idx: number) => {
+                                const total = post.candidates.reduce((s: number, x: any) => s + (x.vote_count || 0), 0);
+                                const pct = total > 0 ? ((c.vote_count || 0) / total) * 100 : 0;
+                                return (
+                                  <TableRow key={c.candidate_id}
+                                    sx={{ backgroundColor: idx === 0 ? 'success.light' : 'transparent', opacity: idx === 0 ? 0.9 : 1 }}>
+                                    <TableCell>
+                                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: idx === 0 ? 700 : 400 }}>
+                                      {c.candidate_name}
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700 }}>{c.vote_count}</TableCell>
+                                    <TableCell>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <LinearProgress variant="determinate" value={pct}
+                                          sx={{ flexGrow: 1, height: 8, borderRadius: 4 }} />
+                                        <Typography variant="caption">{pct.toFixed(0)}%</Typography>
+                                      </Box>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </Grid>
+                      <Grid size={{ xs: 12, md: 5 }}>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <PieChart>
+                            <Pie data={post.candidates?.map((c: any) => ({ name: c.candidate_name, value: c.vote_count || 0 }))}
+                              cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
+                              {post.candidates?.map((_: any, idx: number) => (
+                                <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Legend />
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </Grid>
                     </Grid>
-                    <Grid size={{ xs: 12, md: 5 }}>
-                      <ResponsiveContainer width="100%" height={250}>
-                        <PieChart>
-                          <Pie data={post.candidates?.map((c: any) => ({ name: c.candidate_name, value: c.vote_count || 0 }))}
-                            cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
-                            {post.candidates?.map((_: any, idx: number) => (
-                              <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Legend />
-                          <Tooltip />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </Grid>
-                  </Grid>
+                  )}
                 </Paper>
               ))}
 

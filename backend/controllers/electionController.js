@@ -528,7 +528,11 @@ exports.getResults = async (req, res) => {
       }
     });
 
-    const resultsByPost = Array.from(postsMap.values());
+    // Mark posts with only 1 candidate as uncontested (they were skipped on the voting machine)
+    const resultsByPost = Array.from(postsMap.values()).map(post => ({
+      ...post,
+      is_uncontested: post.candidates.length === 1
+    }));
 
     res.json({
       message: "Election results retrieved successfully",
@@ -640,7 +644,11 @@ exports.getPublicResults = async (req, res) => {
       }
     });
 
-    const resultsByPost = Array.from(postsMap.values());
+    // Mark posts with only 1 candidate as uncontested (they were skipped on the voting machine)
+    const resultsByPost = Array.from(postsMap.values()).map(post => ({
+      ...post,
+      is_uncontested: post.candidates.length === 1
+    }));
 
     res.json({
       message: "Public election results retrieved successfully",

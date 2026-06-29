@@ -528,6 +528,11 @@ exports.fetchBallot = async (req, res) => {
              .filter(c => c.post_id === post.id)
              .sort((a, b) => a.candidate_name.localeCompare(b.candidate_name));
 
+       // If only 1 candidate, they are the uncontested winner — skip this post on the ballot
+       if (postCandidates.length <= 1) {
+           return null;
+       }
+
        // Add NOTA
        if (post.allow_nota !== 0) {
            postCandidates.push({
@@ -544,13 +549,14 @@ exports.fetchBallot = async (req, res) => {
           post_name: post.name,
           candidates: postCandidates
        };
-    });
+    })
+    .filter(Boolean); // Remove null entries (uncontested posts with 1 candidate)
 
     res.json({
        message: "Ballot retrieved successfully",
        voter_id: machine.current_voter_id,
        voter_name: voter.name,
-       ballot: ballot.filter(b => b.candidates.length > 0)
+       ballot
     });
 
   } catch (err) {
