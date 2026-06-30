@@ -1,3 +1,4 @@
+import React from 'react';
 import { 
   Grid, 
   Paper, 
@@ -21,7 +22,8 @@ import {
   UserCheck, 
   Monitor,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  Cpu
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
@@ -240,43 +242,42 @@ const SchoolAdminDashboard = () => {
               />
             </Box>
 
-            <Box sx={{ mb: 4 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>Voters Usage</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                  {stats?.totalVoters} / {stats?.plan?.custom_max_voters || stats?.plan?.max_voters || 0}
-                </Typography>
-              </Box>
-              <Box sx={{ height: 8, bgcolor: 'action.hover', borderRadius: 4, overflow: 'hidden' }}>
-                <Box sx={{ 
-                  height: '100%', 
-                  width: `${Math.min(100, (stats?.totalVoters / (stats?.plan?.custom_max_voters || stats?.plan?.max_voters || 1)) * 100)}%`,
-                  bgcolor: (stats?.totalVoters / (stats?.plan?.custom_max_voters || stats?.plan?.max_voters || 1)) > 0.9 ? 'error.main' : 'primary.main',
-                  borderRadius: 4
-                }} />
-              </Box>
-            </Box>
+            {/* Usage bars */}
+            {([
+              { label: 'Voters Usage', icon: <Users size={14} />, used: stats?.totalVoters, max: stats?.plan?.custom_max_voters || stats?.plan?.max_voters },
+              { label: 'Elections Usage', icon: <Vote size={14} />, used: stats?.totalElections, max: stats?.plan?.custom_max_elections || stats?.plan?.max_elections },
+              { label: 'Booths', icon: <Monitor size={14} />, used: stats?.totalBooths, max: stats?.plan?.custom_max_booths || stats?.plan?.max_booths },
+              { label: 'Voting Machines', icon: <Cpu size={14} />, used: stats?.totalMachines, max: stats?.plan?.custom_max_machines || stats?.plan?.max_machines },
+            ] as { label: string; icon: React.ReactNode; used: number; max: number }[]).map(({ label, icon, used = 0, max = 0 }) => {
+              const pct = Math.min(100, max > 0 ? (used / max) * 100 : 0);
+              const isNear = pct >= 90;
+              return (
+                <Box key={label} sx={{ mb: 2.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.75 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, color: 'text.secondary' }}>
+                      {icon}
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>{label}</Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: isNear ? 'error.main' : 'text.primary' }}>
+                      {used} / {max || 0}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ height: 7, bgcolor: 'action.hover', borderRadius: 4, overflow: 'hidden' }}>
+                    <Box sx={{
+                      height: '100%',
+                      width: `${pct}%`,
+                      bgcolor: isNear ? 'error.main' : 'primary.main',
+                      borderRadius: 4,
+                      transition: 'width 0.6s ease'
+                    }} />
+                  </Box>
+                </Box>
+              );
+            })}
 
-            <Box sx={{ mb: 4 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>Elections Usage</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                  {stats?.totalElections} / {stats?.plan?.custom_max_elections || stats?.plan?.max_elections || 0}
-                </Typography>
-              </Box>
-              <Box sx={{ height: 8, bgcolor: 'action.hover', borderRadius: 4, overflow: 'hidden' }}>
-                <Box sx={{ 
-                  height: '100%', 
-                  width: `${Math.min(100, (stats?.totalElections / (stats?.plan?.custom_max_elections || stats?.plan?.max_elections || 1)) * 100)}%`,
-                  bgcolor: (stats?.totalElections / (stats?.plan?.custom_max_elections || stats?.plan?.max_elections || 1)) > 0.9 ? 'error.main' : 'primary.main',
-                  borderRadius: 4
-                }} />
-              </Box>
-            </Box>
+            <Divider sx={{ mb: 2, mt: 1 }} />
 
-            <Divider sx={{ mb: 3 }} />
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Status</Typography>
                 <Chip 
