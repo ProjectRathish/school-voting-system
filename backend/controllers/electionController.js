@@ -196,14 +196,29 @@ exports.getStats = async (req, res) => {
       [school_id]
     );
 
-    const [[{ activeBooths }]] = await db.execute(
-      "SELECT COUNT(*) as activeBooths FROM polling_booths WHERE school_id = ?",
+    const [[{ totalBooths }]] = await db.execute(
+      "SELECT COUNT(*) as totalBooths FROM polling_booths WHERE school_id = ?",
+      [school_id]
+    );
+
+    const [[{ totalMachines }]] = await db.execute(
+      "SELECT COUNT(*) as totalMachines FROM voting_machines WHERE school_id = ?",
+      [school_id]
+    );
+
+    const [[{ totalOfficers }]] = await db.execute(
+      "SELECT COUNT(*) as totalOfficers FROM users WHERE school_id = ? AND role = 'BOOTH_OFFICER'",
       [school_id]
     );
 
     const [planInfo] = await db.execute(`
-      SELECT s.plan_id, s.custom_max_voters, s.custom_max_elections, s.subscription_status, s.subscription_expiry,
-             p.name as plan_name, p.max_voters, p.max_elections
+      SELECT s.plan_id,
+             s.custom_max_voters, s.custom_max_elections,
+             s.custom_max_booths, s.custom_max_machines, s.custom_max_officers,
+             s.subscription_status, s.subscription_expiry,
+             p.name as plan_name,
+             p.max_voters, p.max_elections,
+             p.max_booths, p.max_machines, p.max_officers
       FROM schools s
       JOIN subscription_plans p ON s.plan_id = p.id
       WHERE s.id = ?
@@ -213,7 +228,10 @@ exports.getStats = async (req, res) => {
       totalElections,
       totalVoters,
       totalCandidates,
-      activeBooths,
+      activeBooths: totalBooths,
+      totalBooths,
+      totalMachines,
+      totalOfficers,
       plan: planInfo[0] || null
     });
 
