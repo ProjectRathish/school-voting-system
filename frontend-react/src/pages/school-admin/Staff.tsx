@@ -12,8 +12,8 @@ import {
 } from 'lucide-react';
 import { 
   FormControlLabel, 
-  Checkbox, 
-  FormGroup,
+  Radio, 
+  RadioGroup,
   Divider
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -33,7 +33,7 @@ const Staff = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [openAccess, setOpenAccess] = useState<any>(null);
-  const [selectedElections, setSelectedElections] = useState<number[]>([]);
+  const [selectedElection, setSelectedElection] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: officers, isLoading: officersLoading } = useQuery({
@@ -90,7 +90,8 @@ const Staff = () => {
   });
 
   const updateAccessMutation = useMutation({
-    mutationFn: (data: { id: number, election_ids: number[] }) => axiosInstance.put(`/auth/booth-officers/${data.id}/election-access`, { election_ids: data.election_ids }),
+    mutationFn: (data: { id: number, election_ids: number[] }) =>
+      axiosInstance.put(`/auth/booth-officers/${data.id}/election-access`, { election_ids: data.election_ids }),
     onSuccess: () => {
       setSuccess('Election access updated successfully!');
       setOpenAccess(null);
@@ -99,6 +100,14 @@ const Staff = () => {
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error updating access')
   });
+
+  const handleOpenAccess = (officer: any) => {
+    setOpenAccess(officer);
+    const ids = officer.assigned_election_ids
+      ? officer.assigned_election_ids.split(',').map(Number).filter(Boolean)
+      : [];
+    setSelectedElection(ids.length > 0 ? ids[0] : null);
+  };
 
   return (
     <Box>
@@ -144,7 +153,7 @@ const Staff = () => {
             <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
               <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Staff Name / Username</TableCell>
               <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Assigned Booth</TableCell>
-              <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Election Access</TableCell>
+              <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Assigned Election</TableCell>
               <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Status</TableCell>
               <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Created At</TableCell>
               <TableCell align="right" sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Actions</TableCell>
@@ -177,23 +186,25 @@ const Staff = () => {
                   )}
                 </TableCell>
                 <TableCell>
-                  {o.assigned_election_ids ? (
-                    <Chip 
-                      label={`${o.assigned_election_ids.split(',').length} Elections`} 
-                      size="small" 
-                      color="warning" 
-                      variant="filled"
-                      sx={{ fontWeight: 700 }}
-                      icon={<Lock size={14} />}
-                    />
-                  ) : (
-                    <Chip 
-                        label="Global Access" 
-                        size="small" 
-                        color="success" 
-                        variant="soft"
-                        sx={{ fontWeight: 800, bgcolor: 'rgba(76, 175, 80, 0.1)', color: 'success.main' }}
-                        icon={<Shield size={14} />}
+                  {o.assigned_election_ids ? (() => {
+                    const elecId = Number(o.assigned_election_ids.split(',')[0]);
+                    const elec = allElections?.find((e: any) => e.id === elecId);
+                    return (
+                      <Chip
+                        label={elec?.name || `Election #${elecId}`}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        sx={{ fontWeight: 700, maxWidth: 180 }}
+                        icon={<Lock size={14} />}
+                      />
+                    );
+                  })() : (
+                    <Chip
+                      label="Not Assigned"
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontWeight: 700, color: 'text.secondary', borderColor: 'divider' }}
                     />
                   )}
                 </TableCell>
@@ -214,8 +225,7 @@ const Staff = () => {
                             size="small" 
                             color="info" 
                             onClick={() => {
-                                setOpenAccess(o);
-                                setSelectedElections(o.assigned_election_ids ? o.assigned_election_ids.split(',').map(Number) : []);
+                                handleOpenAccess(o);
                                 setError(null);
                             }}
                         >
@@ -375,79 +385,75 @@ const Staff = () => {
             <Button variant="contained" onClick={() => setResetSuccess(null)}>Done</Button>
         </DialogActions>
       </Dialog>
-       {/* Election Access Dialog */}
+       {/* Election Access Dialog — one election required */}
       <Dialog open={!!openAccess} onClose={() => setOpenAccess(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-        <DialogTitle sx={{ fontWeight: 800 }}>Manage Election Access</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>Assign Election</DialogTitle>
         <DialogContent>
           <Box sx={{ mb: 2 }}>
              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Control which elections <strong>{openAccess?.username}</strong> is authorized to manage.
+                Select the election <strong>{openAccess?.username}</strong> is authorized to manage. Only one election can be assigned at a time.
              </Typography>
-             <Alert severity={selectedElections.length === 0 ? "success" : "warning"} sx={{ mb: 3, borderRadius: 2 }}>
-                {selectedElections.length === 0 
-                  ? "Global Access: This officer can access all active elections in the school." 
-                  : `Restricted Access: This officer is limited to ${selectedElections.length} specific election(s).`}
-             </Alert>
-             
-             {!openAccess?.booth_id && selectedElections.length > 0 && (
-                <Alert severity="error" sx={{ mb: 2, borderRadius: 1 }}>
-                   Officer must be assigned to a booth in Infrastructure before restricting access.
+
+             {!openAccess?.booth_id && (
+                <Alert severity="warning" sx={{ mb: 2, borderRadius: 1 }}>
+                   Officer must be assigned to a booth in Infrastructure first.
                 </Alert>
              )}
 
              <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', display: 'block', mb: 1 }}>
-                Select Elections
+                Select Election
              </Typography>
              <Paper variant="outlined" sx={{ maxHeight: 300, overflow: 'auto', borderRadius: 2 }}>
-                <FormGroup sx={{ p: 1 }}>
+                <RadioGroup
+                  value={selectedElection ?? 'none'}
+                  onChange={(e) => setSelectedElection(e.target.value === 'none' ? null : Number(e.target.value))}
+                  sx={{ p: 1 }}
+                >
+                   {/* Unassign option */}
+                   <FormControlLabel
+                     value="none"
+                     control={<Radio size="small" />}
+                     label={
+                        <Box>
+                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>Not Assigned</Typography>
+                           <Typography variant="caption" color="text.disabled">Remove election assignment from this officer</Typography>
+                        </Box>
+                     }
+                     sx={{ py: 0.5, px: 1, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' }, borderBottom: '1px solid', borderColor: 'divider' }}
+                   />
                    {allElections?.filter((e: any) => e.status !== 'CLOSED').map((e: any) => (
                       <FormControlLabel
                         key={e.id}
-                        control={
-                           <Checkbox 
-                              checked={selectedElections.includes(e.id)} 
-                              onChange={(event) => {
-                                 if (event.target.checked) {
-                                    setSelectedElections([...selectedElections, e.id]);
-                                 } else {
-                                    setSelectedElections(selectedElections.filter(id => id !== e.id));
-                                 }
-                              }}
-                           />
-                        }
+                        value={e.id}
+                        control={<Radio size="small" />}
                         label={
                            <Box>
                               <Typography variant="body2" sx={{ fontWeight: 600 }}>{e.name}</Typography>
                               <Typography variant="caption" color="text.secondary">{e.status}</Typography>
                            </Box>
                         }
-                        sx={{ py: 0.5, px: 1, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' }, borderBottom: '1px solid', borderColor: 'divider', lastChild: { borderBottom: 0 } }}
+                        sx={{ py: 0.5, px: 1, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' }, borderBottom: '1px solid', borderColor: 'divider' }}
                       />
                    ))}
                    {allElections?.filter((e: any) => e.status !== 'CLOSED').length === 0 && (
                       <Typography variant="body2" sx={{ p: 2, textAlign: 'center', opacity: 0.5 }}>No active elections found</Typography>
                    )}
-                </FormGroup>
+                </RadioGroup>
              </Paper>
-             <Button 
-                variant="text" 
-                size="small" 
-                onClick={() => setSelectedElections([])} 
-                sx={{ mt: 1, fontWeight: 700 }}
-                disabled={selectedElections.length === 0}
-             >
-                Reset to Global Access
-             </Button>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenAccess(null)}>Cancel</Button>
           <Button 
-            variant="contained" 
-            onClick={() => updateAccessMutation.mutate({ id: openAccess.id, election_ids: selectedElections })}
-            disabled={updateAccessMutation.isPending || (!openAccess?.booth_id && selectedElections.length > 0)}
+            variant="contained"
+            color={selectedElection === null ? 'inherit' : 'primary'}
+            onClick={() => updateAccessMutation.mutate({ 
+              id: openAccess.id, 
+              election_ids: selectedElection !== null ? [selectedElection] : []
+            })}
+            disabled={updateAccessMutation.isPending || !openAccess?.booth_id}
           >
-            Update Permissions
+            {selectedElection === null ? 'Save (Unassigned)' : 'Assign Election'}
           </Button>
         </DialogActions>
       </Dialog>

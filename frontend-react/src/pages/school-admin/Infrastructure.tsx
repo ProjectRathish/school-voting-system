@@ -42,6 +42,14 @@ const Infrastructure = () => {
     queryFn: async () => (await axiosInstance.get('/elections/get-elections')).data
   });
 
+  const { data: stats } = useQuery({
+    queryKey: ['school-admin-stats'],
+    queryFn: async () => (await axiosInstance.get('/elections/get-stats')).data
+  });
+
+  const boothLimit = stats?.plan?.custom_max_booths ?? stats?.plan?.max_booths;
+  const machineLimit = stats?.plan?.custom_max_machines ?? stats?.plan?.max_machines;
+
   const selectedElectionObj = elections?.find((e: any) => String(e.id) === String(selectedElectionId));
   const isConfiguring = selectedElectionObj && (selectedElectionObj.status === 'CONFIGURING' || selectedElectionObj.status === 'DRAFT');
   const isClosed = selectedElectionStatus === 'CLOSED' || selectedElectionObj?.status === 'CLOSED';
@@ -219,12 +227,20 @@ const Infrastructure = () => {
             <Grid size={{ xs: 12, md: 4 }}>
               <Paper sx={{ p: 3, borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>Polling Booths</Typography>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>Polling Booths</Typography>
+                    {boothLimit != null && (
+                      <Typography variant="caption" sx={{ color: (booths?.length ?? 0) >= boothLimit ? 'error.main' : 'text.secondary', fontWeight: 700 }}>
+                        {booths?.length ?? 0} / {boothLimit} used
+                      </Typography>
+                    )}
+                  </Box>
                   <Button 
                     variant="contained" 
                     size="small" 
                     startIcon={<Plus size={18} />} 
                     onClick={() => setOpenBooth(true)}
+                    disabled={boothLimit != null && (booths?.length ?? 0) >= boothLimit}
                     sx={{ borderRadius: 2 }}
                   >
                     Add Booth
@@ -356,7 +372,14 @@ const Infrastructure = () => {
             <Grid size={{ xs: 12, md: 8 }}>
               <Paper sx={{ p: 3, borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Voting Machines</Typography>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>Voting Machines</Typography>
+                    {machineLimit != null && (
+                      <Typography variant="caption" sx={{ color: (machines?.length ?? 0) >= machineLimit ? 'error.main' : 'text.secondary', fontWeight: 700 }}>
+                        {machines?.length ?? 0} / {machineLimit} used
+                      </Typography>
+                    )}
+                  </Box>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     {machines?.length > 0 && (
                       <Button 
@@ -369,7 +392,13 @@ const Infrastructure = () => {
                         Delete All
                       </Button>
                     )}
-                    <Button variant="contained" size="small" startIcon={<Plus size={18} />} onClick={() => setOpenMachine(true)}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<Plus size={18} />}
+                      onClick={() => setOpenMachine(true)}
+                      disabled={machineLimit != null && (machines?.length ?? 0) >= machineLimit}
+                    >
                       Add Machine
                     </Button>
                   </Box>

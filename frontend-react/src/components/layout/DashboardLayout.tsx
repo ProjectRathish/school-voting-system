@@ -68,8 +68,8 @@ const navItems: NavItem[] = [
   { text: 'Posts', icon: <Award size={22} />, path: '/school-admin/posts', roles: ['SCHOOL_ADMIN'] },
   { text: 'Voters', icon: <Users size={22} />, path: '/school-admin/voters', roles: ['SCHOOL_ADMIN'] },
   { text: 'Candidates', icon: <UserSquare2 size={22} />, path: '/school-admin/candidates', roles: ['SCHOOL_ADMIN'] },
-  { text: 'Infrastructure', icon: <Monitor size={22} />, path: '/school-admin/infrastructure', roles: ['SCHOOL_ADMIN'] },
   { text: 'Booth Officers', icon: <UserSquare2 size={22} />, path: '/school-admin/staff', roles: ['SCHOOL_ADMIN'] },
+  { text: 'Infrastructure', icon: <Monitor size={22} />, path: '/school-admin/infrastructure', roles: ['SCHOOL_ADMIN'] },
   { text: 'Results', icon: <BarChart3 size={22} />, path: '/school-admin/results', roles: ['SCHOOL_ADMIN'] },
   { text: 'Live Monitor', icon: <Activity size={22} />, path: '/school-admin/live', roles: ['SCHOOL_ADMIN'] },
   { text: 'Audit Log', icon: <ClipboardList size={22} />, path: '/school-admin/audit', roles: ['SCHOOL_ADMIN'] },
@@ -334,7 +334,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, md: 4 },
+          p: isBoothOfficer ? 0 : { xs: 2, md: 4 },
           mt: 8,
           transition: theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.sharp,

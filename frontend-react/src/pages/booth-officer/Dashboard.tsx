@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import { 
   Paper, Typography, Box, Grid, Button, TextField, 
   InputAdornment, Chip, Alert, CircularProgress,
-  FormControl, InputLabel, Select, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions
 } from '@mui/material';
-import { Search, Smartphone, PlayCircle, Lock, Unlock } from 'lucide-react';
+import { Search, PlayCircle, Lock, Unlock } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axiosInstance from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
@@ -17,9 +16,14 @@ const BoothOfficerDashboard = () => {
   const [inputs, setInputs] = useState<Record<number, string>>({});
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [selectedElection, setSelectedElection] = useState<number | string>(user?.election_id || '');
   const [releaseConfirmOpen, setReleaseConfirmOpen] = useState(false);
   const [machineToRelease, setMachineToRelease] = useState<number | null>(null);
+
+  // The active election is always the first (and only) assigned election
+  const selectedElection = user?.election_id || user?.available_elections?.[0]?.id || '';
+  const selectedElectionName = user?.available_elections?.find((e: any) => e.id === selectedElection)?.name
+    || user?.election_name
+    || null;
 
   // Fetch latest profile to ensure booth/election assignments are current
   const { data: profile } = useQuery({
@@ -41,15 +45,9 @@ const BoothOfficerDashboard = () => {
           school_logo: profile.school_logo,
           school_code: profile.school_code
         });
-        
-        if (!selectedElection && profile.election_id) {
-          setSelectedElection(profile.election_id);
-        } else if (!selectedElection && profile.available_elections?.length > 0) {
-          setSelectedElection(profile.available_elections[0].id);
-        }
       }
     }
-  }, [profile, user, updateUser, selectedElection]);
+  }, [profile, user, updateUser]);
 
   // Fetch machines with polling every 3 seconds to ensure real-time status updates
   const { data: boothData, isLoading: machinesLoading, error: machinesError } = useQuery({
@@ -127,31 +125,34 @@ const BoothOfficerDashboard = () => {
 
   if (!user?.booth_id) {
     return (
-      <Box sx={{ p: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
-          Booth Control Panel
-        </Typography>
-        <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 3, mt: 4, bgcolor: 'rgba(255, 152, 0, 0.05)', border: '1px dashed orange' }}>
-          <Box component="img" src={evmIcon} sx={{ width: 100, height: 100, mb: 3, opacity: 0.8, filter: 'grayscale(0.5)' }} />
-          <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
-            No Active Assignment Found
+      <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 3, md: 4 } }}>
+        <Box sx={{ width: '100%' }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
+            Booth Control Panel
           </Typography>
-          <Typography color="text.secondary" variant="body1" sx={{ maxWidth: 500, mx: 'auto', mb: 4, fontWeight: 500 }}>
-             You are currently logged in as {user?.username} but you haven't been assigned to an active election booth yet. 
-             Please contact the school administrator to finalize your assignment.
-          </Typography>
-          <Button variant="outlined" color="primary" onClick={() => window.location.reload()}>
-             Check for Assignment
-          </Button>
-        </Paper>
+          <Paper sx={{ p: { xs: 4, sm: 8 }, textAlign: 'center', borderRadius: 3, mt: 4, bgcolor: 'rgba(255, 152, 0, 0.05)', border: '1px dashed orange' }}>
+            <Box component="img" src={evmIcon} sx={{ width: 100, height: 100, mb: 3, opacity: 0.8, filter: 'grayscale(0.5)' }} />
+            <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
+              No Active Assignment Found
+            </Typography>
+            <Typography color="text.secondary" variant="body1" sx={{ maxWidth: 500, mx: 'auto', mb: 4, fontWeight: 500 }}>
+               You are currently logged in as {user?.username} but you haven't been assigned to an active election booth yet.
+               Please contact the school administrator to finalize your assignment.
+            </Typography>
+            <Button variant="outlined" color="primary" onClick={() => window.location.reload()}>
+               Check for Assignment
+            </Button>
+          </Paper>
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box>
+    <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, md: 3 } }}>
+      <Box sx={{ width: '100%' }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, mb: 1 }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.5rem', sm: '1.85rem', md: '2.125rem' } }}>
           Booth Control Panel
         </Typography>
         <Box sx={{ display: 'inline-flex', alignItems: 'center', bgcolor: 'primary.main', color: 'primary.contrastText', px: 2, py: 0.5, borderRadius: 2, mb: 1 }}>
@@ -163,38 +164,20 @@ const BoothOfficerDashboard = () => {
            Logged in as {user?.username} • {user?.school_name}
         </Typography>
 
-        {/* Election Selector */}
-        <Box sx={{ mt: 3, p: 2, borderRadius: 2, bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)', border: '1px solid', borderColor: 'divider' }}>
-           <Grid container spacing={2} alignItems="center">
-              <Grid size={{ xs: 12, md: 8 }}>
-                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 1, mb: 0.5 }}>
-                    Active Election Context
-                 </Typography>
-                 <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    {user?.available_elections?.find((e: any) => e.id === selectedElection)?.name || 'Select an Election'}
-                 </Typography>
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                 {user?.available_elections && user.available_elections.length > 1 ? (
-                    <FormControl fullWidth size="small">
-                       <InputLabel>Switch Election</InputLabel>
-                       <Select 
-                          value={selectedElection} 
-                          label="Switch Election" 
-                          onChange={(e) => setSelectedElection(e.target.value)}
-                          sx={{ fontWeight: 700 }}
-                       >
-                          {user.available_elections.map((e: any) => (
-                             <MenuItem key={e.id} value={e.id}>{e.name}</MenuItem>
-                          ))}
-                       </Select>
-                    </FormControl>
-                 ) : (
-                    <Chip label="Single Election Mode" size="small" variant="outlined" sx={{ fontWeight: 700 }} />
-                 )}
-              </Grid>
-           </Grid>
-        </Box>
+        {/* Active Election Badge */}
+        {selectedElectionName ? (
+          <Box sx={{ mt: 2, display: 'inline-flex', alignItems: 'center', gap: 1.5, px: 2, py: 1, borderRadius: 2, bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)', border: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              Election:
+            </Typography>
+            <Chip
+              label={selectedElectionName}
+              color="primary"
+              size="small"
+              sx={{ fontWeight: 800, fontSize: '0.82rem', px: 0.5 }}
+            />
+          </Box>
+        ) : null}
       </Box>
 
       {successMsg && <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>{successMsg}</Alert>}
@@ -227,7 +210,7 @@ const BoothOfficerDashboard = () => {
             const isFree = machine.status === 'FREE';
             
             return (
-              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={machine.id}>
+              <Grid size={{ xs: 12, sm: 6, lg: 4 }} key={machine.id}>
                 <Paper 
                   sx={{ 
                     borderRadius: 3,
@@ -384,6 +367,7 @@ const BoothOfficerDashboard = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </Box>
   );
 };
