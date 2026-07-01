@@ -35,10 +35,26 @@ const allowedOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
   : ['http://localhost:5173', 'http://localhost:3000'];
 
+// Also allow any device on the local 192.168.x.x network (LAN access)
+const isLocalNetworkOrigin = (origin) => {
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname;
+    const port = url.port;
+    const isLanIp = /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+                    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+                    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(hostname);
+    const isDevPort = !port || ['5173', '3000', '4173', '80', '443'].includes(port);
+    return isLanIp && isDevPort;
+  } catch {
+    return false;
+  }
+};
+
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, Postman, same-origin)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || isLocalNetworkOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: Origin ${origin} not allowed`));
