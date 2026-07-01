@@ -123,7 +123,7 @@ const BoothOfficerDashboard = () => {
     }
   };
 
-  if (!user?.booth_id) {
+  if (!user?.booth_id || !selectedElection) {
     return (
       <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 3, md: 4 } }}>
         <Box sx={{ width: '100%' }}>
@@ -136,7 +136,7 @@ const BoothOfficerDashboard = () => {
               No Active Assignment Found
             </Typography>
             <Typography color="text.secondary" variant="body1" sx={{ maxWidth: 500, mx: 'auto', mb: 4, fontWeight: 500 }}>
-               You are currently logged in as {user?.username} but you haven't been assigned to an active election booth yet.
+               You are currently logged in as {user?.username} but you haven't been assigned to an active booth and election yet.
                Please contact the school administrator to finalize your assignment.
             </Typography>
             <Button variant="outlined" color="primary" onClick={() => window.location.reload()}>

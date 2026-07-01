@@ -113,7 +113,7 @@ exports.boothLogin = async (req, res) => {
       [user.id]
     );
 
-    let elections = allElections;
+    let elections = [];
     if (assignedRows.length > 0) {
       const assignedIds = assignedRows.map(r => r.election_id);
       elections = allElections.filter(e => assignedIds.includes(e.id));
@@ -193,7 +193,7 @@ exports.getProfile = async (req, res) => {
         const assignedIds = assignedRows.map(r => r.election_id);
         available_elections = allElections.filter(e => assignedIds.includes(e.id));
       } else {
-        available_elections = allElections;
+        available_elections = [];
       }
       
       assigned_election_id = available_elections.length > 0 ? available_elections[0].id : null;
