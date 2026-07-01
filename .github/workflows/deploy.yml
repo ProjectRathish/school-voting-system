@@ -30,25 +30,6 @@ jobs:
             cd ${{ secrets.APP_DIR }}
             git pull origin main
 
-            echo "🔨 Rebuilding frontend..."
-            cd frontend-react
-            npm ci --prefer-offline
-            npm run build
-
-            echo "📂 Deploying frontend..."
-            echo "Current dir: $(pwd)"
-            echo "Home dir: $HOME"
-            echo "Looking for public_html..."
-            ls $HOME/ | grep -i public || echo "No public_html in HOME"
-
-            FRONTEND_DEST="${{ secrets.FRONTEND_PUBLIC_DIR }}"
-            echo "Copying to: $FRONTEND_DEST"
-            rm -rf "$FRONTEND_DEST"/*
-            cp -r dist/* "$FRONTEND_DEST"/
-            echo "✅ Frontend deployed to $FRONTEND_DEST!"
-
-            cd ..
-
             echo "🔄 Updating backend dependencies..."
             cd backend
             npm ci --prefer-offline
