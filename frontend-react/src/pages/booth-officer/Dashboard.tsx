@@ -146,6 +146,11 @@ const BoothOfficerDashboard = () => {
     return (
       <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 3, md: 4 } }}>
         <Box sx={{ width: '100%' }}>
+          {user?.school_name && (
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1.5, mb: 0.5 }}>
+              {user.school_name}
+            </Typography>
+          )}
           <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
             Booth Control Panel
           </Typography>
@@ -170,6 +175,11 @@ const BoothOfficerDashboard = () => {
     <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, md: 3 } }}>
       <Box sx={{ width: '100%' }}>
       <Box sx={{ mb: 4 }}>
+        {user?.school_name && (
+          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 1.5, mb: 0.5 }}>
+            {user.school_name}
+          </Typography>
+        )}
         <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, fontSize: { xs: '1.5rem', sm: '1.85rem', md: '2.125rem' } }}>
           Booth Control Panel
         </Typography>
