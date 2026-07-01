@@ -24,6 +24,9 @@ const auditRoutes = require('./routes/auditRoutes');
 
 const app = express();
 
+// Trust reverse proxy (Nginx, Cloudflare, etc.) to get correct client IPs for rate limiting
+app.set('trust proxy', 1);
+
 // ─── Security Headers ────────────────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow uploads to be served cross-origin
