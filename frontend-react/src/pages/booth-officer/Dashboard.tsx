@@ -123,7 +123,21 @@ const BoothOfficerDashboard = () => {
     }
   };
 
-  if (!user?.booth_id || !selectedElection) {
+  const hasBooth = !!user?.booth_id;
+  const hasElection = !!selectedElection;
+
+  if (!hasBooth || !hasElection) {
+    let errorTitle = "No Active Assignment Found";
+    let errorDescription = "You haven't been assigned to an active booth or election yet.";
+
+    if (hasBooth && !hasElection) {
+      errorTitle = "Election Assignment Missing";
+      errorDescription = `You are successfully assigned to Booth (ID: ${user.booth_id}) but no active election has been assigned to you yet.`;
+    } else if (!hasBooth && hasElection) {
+      errorTitle = "Booth Assignment Missing";
+      errorDescription = `You are assigned to the election "${selectedElectionName || 'Selected Election'}" but no polling booth has been assigned to you yet.`;
+    }
+
     return (
       <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 3, md: 4 } }}>
         <Box sx={{ width: '100%' }}>
@@ -133,11 +147,10 @@ const BoothOfficerDashboard = () => {
           <Paper sx={{ p: { xs: 4, sm: 8 }, textAlign: 'center', borderRadius: 3, mt: 4, bgcolor: 'rgba(255, 152, 0, 0.05)', border: '1px dashed orange' }}>
             <Box component="img" src={evmIcon} sx={{ width: 100, height: 100, mb: 3, opacity: 0.8, filter: 'grayscale(0.5)' }} />
             <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
-              No Active Assignment Found
+              {errorTitle}
             </Typography>
             <Typography color="text.secondary" variant="body1" sx={{ maxWidth: 500, mx: 'auto', mb: 4, fontWeight: 500 }}>
-               You are currently logged in as {user?.username} but you haven't been assigned to an active booth and election yet.
-               Please contact the school administrator to finalize your assignment.
+               You are currently logged in as {user?.username}. {errorDescription} Please contact the school administrator to finalize your assignment.
             </Typography>
             <Button variant="outlined" color="primary" onClick={() => window.location.reload()}>
                Check for Assignment
