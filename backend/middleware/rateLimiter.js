@@ -16,28 +16,35 @@ const getClientIp = (req) => {
 
 /**
  * Strict limiter for authentication endpoints.
- * Allows 10 login attempts per IP per 15 minutes.
- * Prevents brute-force password attacks.
+ * Keyed by user credentials (school_code + username) rather than IP.
+ * This prevents a shared school Wi-Fi network from locking out the entire school.
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: getClientIp,
+  keyGenerator: (req) => {
+    const schoolCode = req.body?.school_code || '';
+    const username = req.body?.username || req.body?.school_code || ''; // fallback to school_code if username not supplied (admin login)
+    if (schoolCode && username) {
+      return `auth_${schoolCode.toLowerCase()}_${username.toLowerCase()}`;
+    }
+    return getClientIp(req);
+  },
   message: {
-    message: 'Too many login attempts from this IP. Please try again after 15 minutes.'
+    message: 'Too many login attempts for this account. Please try again after 15 minutes.'
   }
 });
 
 /**
  * General API limiter applied to all routes.
- * Allows 200 requests per IP per minute.
- * Prevents denial-of-service from single clients.
+ * Set to 5000 requests per minute to accommodate multiple voting terminals
+ * polling the server simultaneously from the same school network.
  */
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 200,
+  max: 5000,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getClientIp,
