@@ -128,12 +128,17 @@ exports.boothLogin = async (req, res) => {
     const match = await bcrypt.compare(password, user.password_hash);
     if (!match) return res.status(401).json({ message: "Invalid credentials" });
 
+    const school_name = schools[0].name;
+    const school_logo = schools[0].logo;
+
     const token = jwt.sign(
       {
         id: user.id,
         role: user.role,
         school_id: user.school_id,
         school_code: school_code,
+        school_name: school_name,
+        school_logo: school_logo,
         booth_id: assigned_booth_id,
         election_id: assigned_election_id,
         election_name: assigned_election_name,
@@ -150,6 +155,8 @@ exports.boothLogin = async (req, res) => {
       role: user.role, 
       school_id: user.school_id, 
       school_code: school_code, 
+      school_name: school_name,
+      school_logo: school_logo,
       booth_id: assigned_booth_id, 
       election_id: assigned_election_id, 
       election_name: assigned_election_name,
@@ -165,7 +172,13 @@ exports.boothLogin = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const user_id = req.user.id;
-    const [rows] = await db.execute("SELECT * FROM users WHERE id=?", [user_id]);
+    const [rows] = await db.execute(
+      `SELECT u.*, s.name as school_name, s.logo as school_logo 
+       FROM users u 
+       LEFT JOIN schools s ON u.school_id = s.id 
+       WHERE u.id = ?`, 
+      [user_id]
+    );
     if (rows.length === 0) return res.status(404).json({ message: "User not found" });
     
     const user = rows[0];
@@ -204,6 +217,8 @@ exports.getProfile = async (req, res) => {
       booth_id: user.booth_id,
       available_elections: available_elections,
       election_id: assigned_election_id,
+      school_name: user.school_name,
+      school_logo: user.school_logo,
       must_change_password: user.must_change_password
     });
   } catch (error) {
