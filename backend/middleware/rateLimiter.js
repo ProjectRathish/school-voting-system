@@ -24,6 +24,7 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { keyGenerator: false },
   keyGenerator: (req) => {
     const schoolCode = req.body?.school_code || '';
     const username = req.body?.username || req.body?.school_code || ''; // fallback to school_code if username not supplied (admin login)
@@ -47,6 +48,7 @@ const generalLimiter = rateLimit({
   max: 5000,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { keyGenerator: false },
   keyGenerator: getClientIp,
   message: {
     message: 'Too many requests from this IP. Please slow down.'

@@ -131,8 +131,8 @@ const BoothOfficerDashboard = () => {
     let errorDescription = "You haven't been assigned to an active booth or election yet.";
 
     if (hasBooth && !hasElection) {
-      errorTitle = "Election Assignment Missing";
-      errorDescription = `You are successfully assigned to Booth (ID: ${user.booth_id}) but no active election has been assigned to you yet.`;
+      errorTitle = "Election Not Assigned";
+      errorDescription = `You are successfully assigned to "${boothCode}"${boothLocation ? ` (${boothLocation})` : ''}, but no active election has been assigned to you yet.`;
     } else if (!hasBooth && hasElection) {
       errorTitle = "Booth Assignment Missing";
       errorDescription = `You are assigned to the election "${selectedElectionName || 'Selected Election'}" but no polling booth has been assigned to you yet.`;
