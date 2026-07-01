@@ -253,8 +253,12 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               whiteSpace: 'nowrap',
               maxWidth: { xs: '180px', sm: '300px', md: 'auto' }
             }}>
-              {user?.role === 'SUPER_ADMIN' ? 'Super Admin Panel' : 'School Admin Panel'}
-              {user?.role !== 'SUPER_ADMIN' && user?.school_name && (
+              {user?.role === 'SUPER_ADMIN' 
+                ? 'Super Admin Panel' 
+                : user?.role === 'BOOTH_OFFICER' 
+                  ? 'Booth Control Panel' 
+                  : 'School Admin Panel'}
+              {user?.school_name && (
                 <Typography 
                   component="span" 
                   variant="caption" 
@@ -263,7 +267,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                     color: 'text.secondary', 
                     fontWeight: 600, 
                     opacity: 0.7,
-                    display: { xs: 'none', sm: 'inline' },
+                    display: 'inline',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
