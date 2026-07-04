@@ -340,7 +340,7 @@ const Candidates = () => {
     // Capture symbols for the print window (Material Symbols Rounded)
     const symbolIcons: Record<string, string> = {};
     for (const s of symbolsToPrint) {
-      symbolIcons[s.id] = `<span class="material-symbols-rounded" style="font-size: 80px; font-variation-settings: 'FILL' 1, 'wght' 700; color: #000;">${s.iconName}</span>`;
+      symbolIcons[s.id] = `<span class="material-symbols-rounded" style="font-size: 80px; font-variation-settings: 'FILL' 1, 'wght' 700; background: linear-gradient(135deg, ${s.colorStart || '#000000'}, ${s.colorEnd || '#000000'}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block;">${s.iconName}</span>`;
     }
 
     const printWindow = window.open('', '_blank');
@@ -476,11 +476,15 @@ const Candidates = () => {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Draw the Material Symbol as solid black clipart
+    // 2. Draw the Material Symbol as colorful gradient clipart
     try {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#000000'; // Pure black
+      // Create a linear gradient for the icon
+      const gradient = ctx.createLinearGradient(0, 200, 0, 800);
+      gradient.addColorStop(0, symbol.colorStart || '#000000');
+      gradient.addColorStop(1, symbol.colorEnd || '#000000');
+      ctx.fillStyle = gradient;
       // Use Material Symbols font and force solid fill
       ctx.font = '700 700px "Material Symbols Rounded"'; 
       
@@ -2011,7 +2015,9 @@ const Candidates = () => {
                       }}>
                         <span className="material-symbols-rounded" style={{ 
                           fontSize: '3.5rem', 
-                          color: '#000',
+                          background: `linear-gradient(135deg, ${symbol.colorStart || '#000000'}, ${symbol.colorEnd || '#000000'})`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
                           fontVariationSettings: "'FILL' 1, 'wght' 700",
                           // Fix for text ligatures bleeding out during load
                           width: '100%',
