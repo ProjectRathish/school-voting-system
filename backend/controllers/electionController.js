@@ -408,8 +408,6 @@ exports.deleteElection = async (req, res) => {
     await db.execute("DELETE FROM classes WHERE election_id = ?", [id]);
     await db.execute("DELETE FROM sections WHERE election_id = ?", [id]);
     await db.execute("DELETE FROM election_officer_assignments WHERE election_id = ?", [id]);
-    await db.execute("DELETE FROM voting_machines WHERE election_id = ?", [id]);
-    await db.execute("DELETE FROM polling_booths WHERE election_id = ?", [id]);
 
     // Fetch name before deletion for audit log
     const [nameRows] = await db.execute('SELECT name FROM elections WHERE id = ?', [id]);

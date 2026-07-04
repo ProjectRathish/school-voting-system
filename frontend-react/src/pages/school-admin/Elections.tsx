@@ -45,6 +45,7 @@ const Elections = () => {
   const [editingElection, setEditingElection] = useState<any>(null);
   const [duplicatingElectionId, setDuplicatingElectionId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
   const [confirmStartId, setConfirmStartId] = useState<number | null>(null);
   const [confirmEndId, setConfirmEndId] = useState<number | null>(null);
   const [confirmCodeInput, setConfirmCodeInput] = useState('');
@@ -109,9 +110,16 @@ const Elections = () => {
     onSuccess: () => {
       setSuccess('Election deleted successfully');
       setDeleteId(null);
+      setDeleteConfirmInput('');
       queryClient.invalidateQueries({ queryKey: ['elections'] });
       queryClient.invalidateQueries({ queryKey: ['school-admin-stats'] });
       setTimeout(() => setSuccess(null), 3000);
+    },
+    onError: (err: any) => {
+      setError(err.response?.data?.message || 'Failed to delete election');
+      setDeleteId(null);
+      setDeleteConfirmInput('');
+      setTimeout(() => setError(null), 5000);
     }
   });
 
@@ -721,18 +729,55 @@ const Elections = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+      <Dialog open={!!deleteId} onClose={() => { setDeleteId(null); setDeleteConfirmInput(''); }}>
+        <DialogTitle sx={{ fontWeight: 800, color: 'error.main' }}>Confirm Delete Election</DialogTitle>
         <DialogContent>
-          Are you sure you want to delete this election? This action cannot be undone and will delete all associated data (voters, candidates, etc.).
+          <Typography sx={{ mb: 2, color: 'text.secondary', lineHeight: 1.6 }}>
+            Are you sure you want to delete this election? This action <strong>cannot be undone</strong> and will permanently delete all associated data including voters, candidates, posts, classes, sections, and votes.
+          </Typography>
+          <Box sx={{ 
+            mt: 2, 
+            p: 2.5, 
+            bgcolor: 'action.hover', 
+            borderRadius: 2, 
+            border: '1px solid', 
+            borderColor: 'error.light',
+            opacity: 0.95
+          }}>
+            <Typography variant="body2" sx={{ mb: 1.5, fontWeight: 700, color: 'error.main' }}>
+              To confirm, type <strong>DELETE</strong> in the box below:
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Type DELETE to confirm"
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              autoFocus
+              error={deleteConfirmInput !== '' && deleteConfirmInput !== 'DELETE'}
+              sx={{ 
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  bgcolor: 'background.paper'
+                }
+              }}
+            />
+          </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setDeleteId(null)}>Cancel</Button>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button 
+            onClick={() => { setDeleteId(null); setDeleteConfirmInput(''); }}
+            sx={{ color: 'text.secondary', fontWeight: 600 }}
+          >
+            Cancel
+          </Button>
           <Button
             color="error"
             variant="contained"
+            disableElevation
             onClick={() => deleteId && deleteElectionMutation.mutate(deleteId)}
-            disabled={deleteElectionMutation.isPending}
+            disabled={deleteElectionMutation.isPending || deleteConfirmInput !== 'DELETE'}
+            sx={{ borderRadius: 2, px: 3, fontWeight: 700 }}
           >
             {deleteElectionMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
           </Button>
