@@ -340,7 +340,7 @@ const Candidates = () => {
     // Capture symbols for the print window (Material Symbols Rounded)
     const symbolIcons: Record<string, string> = {};
     for (const s of symbolsToPrint) {
-      symbolIcons[s.id] = `<span class="material-symbols-rounded" style="font-size: 80px; font-variation-settings: 'FILL' 1, 'wght' 700; background: linear-gradient(135deg, ${s.colorStart || '#000000'}, ${s.colorEnd || '#000000'}); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block;">${s.iconName}</span>`;
+      symbolIcons[s.id] = `<span class="material-symbols-rounded" style="font-size: 80px; font-variation-settings: 'FILL' 1, 'wght' 700; color: ${s.colorStart || '#000000'}; display: inline-block; -webkit-print-color-adjust: exact; print-color-adjust: exact;">${s.iconName}</span>`;
     }
 
     const printWindow = window.open('', '_blank');
