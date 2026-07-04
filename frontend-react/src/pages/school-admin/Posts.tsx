@@ -17,7 +17,7 @@ const Posts = () => {
   const { selectedElectionId, selectedElectionName, selectedElectionStatus } = useElectionStore();
   const isConfiguring = selectedElectionStatus === 'DRAFT' || selectedElectionStatus === 'CONFIGURING';
   const [postForm, setPostForm] = useState({
-    name: '', priority: 0, gender_rule: 'ANY', allow_nota: 1, candidate_classes: [] as number[], voting_classes: [] as number[]
+    name: '', priority: 0, gender_rule: 'ANY', allow_nota: 0, candidate_classes: [] as number[], voting_classes: [] as number[]
   });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -73,7 +73,7 @@ const Posts = () => {
       setSuccess(editingPost ? 'Post updated!' : 'Post created!');
       setOpenPost(false);
       setEditingPost(null);
-      setPostForm({ name: '', priority: 0, gender_rule: 'ANY', allow_nota: 1, candidate_classes: [], voting_classes: [] });
+      setPostForm({ name: '', priority: 0, gender_rule: 'ANY', allow_nota: 0, candidate_classes: [], voting_classes: [] });
       queryClient.invalidateQueries({ queryKey: ['posts', selectedElectionId] });
     },
     onError: (err: any) => setError(err.response?.data?.message || 'Error saving post')
@@ -85,7 +85,7 @@ const Posts = () => {
       name: post.name,
       priority: post.priority || 0,
       gender_rule: post.gender_rule,
-      allow_nota: post.allow_nota !== undefined ? post.allow_nota : 1,
+      allow_nota: post.allow_nota !== undefined ? post.allow_nota : 0,
       candidate_classes: post.candidate_classes || [],
       voting_classes: post.voting_classes || []
     });
@@ -131,7 +131,7 @@ const Posts = () => {
               <Button 
                 variant="contained" 
                 startIcon={<Plus size={20} />} 
-                onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', priority: 0, gender_rule: 'ANY', allow_nota: 1, candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} 
+                onClick={() => { setError(null); setEditingPost(null); setPostForm({ name: '', priority: 0, gender_rule: 'ANY', allow_nota: 0, candidate_classes: [], voting_classes: [] }); setOpenPost(true); }} 
                 disabled={!selectedElectionId}
                 sx={{ borderRadius: 2, height: { xs: 44, sm: 40 }, fontWeight: 700 }}
               >

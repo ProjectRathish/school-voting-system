@@ -61,7 +61,7 @@ exports.createPost = async (req, res) => {
     gender_rule || "ANY",
     JSON.stringify(candidate_classes || []),
     JSON.stringify(voting_classes || []),
-    allow_nota !== undefined ? allow_nota : 1
+    allow_nota !== undefined ? allow_nota : 0
    ]
   );
 
