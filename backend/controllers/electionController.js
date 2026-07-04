@@ -514,7 +514,7 @@ exports.getResults = async (req, res) => {
        LEFT JOIN voters u ON c.voter_id = u.id
        LEFT JOIN votes v ON v.candidate_id = c.id
        WHERE p.election_id = ? AND p.school_id = ?
-       GROUP BY p.id, c.id
+       GROUP BY p.id, p.name, c.id, u.name, c.photo, c.symbol
        ORDER BY p.id ASC, vote_count DESC`,
       [id, school_id]
     );
@@ -657,7 +657,7 @@ exports.getPublicResults = async (req, res) => {
        LEFT JOIN voters u ON c.voter_id = u.id
        LEFT JOIN votes v ON v.candidate_id = c.id
        WHERE p.election_id = ?
-       GROUP BY p.id, c.id
+       GROUP BY p.id, p.name, c.id, u.name, c.photo, c.symbol, c.symbol_name
        ORDER BY p.id ASC, vote_count DESC`,
       [numericElectionId]
     );
@@ -772,7 +772,7 @@ exports.getTurnout = async (req, res) => {
        FROM voters v
        JOIN classes c ON v.class_id = c.id
        WHERE v.election_id = ? AND v.school_id = ?
-       GROUP BY v.class_id
+       GROUP BY v.class_id, c.name
        ORDER BY c.name ASC`,
       [id, school_id]
     );
@@ -847,7 +847,7 @@ exports.getDetailedResults = async (req, res) => {
        LEFT JOIN classes cl ON v.voter_class_id = cl.id
        LEFT JOIN sections s ON v.voter_section_id = s.id
        WHERE p.election_id = ? AND p.school_id = ?
-       GROUP BY p.id, c.id, v.voter_sex, v.voter_class_id, v.voter_section_id
+       GROUP BY p.id, p.name, c.id, u.name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name
        ORDER BY p.id ASC, candidate_id ASC`,
       [id, school_id]
     );
@@ -866,7 +866,7 @@ exports.getDetailedResults = async (req, res) => {
        LEFT JOIN classes cl ON v.voter_class_id = cl.id
        LEFT JOIN sections s ON v.voter_section_id = s.id
        WHERE v.election_id = ? AND v.school_id = ? AND v.candidate_id IS NULL
-       GROUP BY v.post_id, v.voter_sex, v.voter_class_id, v.voter_section_id`,
+       GROUP BY v.post_id, p.name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name`,
       [id, school_id]
     );
 
@@ -1057,7 +1057,7 @@ exports.exportResults = async (req, res) => {
        LEFT JOIN voters u ON c.voter_id = u.id
        LEFT JOIN votes v ON v.candidate_id = c.id
        WHERE p.election_id = ? AND p.school_id = ?
-       GROUP BY p.id, c.id
+       GROUP BY p.id, p.name, c.id, u.name
        ORDER BY p.id ASC, vote_count DESC`,
       [id, school_id]
     );

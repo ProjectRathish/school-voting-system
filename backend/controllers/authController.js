@@ -277,7 +277,7 @@ exports.getBoothOfficers = async (req, res) => {
       LEFT JOIN polling_booths b ON u.booth_id = b.id 
       LEFT JOIN election_officer_assignments eoa ON u.id = eoa.user_id
       WHERE u.school_id=? AND u.role='BOOTH_OFFICER'
-      GROUP BY u.id
+      GROUP BY u.id, u.username, u.plain_password, u.created_at, u.booth_id, b.booth_number
     `, [req.user.school_id]);
     res.json({ data: rows });
   } catch (error) {
