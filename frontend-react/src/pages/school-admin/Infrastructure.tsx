@@ -29,7 +29,7 @@ const Infrastructure = () => {
   const [openDeleteAllMachines, setOpenDeleteAllMachines] = useState(false);
   const [editingBooth, setEditingBooth] = useState<any>(null);
   const [openDelete, setOpenDelete] = useState<any>(null);
-  const [boothForm, setBoothForm] = useState({ booth_number: '', location: '', capacity: '100' });
+  const [boothForm, setBoothForm] = useState({ booth_number: '', location: '', capacity: '' });
   const queryClient = useQueryClient();
   // Sync with global store
   // No longer sync with global election store for infrastructure management
@@ -137,7 +137,7 @@ const Infrastructure = () => {
       setSuccess('Polling booth created!');
       setOpenBooth(false);
       setDialogError(null);
-      setBoothForm({ booth_number: '', location: '', capacity: '100' });
+      setBoothForm({ booth_number: '', location: '', capacity: '' });
       queryClient.invalidateQueries({ queryKey: ['booths'] });
       setTimeout(() => setSuccess(null), 3000);
     },
@@ -150,7 +150,7 @@ const Infrastructure = () => {
       setSuccess('Polling booth updated!');
       setEditingBooth(null);
       setDialogError(null);
-      setBoothForm({ booth_number: '', location: '', capacity: '100' });
+      setBoothForm({ booth_number: '', location: '', capacity: '' });
       queryClient.invalidateQueries({ queryKey: ['booths'] });
       setTimeout(() => setSuccess(null), 3000);
     },
@@ -301,7 +301,7 @@ const Infrastructure = () => {
                             <Tooltip title="Edit Booth">
                                 <IconButton size="small" onClick={() => {
                                     setEditingBooth(b);
-                                    setBoothForm({ booth_number: String(b.booth_number), location: b.location, capacity: String(b.capacity || 100) });
+                                    setBoothForm({ booth_number: String(b.booth_number), location: b.location, capacity: b.capacity !== null && b.capacity !== undefined ? String(b.capacity) : '' });
                                 }}><Edit size={16} /></IconButton>
                             </Tooltip>
                             <Tooltip title="Delete Booth">
@@ -490,7 +490,7 @@ const Infrastructure = () => {
       </Box>
 
       {/* Dialogs */}
-      <Dialog open={openBooth || !!editingBooth} onClose={() => { setOpenBooth(false); setEditingBooth(null); setDialogError(null); setBoothForm({ booth_number: '', location: '', capacity: '100' }); }} maxWidth="xs" fullWidth>
+      <Dialog open={openBooth || !!editingBooth} onClose={() => { setOpenBooth(false); setEditingBooth(null); setDialogError(null); setBoothForm({ booth_number: '', location: '', capacity: '' }); }} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{editingBooth ? 'Edit Polling Booth' : 'Create Polling Booth'}</DialogTitle>
         <DialogContent>
           {dialogError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{dialogError}</Alert>}
@@ -519,7 +519,7 @@ const Infrastructure = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-            <Button onClick={() => { setOpenBooth(false); setEditingBooth(null); setBoothForm({ booth_number: '', location: '', capacity: '100' }); }}>Cancel</Button>
+            <Button onClick={() => { setOpenBooth(false); setEditingBooth(null); setBoothForm({ booth_number: '', location: '', capacity: '' }); }}>Cancel</Button>
             <Button variant="contained" onClick={() => {
                 const isDuplicate = booths?.some((b: any) => String(b.booth_number) === String(boothForm.booth_number) && (!editingBooth || b.id !== editingBooth.id));
                 if (isDuplicate) {

@@ -271,6 +271,7 @@ const Staff = () => {
               onChange={e => setOfficerForm({ ...officerForm, username: e.target.value })}
               placeholder="e.g. John Doe / staff_01"
               variant="outlined"
+              autoComplete="new-username"
             />
             {!editingOfficer && (
               <TextField 
@@ -279,6 +280,7 @@ const Staff = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={officerForm.password}
                 onChange={e => setOfficerForm({ ...officerForm, password: e.target.value })}
+                autoComplete="new-password"
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -319,6 +321,7 @@ const Staff = () => {
               fullWidth 
               value={resetForm.password} 
               onChange={e => setResetForm({ password: e.target.value })} 
+              autoComplete="new-password"
               InputProps={{
                 endAdornment: (
                   <InputAdornment position="end">
