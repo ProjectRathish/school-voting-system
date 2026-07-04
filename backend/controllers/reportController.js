@@ -59,6 +59,25 @@ exports.generateElectionReport = async (req, res) => {
         ORDER BY votes DESC`,
         [post.id]
       );
+
+      const [[notaRow]] = await db.execute(
+        `SELECT COUNT(*) as count FROM votes WHERE post_id = ? AND candidate_id IS NULL`,
+        [post.id]
+      );
+      const notaCount = Number(notaRow?.count) || 0;
+
+      const isContested = candidates.length > 1;
+      if (isContested) {
+        candidates.push({
+          candidate_id: -1,
+          candidate_name: 'None of the Above (NOTA)',
+          symbol: null,
+          votes: notaCount,
+          is_nota: true
+        });
+        candidates.sort((a, b) => b.votes - a.votes);
+      }
+
       reportData.push({
         post_name: post.name,
         candidates: candidates

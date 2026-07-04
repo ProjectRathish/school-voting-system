@@ -519,6 +519,16 @@ exports.getResults = async (req, res) => {
       [id, school_id]
     );
 
+    // Get NOTA votes count per post
+    const [notaResults] = await db.execute(
+      `SELECT post_id, COUNT(*) as nota_count
+       FROM votes
+       WHERE election_id = ? AND school_id = ? AND candidate_id IS NULL
+       GROUP BY post_id`,
+      [id, school_id]
+    );
+    const notaMap = new Map(notaResults.map(r => [r.post_id, Number(r.nota_count)]));
+
     // Format results to group by post
     const postsMap = new Map();
 
@@ -547,10 +557,28 @@ exports.getResults = async (req, res) => {
     });
 
     // Mark posts with only 1 candidate as uncontested (they were skipped on the voting machine)
-    const resultsByPost = Array.from(postsMap.values()).map(post => ({
-      ...post,
-      is_uncontested: post.candidates.length === 1
-    }));
+    const resultsByPost = Array.from(postsMap.values()).map(post => {
+      const is_uncontested = post.candidates.length === 1;
+      const notaCount = notaMap.get(post.post_id) || 0;
+
+      if (!is_uncontested) {
+        post.candidates.push({
+          candidate_id: -1,
+          candidate_name: 'None of the Above (NOTA)',
+          photo: null,
+          symbol: null,
+          vote_count: notaCount,
+          is_nota: true
+        });
+        post.total_votes += notaCount;
+        post.candidates.sort((a, b) => b.vote_count - a.vote_count);
+      }
+
+      return {
+        ...post,
+        is_uncontested
+      };
+    });
 
     res.json({
       message: "Election results retrieved successfully",
@@ -634,6 +662,16 @@ exports.getPublicResults = async (req, res) => {
       [numericElectionId]
     );
 
+    // Get NOTA votes count per post
+    const [notaResults] = await db.execute(
+      `SELECT post_id, COUNT(*) as nota_count
+       FROM votes
+       WHERE election_id = ? AND candidate_id IS NULL
+       GROUP BY post_id`,
+      [numericElectionId]
+    );
+    const notaMap = new Map(notaResults.map(r => [r.post_id, Number(r.nota_count)]));
+
     // Format results to group by post
     const postsMap = new Map();
 
@@ -663,10 +701,29 @@ exports.getPublicResults = async (req, res) => {
     });
 
     // Mark posts with only 1 candidate as uncontested (they were skipped on the voting machine)
-    const resultsByPost = Array.from(postsMap.values()).map(post => ({
-      ...post,
-      is_uncontested: post.candidates.length === 1
-    }));
+    const resultsByPost = Array.from(postsMap.values()).map(post => {
+      const is_uncontested = post.candidates.length === 1;
+      const notaCount = notaMap.get(post.post_id) || 0;
+
+      if (!is_uncontested) {
+        post.candidates.push({
+          candidate_id: -1,
+          candidate_name: 'None of the Above (NOTA)',
+          photo: null,
+          symbol: null,
+          symbol_name: 'nota',
+          vote_count: notaCount,
+          is_nota: true
+        });
+        post.total_votes += notaCount;
+        post.candidates.sort((a, b) => b.vote_count - a.vote_count);
+      }
+
+      return {
+        ...post,
+        is_uncontested
+      };
+    });
 
     res.json({
       message: "Public election results retrieved successfully",
@@ -795,6 +852,24 @@ exports.getDetailedResults = async (req, res) => {
       [id, school_id]
     );
 
+    // Get voting breakdowns for NOTA (where candidate_id IS NULL)
+    const [notaResults] = await db.execute(
+      `SELECT 
+         v.post_id,
+         p.name as post_name,
+         v.voter_sex,
+         cl.name as class_name,
+         s.name as section_name,
+         COUNT(v.id) as vote_count
+       FROM votes v
+       JOIN posts p ON v.post_id = p.id
+       LEFT JOIN classes cl ON v.voter_class_id = cl.id
+       LEFT JOIN sections s ON v.voter_section_id = s.id
+       WHERE v.election_id = ? AND v.school_id = ? AND v.candidate_id IS NULL
+       GROUP BY v.post_id, v.voter_sex, v.voter_class_id, v.voter_section_id`,
+      [id, school_id]
+    );
+
     // Structure the data for easy charting
     const postsMap = new Map();
 
@@ -850,12 +925,69 @@ exports.getDetailedResults = async (req, res) => {
       candidateEntry.demographics.sections[sectionName] += row.vote_count;
     });
 
-    // Convert Maps back to cleanly parsed arrays for JSON response
+    // Add NOTA demographics
+    notaResults.forEach(row => {
+      if (!postsMap.has(row.post_id)) {
+        postsMap.set(row.post_id, {
+          post_id: row.post_id,
+          post_name: row.post_name,
+          candidates: new Map()
+        });
+      }
+
+      const postEntry = postsMap.get(row.post_id);
+      const candidate_id = -1; // Denote NOTA
+
+      if (!postEntry.candidates.has(candidate_id)) {
+        postEntry.candidates.set(candidate_id, {
+          candidate_id: candidate_id,
+          candidate_name: 'None of the Above (NOTA)',
+          total_votes: 0,
+          is_nota: true,
+          demographics: {
+            male_votes: 0,
+            female_votes: 0,
+            classes: {},
+            sections: {}
+          }
+        });
+      }
+
+      const candidateEntry = postEntry.candidates.get(candidate_id);
+      
+      // Update totals
+      candidateEntry.total_votes += row.vote_count;
+      
+      // Update gender breakdown
+      if (row.voter_sex === 'M') {
+         candidateEntry.demographics.male_votes += row.vote_count;
+      } else if (row.voter_sex === 'F') {
+         candidateEntry.demographics.female_votes += row.vote_count;
+      }
+      
+      // Update class breakdown
+      const className = row.class_name || 'Unknown Class';
+      if (!candidateEntry.demographics.classes[className]) {
+         candidateEntry.demographics.classes[className] = 0;
+      }
+      candidateEntry.demographics.classes[className] += row.vote_count;
+
+      // Update section breakdown
+      const sectionName = row.section_name || 'Unknown Section';
+      if (!candidateEntry.demographics.sections[sectionName]) {
+         candidateEntry.demographics.sections[sectionName] = 0;
+      }
+      candidateEntry.demographics.sections[sectionName] += row.vote_count;
+    });
+
+    // Convert Maps back to cleanly parsed arrays for JSON response and sort by total_votes descending
     const formattedResults = Array.from(postsMap.values()).map(post => {
+       const candidatesList = Array.from(post.candidates.values());
+       candidatesList.sort((a, b) => b.total_votes - a.total_votes);
        return {
           post_id: post.post_id,
           post_name: post.post_name,
-          candidates: Array.from(post.candidates.values())
+          candidates: candidatesList
        };
     });
 
@@ -915,18 +1047,67 @@ exports.exportResults = async (req, res) => {
 
     const [rawResults] = await db.execute(
       `SELECT 
+         p.id as post_id,
          p.name as post_name,
+         c.id as candidate_id,
          u.name as candidate_name,
          COUNT(v.id) as vote_count
        FROM posts p
-       JOIN candidates c ON c.post_id = p.id
-       JOIN voters u ON c.voter_id = u.id
-       JOIN votes v ON v.candidate_id = c.id
+       LEFT JOIN candidates c ON c.post_id = p.id
+       LEFT JOIN voters u ON c.voter_id = u.id
+       LEFT JOIN votes v ON v.candidate_id = c.id
        WHERE p.election_id = ? AND p.school_id = ?
        GROUP BY p.id, c.id
        ORDER BY p.id ASC, vote_count DESC`,
       [id, school_id]
     );
+
+    const [notaResults] = await db.execute(
+      `SELECT post_id, COUNT(*) as nota_count
+       FROM votes
+       WHERE election_id = ? AND school_id = ? AND candidate_id IS NULL
+       GROUP BY post_id`,
+      [id, school_id]
+    );
+    const notaMap = new Map(notaResults.map(r => [r.post_id, Number(r.nota_count)]));
+
+    const postsMap = new Map();
+    rawResults.forEach(row => {
+      if (!postsMap.has(row.post_id)) {
+        postsMap.set(row.post_id, {
+          post_name: row.post_name,
+          candidates: []
+        });
+      }
+      if (row.candidate_id) {
+        postsMap.get(row.post_id).candidates.push({
+          candidate_name: row.candidate_name,
+          vote_count: Number(row.vote_count) || 0
+        });
+      }
+    });
+
+    const rowsToExport = [];
+    postsMap.forEach((post, post_id) => {
+      const candidates = post.candidates;
+      const isContested = candidates.length > 1;
+      if (isContested) {
+        const notaCount = notaMap.get(post_id) || 0;
+        candidates.push({
+          candidate_name: 'None of the Above (NOTA)',
+          vote_count: notaCount
+        });
+        candidates.sort((a, b) => b.vote_count - a.vote_count);
+      }
+      
+      candidates.forEach(c => {
+        rowsToExport.push({
+          post_name: post.post_name,
+          candidate_name: c.candidate_name,
+          vote_count: c.vote_count
+        });
+      });
+    });
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'School Voting System';
@@ -947,7 +1128,7 @@ exports.exportResults = async (req, res) => {
       fgColor: { argb: 'FF0052cc' } // A nice blue header
     };
 
-    rawResults.forEach(row => {
+    rowsToExport.forEach(row => {
       sheet.addRow(row);
     });
 

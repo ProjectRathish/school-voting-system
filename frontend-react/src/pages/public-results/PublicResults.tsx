@@ -532,10 +532,14 @@ const PublicResults = () => {
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
                         {candidates.map((c: any) => (
                           <Box key={c.candidate_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'rgba(255,255,255,0.03)', px: 2.5, py: 1.5, borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <Avatar src={c.photo ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 36, height: 36 }} />
+                            <Avatar src={c.photo && !c.is_nota ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 36, height: 36, bgcolor: c.is_nota ? '#334155' : 'inherit' }}>
+                              {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.6rem' }}>NOTA</Typography>}
+                            </Avatar>
                             <Box sx={{ textAlign: 'left' }}>
                               <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 700, fontFamily: 'Outfit' }}>{c.candidate_name}</Typography>
-                              <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>{c.symbol_name || 'Candidate'}</Typography>
+                              {!c.is_nota && (
+                                <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', fontSize: '0.7rem' }}>{c.symbol_name || 'Candidate'}</Typography>
+                              )}
                             </Box>
                           </Box>
                         ))}
@@ -576,14 +580,17 @@ const PublicResults = () => {
                               <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
                                 <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
                                   <Avatar
-                                    src={secondPlace.photo ? `${MEDIA_URL}${secondPlace.photo}` : undefined}
+                                    src={secondPlace.photo && !secondPlace.is_nota ? `${MEDIA_URL}${secondPlace.photo}` : undefined}
                                     sx={{
                                       width: 100, height: 100, mx: 'auto',
                                       border: '3px solid #cbd5e1',
-                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
+                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                                      bgcolor: secondPlace.is_nota ? '#334155' : 'inherit'
                                     }}
-                                  />
-                                  {secondPlace.symbol && (
+                                  >
+                                    {secondPlace.is_nota && <Typography variant="h6" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                  </Avatar>
+                                  {secondPlace.symbol && !secondPlace.is_nota && (
                                     <Avatar
                                       src={`${MEDIA_URL}${secondPlace.symbol}`}
                                       sx={{
@@ -598,9 +605,11 @@ const PublicResults = () => {
                                   {secondPlace.candidate_name}
                                 </Typography>
                                 
-                                <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
-                                  Symbol: {secondPlace.symbol_name || 'Official'}
-                                </Typography>
+                                {!secondPlace.is_nota && (
+                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
+                                    Symbol: {secondPlace.symbol_name || 'Official'}
+                                  </Typography>
+                                )}
 
                                 {showVotes && (
                                   <Box sx={{ mt: 2 }}>
@@ -662,15 +671,18 @@ const PublicResults = () => {
                                     '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
                                   }} />
                                   <Avatar
-                                    src={firstPlace.photo ? `${MEDIA_URL}${firstPlace.photo}` : undefined}
+                                    src={firstPlace.photo && !firstPlace.is_nota ? `${MEDIA_URL}${firstPlace.photo}` : undefined}
                                     sx={{
                                       width: 140, height: 140, mx: 'auto',
                                       border: '4px solid #fbbf24',
                                       position: 'relative', zIndex: 1,
-                                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
+                                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                      bgcolor: firstPlace.is_nota ? '#334155' : 'inherit'
                                     }}
-                                  />
-                                  {firstPlace.symbol && (
+                                  >
+                                    {firstPlace.is_nota && <Typography variant="h4" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                  </Avatar>
+                                  {firstPlace.symbol && !firstPlace.is_nota && (
                                     <Avatar
                                       src={`${MEDIA_URL}${firstPlace.symbol}`}
                                       sx={{
@@ -686,9 +698,11 @@ const PublicResults = () => {
                                   {firstPlace.candidate_name}
                                 </Typography>
                                 
-                                <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
-                                  Symbol: {firstPlace.symbol_name || 'Official'}
-                                </Typography>
+                                {!firstPlace.is_nota && (
+                                  <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
+                                    Symbol: {firstPlace.symbol_name || 'Official'}
+                                  </Typography>
+                                )}
 
                                 {showVotes && (
                                   <Box sx={{ mt: 3, px: 2 }}>
@@ -746,14 +760,17 @@ const PublicResults = () => {
                               <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
                                 <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
                                   <Avatar
-                                    src={thirdPlace.photo ? `${MEDIA_URL}${thirdPlace.photo}` : undefined}
+                                    src={thirdPlace.photo && !thirdPlace.is_nota ? `${MEDIA_URL}${thirdPlace.photo}` : undefined}
                                     sx={{
                                       width: 100, height: 100, mx: 'auto',
                                       border: '3px solid #b45309',
-                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)'
+                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                                      bgcolor: thirdPlace.is_nota ? '#334155' : 'inherit'
                                     }}
-                                  />
-                                  {thirdPlace.symbol && (
+                                  >
+                                    {thirdPlace.is_nota && <Typography variant="h6" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                  </Avatar>
+                                  {thirdPlace.symbol && !thirdPlace.is_nota && (
                                     <Avatar
                                       src={`${MEDIA_URL}${thirdPlace.symbol}`}
                                       sx={{
@@ -768,9 +785,11 @@ const PublicResults = () => {
                                   {thirdPlace.candidate_name}
                                 </Typography>
                                 
-                                <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
-                                  Symbol: {thirdPlace.symbol_name || 'Official'}
-                                </Typography>
+                                {!thirdPlace.is_nota && (
+                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
+                                    Symbol: {thirdPlace.symbol_name || 'Official'}
+                                  </Typography>
+                                )}
 
                                 {showVotes && (
                                   <Box sx={{ mt: 2 }}>
@@ -818,9 +837,11 @@ const PublicResults = () => {
                                   <Typography sx={{ width: 30, textAlign: 'center', color: '#94a3b8', fontWeight: 800 }}>
                                     #{rank}
                                   </Typography>
-                                  <Avatar src={c.photo ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 40, height: 40 }} />
+                                  <Avatar src={c.photo && !c.is_nota ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 40, height: 40, bgcolor: c.is_nota ? '#334155' : 'inherit' }}>
+                                    {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.65rem' }}>NOTA</Typography>}
+                                  </Avatar>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    {c.symbol && <Avatar src={`${MEDIA_URL}${c.symbol}`} sx={{ width: 20, height: 20, bgcolor: 'white' }} />}
+                                    {c.symbol && !c.is_nota && <Avatar src={`${MEDIA_URL}${c.symbol}`} sx={{ width: 20, height: 20, bgcolor: 'white' }} />}
                                     <Typography sx={{ fontWeight: 700, color: 'white' }}>{c.candidate_name}</Typography>
                                   </Box>
                                 </Box>
