@@ -385,7 +385,23 @@ const Candidates = () => {
       html += `</div>`;
     }
     
-    html += `</body><script>window.onload = () => { window.print(); window.close(); };</script></html>`;
+    html += `</body><script>
+      window.onload = () => {
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(() => {
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 400);
+          });
+        } else {
+          setTimeout(() => {
+            window.print();
+            window.close();
+          }, 800);
+        }
+      };
+    </script></html>`;
     
     printWindow.document.write(html);
     printWindow.document.close();

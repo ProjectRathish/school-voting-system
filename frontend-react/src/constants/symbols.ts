@@ -17,6 +17,15 @@ export const ELECTION_SYMBOLS: ElectionSymbol[] = [
   { id: "107", name: "Water Drop", iconName: "water_drop", colorStart: "#0288d1", colorEnd: "#29b6f6" },
   { id: "108", name: "Flame", iconName: "local_fire_department", colorStart: "#d84315", colorEnd: "#ff8f00" },
   { id: "109", name: "Snowflake", iconName: "ac_unit", colorStart: "#0097a7", colorEnd: "#80deea" },
+  { id: "110", name: "Mushroom", iconName: "yard", colorStart: "#8d6e63", colorEnd: "#ff8a80" },
+  { id: "111", name: "Cactus", iconName: "grass", colorStart: "#558b2f", colorEnd: "#aed581" },
+  { id: "112", name: "Volcano", iconName: "volcano", colorStart: "#d84315", colorEnd: "#ffab40" },
+  { id: "113", name: "Mountain", iconName: "terrain", colorStart: "#455a64", colorEnd: "#90a4ae" },
+  { id: "114", name: "Sun and Cloud", iconName: "partly_cloudy_day", colorStart: "#0288d1", colorEnd: "#ffe082" },
+  { id: "115", name: "Crescent Moon", iconName: "dark_mode", colorStart: "#4a148c", colorEnd: "#ffd54f" },
+  { id: "116", name: "Rainbow", iconName: "looks", colorStart: "#d500f9", colorEnd: "#00e5ff" },
+  { id: "117", name: "Windmill / Fan", iconName: "wind_power", colorStart: "#00796b", colorEnd: "#80cbc4" },
+  { id: "118", name: "Lotus Leaf", iconName: "spa", colorStart: "#00c853", colorEnd: "#b2ff59" },
 
   // Objects & Tools
   { id: "201", name: "Book", iconName: "menu_book", colorStart: "#4a148c", colorEnd: "#ab47bc" },
@@ -43,6 +52,22 @@ export const ELECTION_SYMBOLS: ElectionSymbol[] = [
   { id: "222", name: "Paint Brush", iconName: "brush", colorStart: "#5d4037", colorEnd: "#00bcd4" },
   { id: "223", name: "Spectacles", iconName: "eyeglasses", colorStart: "#212121", colorEnd: "#616161" },
   { id: "224", name: "Eye", iconName: "visibility", colorStart: "#006064", colorEnd: "#00e5ff" },
+  { id: "225", name: "Compass", iconName: "explore", colorStart: "#1565c0", colorEnd: "#00e5ff" },
+  { id: "226", name: "Hourglass", iconName: "hourglass_empty", colorStart: "#e65100", colorEnd: "#ffd54f" },
+  { id: "227", name: "Lock Open", iconName: "lock_open", colorStart: "#2e7d32", colorEnd: "#a5d6a7" },
+  { id: "228", name: "Puzzle Piece", iconName: "extension", colorStart: "#4f46e5", colorEnd: "#a5b4fc" },
+  { id: "229", name: "Clipboard", iconName: "assignment", colorStart: "#0d9488", colorEnd: "#5eead4" },
+  { id: "230", name: "Paperclip", iconName: "attach_file", colorStart: "#475569", colorEnd: "#cbd5e1" },
+  { id: "231", name: "Pushpin", iconName: "push_pin", colorStart: "#dc2626", colorEnd: "#fca5a5" },
+  { id: "232", name: "Price Tag", iconName: "local_offer", colorStart: "#ea580c", colorEnd: "#ffedd5" },
+  { id: "233", name: "Crown", iconName: "workspace_premium", colorStart: "#d97706", colorEnd: "#fde047" },
+  { id: "234", name: "Bookmark", iconName: "bookmark", colorStart: "#2563eb", colorEnd: "#93c5fd" },
+  { id: "235", name: "Magnifying Glass", iconName: "search", colorStart: "#334155", colorEnd: "#94a3b8" },
+  { id: "236", name: "Gear", iconName: "settings", colorStart: "#4b5563", colorEnd: "#9ca3af" },
+  { id: "237", name: "Heart Ribbon", iconName: "volunteer_activism", colorStart: "#db2777", colorEnd: "#fbcfe8" },
+  { id: "238", name: "Flashlight", iconName: "flashlight_on", colorStart: "#475569", colorEnd: "#fde047" },
+  { id: "239", name: "Fire Extinguisher", iconName: "fire_extinguisher", colorStart: "#b91c1c", colorEnd: "#fca5a5" },
+  { id: "240", name: "Ribbon / Medal", iconName: "military_tech", colorStart: "#b45309", colorEnd: "#fde047" },
 
   // Sports & Music
   { id: "301", name: "Football", iconName: "sports_soccer", colorStart: "#2e7d32", colorEnd: "#4caf50" },
@@ -57,6 +82,14 @@ export const ELECTION_SYMBOLS: ElectionSymbol[] = [
   { id: "310", name: "Headphones", iconName: "headphones", colorStart: "#e65100", colorEnd: "#ff3d00" },
   { id: "311", name: "Piano", iconName: "piano", colorStart: "#000000", colorEnd: "#424242" },
   { id: "312", name: "Guitar / Lute", iconName: "music_video", colorStart: "#bf360c", colorEnd: "#ffb74d" },
+  { id: "313", name: "Runner / Athlete", iconName: "directions_run", colorStart: "#ea580c", colorEnd: "#fdba74" },
+  { id: "314", name: "Swimmer", iconName: "pool", colorStart: "#0288d1", colorEnd: "#80deea" },
+  { id: "315", name: "Gamepad", iconName: "sports_esports", colorStart: "#7c3aed", colorEnd: "#c084fc" },
+  { id: "316", name: "Drama Masks", iconName: "theater_comedy", colorStart: "#d97706", colorEnd: "#2563eb" },
+  { id: "317", name: "Cinema Film", iconName: "movie", colorStart: "#1e293b", colorEnd: "#ef4444" },
+  { id: "318", name: "Record Album", iconName: "album", colorStart: "#0f172a", colorEnd: "#fbbf24" },
+  { id: "319", name: "Dumbbell", iconName: "fitness_center", colorStart: "#475569", colorEnd: "#cbd5e1" },
+  { id: "320", name: "Megaphone", iconName: "campaign", colorStart: "#e11d48", colorEnd: "#fda4af" },
 
   // Transportation
   { id: "401", name: "Bicycle", iconName: "pedal_bike", colorStart: "#d50000", colorEnd: "#ff5252" },
@@ -68,6 +101,9 @@ export const ELECTION_SYMBOLS: ElectionSymbol[] = [
   { id: "407", name: "Rocket", iconName: "rocket", colorStart: "#b71c1c", colorEnd: "#ff9100" },
   { id: "408", name: "Sailing Boat", iconName: "sailing", colorStart: "#006064", colorEnd: "#00e5ff" },
   { id: "409", name: "Jeep", iconName: "local_taxi", colorStart: "#33691e", colorEnd: "#8bc34a" },
+  { id: "410", name: "Helicopter", iconName: "helicopter", colorStart: "#0369a1", colorEnd: "#7dd3fc" },
+  { id: "411", name: "Traffic Light", iconName: "traffic", colorStart: "#1e293b", colorEnd: "#4ade80" },
+  { id: "412", name: "Gas Station", iconName: "local_gas_station", colorStart: "#b91c1c", colorEnd: "#94a3b8" },
 
   // Buildings & Living
   { id: "501", name: "House", iconName: "home", colorStart: "#5d4037", colorEnd: "#d7ccc8" },
@@ -77,8 +113,10 @@ export const ELECTION_SYMBOLS: ElectionSymbol[] = [
   { id: "505", name: "Hospital / Clinic", iconName: "local_hospital", colorStart: "#00796b", colorEnd: "#4db6ac" },
   { id: "506", name: "Chair", iconName: "chair", colorStart: "#795548", colorEnd: "#ffe0b2" },
   { id: "507", name: "Stethoscope", iconName: "medical_services", colorStart: "#006064", colorEnd: "#00acc1" },
+  { id: "508", name: "First Aid Box", iconName: "local_pharmacy", colorStart: "#dc2626", colorEnd: "#f87171" },
+  { id: "509", name: "Medicine Capsule", iconName: "medical_information", colorStart: "#2563eb", colorEnd: "#fca5a5" },
 
-  // Daily Items & Icons
+  // Daily Items & Food
   { id: "601", name: "Camera", iconName: "photo_camera", colorStart: "#263238", colorEnd: "#78909c" },
   { id: "602", name: "Laptop", iconName: "laptop", colorStart: "#37474f", colorEnd: "#eceff1" },
   { id: "603", name: "Smartphone", iconName: "smartphone", colorStart: "#4a148c", colorEnd: "#ea80fc" },
@@ -91,5 +129,10 @@ export const ELECTION_SYMBOLS: ElectionSymbol[] = [
   { id: "610", name: "Balloon", iconName: "celebration", colorStart: "#0288d1", colorEnd: "#4fc3f7" },
   { id: "611", name: "Diamond", iconName: "diamond", colorStart: "#006064", colorEnd: "#80deea" },
   { id: "612", name: "Handshake", iconName: "handshake", colorStart: "#e65100", colorEnd: "#ffeb3b" },
-  { id: "613", name: "Thumb Up", iconName: "thumb_up", colorStart: "#2e7d32", colorEnd: "#a5d6a7" }
+  { id: "613", name: "Thumb Up", iconName: "thumb_up", colorStart: "#2e7d32", colorEnd: "#a5d6a7" },
+  { id: "614", name: "Shopping Cart", iconName: "shopping_cart", colorStart: "#16a34a", colorEnd: "#86efac" },
+  { id: "615", name: "Pizza", iconName: "local_pizza", colorStart: "#ea580c", colorEnd: "#fde047" },
+  { id: "616", name: "Cookie", iconName: "cookie", colorStart: "#7c2d12", colorEnd: "#d97706" },
+  { id: "617", name: "Ice Cream", iconName: "icecream", colorStart: "#db2777", colorEnd: "#fbcfe8" },
+  { id: "618", name: "Egg", iconName: "egg", colorStart: "#ca8a04", colorEnd: "#fef08a" }
 ];
