@@ -68,7 +68,6 @@ const navItems: NavItem[] = [
   { text: 'Posts', icon: <Award size={22} />, path: '/school-admin/posts', roles: ['SCHOOL_ADMIN'] },
   { text: 'Voters', icon: <Users size={22} />, path: '/school-admin/voters', roles: ['SCHOOL_ADMIN'] },
   { text: 'Candidates', icon: <UserSquare2 size={22} />, path: '/school-admin/candidates', roles: ['SCHOOL_ADMIN'] },
-  { text: 'Booth Officers', icon: <UserSquare2 size={22} />, path: '/school-admin/staff', roles: ['SCHOOL_ADMIN'] },
   { text: 'Infrastructure', icon: <Monitor size={22} />, path: '/school-admin/infrastructure', roles: ['SCHOOL_ADMIN'] },
   { text: 'Results', icon: <BarChart3 size={22} />, path: '/school-admin/results', roles: ['SCHOOL_ADMIN'] },
   { text: 'Live Monitor', icon: <Activity size={22} />, path: '/school-admin/live', roles: ['SCHOOL_ADMIN'] },

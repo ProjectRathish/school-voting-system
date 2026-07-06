@@ -25,7 +25,6 @@ import SchoolAdminDashboard from './pages/school-admin/Dashboard';
 import Elections from './pages/school-admin/Elections';
 import Voters from './pages/school-admin/Voters';
 import Candidates from './pages/school-admin/Candidates';
-import Staff from './pages/school-admin/Staff';
 import Posts from './pages/school-admin/Posts';
 import ClassesAndSections from './pages/school-admin/ClassesAndSections';
 import Infrastructure from './pages/school-admin/Infrastructure';
@@ -126,7 +125,7 @@ function App() {
                 <Route path="/school-admin/elections" element={<Elections />} />
                 <Route path="/school-admin/voters" element={<Voters />} />
                 <Route path="/school-admin/candidates" element={<Candidates />} />
-                <Route path="/school-admin/staff" element={<Staff />} />
+                <Route path="/school-admin/staff" element={<Navigate to="/school-admin/infrastructure" replace />} />
                 <Route path="/school-admin/posts" element={<Posts />} />
                 <Route path="/school-admin/classes" element={<ClassesAndSections />} />
                 <Route path="/school-admin/infrastructure" element={<Infrastructure />} />
