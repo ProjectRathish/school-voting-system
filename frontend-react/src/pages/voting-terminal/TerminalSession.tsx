@@ -347,31 +347,32 @@ const TerminalSession = () => {
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
       {/* Header */}
-      <Box sx={{ p: 4, background: theme.palette.mode === 'dark' ? '#1e1e28' : '#fff', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{ px: 2, py: 1, bgcolor: 'primary.main', borderRadius: 2, color: 'white', display: 'flex', alignItems: 'center' }}>
-               <Vote />
+      <Box sx={{ p: { xs: 2, md: 4 }, background: theme.palette.mode === 'dark' ? '#1e1e28' : '#fff', borderBottom: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
+            <Box sx={{ px: 1.5, py: 0.75, bgcolor: 'primary.main', borderRadius: 2, color: 'white', display: 'flex', alignItems: 'center' }}>
+               <Vote size={18} />
             </Box>
             <Box>
-               <Typography variant="h6" sx={{ fontWeight: 800 }}>Electronic Voting Terminal</Typography>
-               <Typography variant="caption" color="text.secondary">{machine?.machine_code} • {machine?.booth_name || 'Booth Protected'}</Typography>
+               <Typography sx={{ fontWeight: 800, fontSize: { xs: '0.95rem', md: '1.25rem' } }}>Electronic Voting Terminal</Typography>
+               <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>{machine?.machine_code} • {machine?.booth_name || 'Booth Protected'}</Typography>
             </Box>
          </Box>
          
-         <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-           {!isLastStep && posts.length > 0 && (
-              <Chip 
-                 label={`Post ${step + 1} of ${posts.length}`} 
-                 color="primary" 
-                 sx={{ fontWeight: 800, px: 2 }} 
-              />
-           )}
-           <ThemeToggle />
+         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 3 } }}>
+            {!isLastStep && posts.length > 0 && (
+               <Chip 
+                  label={`Post ${step + 1} of ${posts.length}`} 
+                  color="primary" 
+                  size="small"
+                  sx={{ fontWeight: 800, px: { xs: 0.5, md: 2 }, fontSize: { xs: '0.65rem', md: '0.85rem' } }} 
+               />
+            )}
+            <ThemeToggle />
          </Box>
       </Box>
 
       {/* Main Ballot Area */}
-      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 4 }}>
+      <Box sx={{ flexGrow: 1, overflowY: 'auto', p: { xs: 2, md: 4 } }}>
          <AnimatePresence mode="wait">
             {ballotLoading ? (
                <Box key="loading" sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -392,12 +393,12 @@ const TerminalSession = () => {
                   exit={{ opacity: 0, x: -50 }}
                   style={{ height: '100%' }}
                >
-                   <Typography variant="h5" sx={{ fontWeight: 900, textAlign: 'center', mb: 3, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 2 }}>
+                   <Typography variant="h5" sx={{ fontWeight: 900, textAlign: 'center', mb: { xs: 2, md: 3 }, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 2, fontSize: { xs: '1.1rem', md: '1.5rem' } }}>
                       Ballot: {posts[step].post_name}
                    </Typography>
 
                    {/* EVM Style Vertical List */}
-                   <Box sx={{ maxWidth: 900, mx: 'auto', border: '2px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', bgcolor: 'background.paper', boxShadow: 3 }}>
+                   <Box sx={{ maxWidth: 900, mx: 'auto', border: { xs: '1px solid', md: '2px solid' }, borderColor: 'divider', borderRadius: 2, overflow: 'hidden', bgcolor: 'background.paper', boxShadow: 3 }}>
                       {posts[step].candidates.map((c: any, idx: number) => {
                          const isSelected = selections[posts[step].post_id] === c.candidate_id;
                          return (
@@ -413,25 +414,25 @@ const TerminalSession = () => {
                                   cursor: 'pointer',
                                   transition: 'all 0.2s',
                                   '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
-                                  minHeight: { xs: 80, md: 100 }
+                                  minHeight: { xs: 70, md: 100 }
                                }}
                             >
                                {/* Serial No */}
-                               <Box sx={{ width: { xs: 40, md: 60 }, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider', fontWeight: 900, color: 'text.secondary' }}>
+                               <Box sx={{ width: { xs: 30, md: 60 }, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider', fontWeight: 900, color: 'text.secondary', fontSize: { xs: '0.85rem', md: '1rem' } }}>
                                   {idx + 1}
                                </Box>
 
                                {/* Candidate Info */}
-                               <Box sx={{ flexGrow: 1, px: { xs: 1, md: 3 }, display: 'flex', alignItems: 'center', gap: 2 }}>
+                               <Box sx={{ flexGrow: 1, px: { xs: 1, sm: 2, md: 3 }, display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 }, minWidth: 0 }}>
                                   <Avatar 
                                      src={c.candidate_id === -1 ? undefined : getFullUrl(c.photo)} 
-                                     sx={{ width: { xs: 50, md: 70 }, height: { xs: 50, md: 70 }, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: c.candidate_id === -1 ? 'error.main' : undefined }}
+                                     sx={{ width: { xs: 40, md: 70 }, height: { xs: 40, md: 70 }, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: c.candidate_id === -1 ? 'error.main' : undefined }}
                                   >
-                                     {c.candidate_id === -1 ? <span style={{ fontSize: 24, fontWeight: 'bold' }}>X</span> : <User />}
+                                     {c.candidate_id === -1 ? <span style={{ fontSize: 18, fontWeight: 'bold' }}>X</span> : <User size={18} />}
                                   </Avatar>
-                                  <Box sx={{ flexGrow: 1 }}>
-                                     <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1, fontSize: { xs: '1rem', md: '1.25rem' }, color: c.candidate_id === -1 ? 'error.main' : 'inherit' }}>{c.candidate_name}</Typography>
-                                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mt: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                     <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1.1, fontSize: { xs: '0.85rem', md: '1.25rem' }, color: c.candidate_id === -1 ? 'error.main' : 'inherit', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.candidate_name}</Typography>
+                                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mt: 0.5, display: 'block', textTransform: 'uppercase', letterSpacing: 0.5, fontSize: { xs: '0.6rem', md: '0.75rem' } }}>
                                         {c.candidate_id === -1 ? 'NOTA' : (c.symbol_name || 'Independent Candidate')}
                                      </Typography>
                                   </Box>
@@ -442,8 +443,8 @@ const TerminalSession = () => {
                                         src={getFullUrl(c.symbol)} 
                                         alt="Symbol"
                                         sx={{ 
-                                           width: { xs: 45, md: 65 }, 
-                                           height: { xs: 45, md: 65 }, 
+                                           width: { xs: 36, md: 65 }, 
+                                           height: { xs: 36, md: 65 }, 
                                            objectFit: 'contain',
                                            filter: theme.palette.mode === 'dark' ? 'brightness(0.9) contrast(1.1)' : 'none'
                                         }} 
@@ -453,9 +454,9 @@ const TerminalSession = () => {
 
 
                                {/* Lamp Column */}
-                               <Box sx={{ width: 40, display: 'flex', justifyContent: 'center' }}>
+                               <Box sx={{ width: { xs: 30, md: 40 }, display: 'flex', justifyContent: 'center' }}>
                                   <Box sx={{ 
-                                     width: 16, height: 16, borderRadius: '50%',
+                                     width: { xs: 12, md: 16 }, height: { xs: 12, md: 16 }, borderRadius: '50%',
                                      bgcolor: isSelected ? '#ff1744' : '#333',
                                      boxShadow: isSelected ? '0 0 10px #ff1744' : 'none',
                                      transition: 'all 0.3s'
@@ -463,15 +464,15 @@ const TerminalSession = () => {
                                </Box>
 
                                {/* Voting Button Column */}
-                               <Box sx={{ width: { xs: 80, md: 120 }, textAlign: 'center', borderLeft: '1px solid', borderColor: 'divider', py: 1, px: 1 }}>
+                               <Box sx={{ width: { xs: 70, md: 120 }, textAlign: 'center', borderLeft: '1px solid', borderColor: 'divider', py: 1, px: 0.5 }}>
                                   <Box sx={{ 
-                                     width: { xs: 50, md: 70 }, height: { xs: 35, md: 45 }, 
+                                     width: { xs: 45, md: 70 }, height: { xs: 30, md: 45 }, 
                                      bgcolor: '#455a64', borderRadius: 1.5, mx: 'auto',
                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                                      boxShadow: 'inset 0 4px 0 rgba(255,255,255,0.2), 0 4px 0 #1c313a',
                                      '&:active': { transform: 'translateY(2px)', boxShadow: '0 2px 0 #1c313a' }
                                   }}>
-                                     {isSelected && <CheckIcon color="white" size={24} />}
+                                     {isSelected && <CheckIcon color="white" size={18} />}
                                   </Box>
                                </Box>
                             </Box>
@@ -486,8 +487,8 @@ const TerminalSession = () => {
                   animate={{ opacity: 1, y: 0 }}
                   style={{ maxWidth: 800, marginLeft: 'auto', marginRight: 'auto', paddingBottom: 80 }}
                >
-                  <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', mb: 2 }}>REVIEW YOUR VOTES</Typography>
-                  <Typography sx={{ textAlign: 'center', color: 'text.secondary', mb: 6 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', mb: 2, fontSize: { xs: '1.5rem', md: '2.1rem' } }}>REVIEW YOUR VOTES</Typography>
+                  <Typography sx={{ textAlign: 'center', color: 'text.secondary', mb: 4, fontSize: { xs: '0.85rem', md: '1rem' } }}>
                      Please verify your selections before final submission.
                   </Typography>
 
@@ -498,24 +499,24 @@ const TerminalSession = () => {
                         const sel = selections[post.post_id];
                         const cand = post.candidates.find((c: any) => c.candidate_id === sel);
                         return (
-                           <Paper key={post.post_id} sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 3, borderRadius: 3 }}>
+                           <Paper key={post.post_id} sx={{ p: { xs: 2, md: 3 }, display: 'flex', alignItems: 'center', gap: { xs: 2, md: 3 }, borderRadius: 3 }}>
                               {cand ? (
                                  <Avatar 
                                     src={cand.candidate_id === -1 ? undefined : getFullUrl(cand.photo)} 
-                                    sx={{ width: 60, height: 60, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: cand.candidate_id === -1 ? 'error.main' : undefined }}
+                                    sx={{ width: { xs: 45, md: 60 }, height: { xs: 45, md: 60 }, border: '1px solid', borderColor: 'divider', borderRadius: 2, bgcolor: cand.candidate_id === -1 ? 'error.main' : undefined }}
                                  >
-                                    {cand.candidate_id === -1 ? <span style={{ fontSize: 24, fontWeight: 'bold' }}>X</span> : <User />}
+                                    {cand.candidate_id === -1 ? <span style={{ fontSize: 18, fontWeight: 'bold' }}>X</span> : <User size={16} />}
                                  </Avatar>
                               ) : (
-                                 <Box sx={{ bgcolor: 'secondary.main', color: 'white', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 60, height: 60 }}>
-                                    <Sparkles />
+                                 <Box sx={{ bgcolor: 'secondary.main', color: 'white', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', width: { xs: 45, md: 60 }, height: { xs: 45, md: 60 } }}>
+                                    <Sparkles size={16} />
                                  </Box>
                               )}
-                              <Box sx={{ flexGrow: 1 }}>
-                                 <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary' }}>{post.post_name}</Typography>
-                                 <Typography variant="h6" sx={{ fontWeight: 700 }}>{cand?.candidate_name || 'NOT SELECTED'}</Typography>
+                              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                 <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary', fontSize: { xs: '0.65rem', md: '0.75rem' } }}>{post.post_name}</Typography>
+                                 <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '0.95rem', md: '1.25rem' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cand?.candidate_name || 'NOT SELECTED'}</Typography>
                               </Box>
-                              {cand ? <CheckCircle2 color="green" /> : <AlertCircle color="red" />}
+                              {cand ? <CheckCircle2 color="green" size={20} /> : <AlertCircle color="red" size={20} />}
                            </Paper>
                         );
                      })}
@@ -526,14 +527,24 @@ const TerminalSession = () => {
       </Box>
 
       {/* Footer Controls */}
-      <Box sx={{ p: 4, background: theme.palette.mode === 'dark' ? '#1e1e28' : '#fff', borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'space-between' }}>
+      <Box sx={{ 
+        p: { xs: 2, md: 4 }, 
+        background: theme.palette.mode === 'dark' ? '#1e1e28' : '#fff', 
+        borderTop: '1px solid', 
+        borderColor: 'divider', 
+        display: 'flex', 
+        flexDirection: { xs: 'column-reverse', sm: 'row' },
+        gap: 2,
+        justifyContent: 'space-between',
+        alignItems: 'stretch'
+      }}>
          {step > 0 && !isLastStep ? (
             <Button 
                size="large" 
                startIcon={<ArrowLeft />} 
                variant="outlined"
                onClick={() => setStep(s => s - 1)}
-               sx={{ px: 4, py: 2, borderRadius: 3, fontWeight: 700 }}
+               sx={{ py: { xs: 1.5, md: 2 }, px: { xs: 2, sm: 4 }, borderRadius: 3, fontWeight: 700, width: { xs: '100%', sm: 'auto' } }}
             >
                Previous Post
             </Button>
@@ -544,11 +555,11 @@ const TerminalSession = () => {
                variant="outlined"
                onClick={() => setStep(posts.length - 1)}
                disabled={isCasting}
-               sx={{ px: 4, py: 2, borderRadius: 3, fontWeight: 700 }}
+               sx={{ py: { xs: 1.5, md: 2 }, px: { xs: 2, sm: 4 }, borderRadius: 3, fontWeight: 700, width: { xs: '100%', sm: 'auto' } }}
             >
                Change Selections
             </Button>
-         ) : <Box />}
+         ) : <Box sx={{ display: { xs: 'none', sm: 'block' } }} />}
 
          {!isLastStep ? (
             <Button 
@@ -557,7 +568,7 @@ const TerminalSession = () => {
                variant="contained"
                onClick={() => setStep(s => s + 1)}
                disabled={!posts[step] || selections[posts[step].post_id] === undefined}
-               sx={{ px: 8, py: 2, borderRadius: 3, fontWeight: 700 }}
+               sx={{ py: { xs: 1.5, md: 2 }, px: { xs: 4, sm: 8 }, borderRadius: 3, fontWeight: 700, width: { xs: '100%', sm: 'auto' } }}
             >
                Next Post
             </Button>
@@ -569,8 +580,9 @@ const TerminalSession = () => {
                onClick={handleCastVote}
                disabled={isCasting || posts.some(p => selections[p.post_id] === undefined)}
                sx={{ 
-                  px: 10, py: 2.5, borderRadius: 3, fontWeight: 900, fontSize: '1.2rem',
-                  boxShadow: '0 8px 25px rgba(76, 175, 80, 0.4)'
+                  py: { xs: 2, md: 2.5 }, px: { xs: 4, sm: 10 }, borderRadius: 3, fontWeight: 900, fontSize: { xs: '1.05rem', md: '1.2rem' },
+                  boxShadow: '0 8px 25px rgba(76, 175, 80, 0.4)',
+                  width: { xs: '100%', sm: 'auto' }
                }}
             >
                {isCasting ? <CircularProgress size={28} color="inherit" /> : 'Confirm & Cast Vote'}
@@ -582,14 +594,14 @@ const TerminalSession = () => {
       <Dialog
         open={showTimeoutWarning && machine?.status === 'BUSY' && !successDialog}
         disableEscapeKeyDown
-        PaperProps={{ sx: { borderRadius: 4, p: 3, textAlign: 'center', minWidth: 340 } }}
+        PaperProps={{ sx: { borderRadius: 4, p: 3, textAlign: 'center', width: '90%', maxWidth: 360, mx: 'auto' } }}
       >
-        <DialogContent>
-          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1, color: 'warning.main' }}>Session Expiring</Typography>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
+        <DialogContent sx={{ p: { xs: 1.5, sm: 3 } }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mb: 1, color: 'warning.main', fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>Session Expiring</Typography>
+          <Typography color="text.secondary" sx={{ mb: 3, fontSize: { xs: '0.85rem', sm: '1rem' } }}>
             No activity detected. Session will reset in:
           </Typography>
-          <Typography variant="h2" sx={{ fontWeight: 900, color: sessionCountdown <= 10 ? 'error.main' : 'warning.main', mb: 2 }}>
+          <Typography variant="h2" sx={{ fontWeight: 900, color: sessionCountdown <= 10 ? 'error.main' : 'warning.main', mb: 2, fontSize: { xs: '2.5rem', sm: '3.75rem' } }}>
             {sessionCountdown}s
           </Typography>
           <LinearProgress
@@ -602,7 +614,7 @@ const TerminalSession = () => {
             variant="contained"
             size="large"
             onClick={resetInactivityTimer}
-            sx={{ borderRadius: 3, px: 4, fontWeight: 700 }}
+            sx={{ borderRadius: 3, px: 4, fontWeight: 700, width: '100%' }}
           >
             Continue Voting
           </Button>
@@ -613,21 +625,21 @@ const TerminalSession = () => {
       <Dialog 
          open={successDialog} 
          disableEscapeKeyDown
-         PaperProps={{ sx: { borderRadius: 4, p: 4, textAlign: 'center' } }}
+         PaperProps={{ sx: { borderRadius: 4, p: { xs: 2, md: 4 }, textAlign: 'center', width: '90%', maxWidth: 450, mx: 'auto' } }}
       >
          <DialogContent>
             <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
                <Box sx={{ 
-                  width: 100, height: 100, borderRadius: '50%', 
+                  width: { xs: 70, md: 100 }, height: { xs: 70, md: 100 }, borderRadius: '50%', 
                   bgcolor: 'success.main', color: 'white', 
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   mx: 'auto', mb: 3, boxShadow: '0 10px 30px rgba(76, 175, 80, 0.3)'
                }}>
-                  <CheckCircle2 size={64} />
+                  <CheckCircle2 size={40} />
                </Box>
             </motion.div>
-            <Typography variant="h4" sx={{ fontWeight: 900, mb: 1 }}>Vote Cast Succesfully!</Typography>
-            <Typography color="text.secondary" variant="h6">
+            <Typography variant="h4" sx={{ fontWeight: 900, mb: 1, fontSize: { xs: '1.5rem', md: '2.1rem' } }}>Vote Cast Successfully!</Typography>
+            <Typography color="text.secondary" variant="body1" sx={{ fontSize: { xs: '0.9rem', md: '1.15rem' } }}>
                Thank you for participating in the election.<br />
                Your response has been secured.
             </Typography>
