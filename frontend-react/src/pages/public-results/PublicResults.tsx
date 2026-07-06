@@ -555,17 +555,21 @@ const PublicResults = () => {
                 ) : (
                   <>
                     {/* Podium View */}
-                    <Grid container spacing={4} justifyContent="center" alignItems="flex-end" sx={{ mb: 6 }}>
+                    <Grid container spacing={4} justifyContent="center" alignItems="stretch" sx={{ mb: 6 }}>
                       {/* 2nd Place Card */}
                       {secondPlace && (
-                        <Grid item xs={12} sm={4} md={3.5} order={{ xs: 2, sm: 1 }} sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Grid item xs={12} sm={4} md={3.5} order={{ xs: 2, sm: 1 }} sx={{ display: 'flex', alignSelf: 'stretch', justifyContent: 'center' }}>
                           <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.25 }}
-                            style={{ width: '100%', maxWidth: 320 }}
+                            style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', height: '100%' }}
                           >
                             <Card sx={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
                               position: 'relative',
                               overflow: 'visible',
                               border: '1.5px solid rgba(148, 163, 184, 0.2)',
@@ -583,42 +587,44 @@ const PublicResults = () => {
                                 2nd
                               </Box>
                               
-                              <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
-                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-                                  <Avatar
-                                    src={secondPlace.photo && !secondPlace.is_nota ? `${MEDIA_URL}${secondPlace.photo}` : undefined}
-                                    sx={{
-                                      width: 100, height: 100, mx: 'auto',
-                                      border: '3px solid #cbd5e1',
-                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
-                                      bgcolor: secondPlace.is_nota ? '#334155' : 'inherit'
-                                    }}
-                                  >
-                                    {secondPlace.is_nota && <Typography variant="h6" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
-                                  </Avatar>
-                                  {secondPlace.symbol && !secondPlace.is_nota && (
+                              <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
+                                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                                  <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
                                     <Avatar
-                                      src={`${MEDIA_URL}${secondPlace.symbol}`}
+                                      src={secondPlace.photo && !secondPlace.is_nota ? `${MEDIA_URL}${secondPlace.photo}` : undefined}
                                       sx={{
-                                        width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
-                                        bgcolor: 'white', border: '2.5px solid #cbd5e1', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                                        width: 100, height: 100, mx: 'auto',
+                                        border: '3px solid #cbd5e1',
+                                        boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                                        bgcolor: secondPlace.is_nota ? '#334155' : 'inherit'
                                       }}
-                                    />
+                                    >
+                                      {secondPlace.is_nota && <Typography variant="h6" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                    </Avatar>
+                                    {secondPlace.symbol && !secondPlace.is_nota && (
+                                      <Avatar
+                                        src={`${MEDIA_URL}${secondPlace.symbol}`}
+                                        sx={{
+                                          width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
+                                          bgcolor: 'white', border: '2.5px solid #cbd5e1', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
+
+                                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                    {secondPlace.candidate_name}
+                                  </Typography>
+                                  
+                                  {!secondPlace.is_nota && (
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
+                                      Symbol: {secondPlace.symbol_name || 'Official'}
+                                    </Typography>
                                   )}
                                 </Box>
 
-                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                                  {secondPlace.candidate_name}
-                                </Typography>
-                                
-                                {!secondPlace.is_nota && (
-                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
-                                    Symbol: {secondPlace.symbol_name || 'Official'}
-                                  </Typography>
-                                )}
-
                                 {showVotes && (
-                                  <Box sx={{ mt: 2 }}>
+                                  <Box sx={{ mt: 'auto', pt: 2, px: 2, width: '100%' }}>
                                     <Typography variant="h5" sx={{ fontWeight: 900, color: '#cbd5e1' }}>
                                       {secondPlace.vote_count} <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>votes</span>
                                     </Typography>
@@ -642,14 +648,18 @@ const PublicResults = () => {
 
                       {/* 1st Place Winner Card */}
                       {firstPlace && (
-                        <Grid item xs={12} sm={4} md={3.5} order={{ xs: 1, sm: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Grid item xs={12} sm={4} md={3.5} order={{ xs: 1, sm: 2 }} sx={{ display: 'flex', alignSelf: 'stretch', justifyContent: 'center' }}>
                           <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1.05, opacity: 1 }}
+                            animate={{ scale: 1, opacity: 1 }}
                             transition={{ type: 'spring', stiffness: 100, delay: 0.1 }}
-                            style={{ width: '100%', maxWidth: 320, zIndex: 10 }}
+                            style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', height: '100%', zIndex: 10 }}
                           >
                             <Card sx={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
                               position: 'relative',
                               overflow: 'visible',
                               border: '2.5px solid #fbbf24',
@@ -668,50 +678,52 @@ const PublicResults = () => {
                                 <Trophy size={16} /> WINNER
                               </Box>
 
-                              <CardContent sx={{ pt: 5, pb: 4, textAlign: 'center' }}>
-                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 3.5 }}>
-                                  <Box sx={{
-                                    position: 'absolute', inset: -10, borderRadius: '50%',
-                                    background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, transparent, #fbbf24)',
-                                    animation: 'spin 4s linear infinite',
-                                    '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
-                                  }} />
-                                  <Avatar
-                                    src={firstPlace.photo && !firstPlace.is_nota ? `${MEDIA_URL}${firstPlace.photo}` : undefined}
-                                    sx={{
-                                      width: 140, height: 140, mx: 'auto',
-                                      border: '4px solid #fbbf24',
-                                      position: 'relative', zIndex: 1,
-                                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                                      bgcolor: firstPlace.is_nota ? '#334155' : 'inherit'
-                                    }}
-                                  >
-                                    {firstPlace.is_nota && <Typography variant="h4" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
-                                  </Avatar>
-                                  {firstPlace.symbol && !firstPlace.is_nota && (
+                              <CardContent sx={{ pt: 5, pb: 4, textAlign: 'center', display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
+                                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                                  <Box sx={{ position: 'relative', display: 'inline-block', mb: 3.5 }}>
+                                    <Box sx={{
+                                      position: 'absolute', inset: -10, borderRadius: '50%',
+                                      background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, transparent, #fbbf24)',
+                                      animation: 'spin 4s linear infinite',
+                                      '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
+                                    }} />
                                     <Avatar
-                                      src={`${MEDIA_URL}${firstPlace.symbol}`}
+                                      src={firstPlace.photo && !firstPlace.is_nota ? `${MEDIA_URL}${firstPlace.photo}` : undefined}
                                       sx={{
-                                        width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
-                                        bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
-                                        zIndex: 2
+                                        width: 140, height: 140, mx: 'auto',
+                                        border: '4px solid #fbbf24',
+                                        position: 'relative', zIndex: 1,
+                                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                        bgcolor: firstPlace.is_nota ? '#334155' : 'inherit'
                                       }}
-                                    />
+                                    >
+                                      {firstPlace.is_nota && <Typography variant="h4" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                    </Avatar>
+                                    {firstPlace.symbol && !firstPlace.is_nota && (
+                                      <Avatar
+                                        src={`${MEDIA_URL}${firstPlace.symbol}`}
+                                        sx={{
+                                          width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
+                                          bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
+                                          zIndex: 2
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
+
+                                  <Typography variant="h5" sx={{ fontWeight: 900, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                    {firstPlace.candidate_name}
+                                  </Typography>
+                                  
+                                  {!firstPlace.is_nota && (
+                                    <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
+                                      Symbol: {firstPlace.symbol_name || 'Official'}
+                                    </Typography>
                                   )}
                                 </Box>
 
-                                <Typography variant="h5" sx={{ fontWeight: 900, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                                  {firstPlace.candidate_name}
-                                </Typography>
-                                
-                                {!firstPlace.is_nota && (
-                                  <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
-                                    Symbol: {firstPlace.symbol_name || 'Official'}
-                                  </Typography>
-                                )}
-
                                 {showVotes && (
-                                  <Box sx={{ mt: 3, px: 2 }}>
+                                  <Box sx={{ mt: 'auto', pt: 3, px: 2, width: '100%' }}>
                                     <Typography variant="h3" sx={{ fontWeight: 950, color: '#fbbf24', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
                                       {firstPlace.vote_count} <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>votes</span>
                                     </Typography>
@@ -738,14 +750,18 @@ const PublicResults = () => {
 
                       {/* Tied Winners (rendered side by side in case of 1st place tie) */}
                       {hasTieForFirst && winners.map((winner: any, winIdx: number) => (
-                        <Grid item xs={12} sm={winners.length > 2 ? 4 : 5} md={winners.length > 2 ? 3.5 : 4} sx={{ display: 'flex', justifyContent: 'center' }} key={winner.candidate_id}>
+                        <Grid item xs={12} sm={winners.length > 2 ? 4 : 5} md={winners.length > 2 ? 3.5 : 4} sx={{ display: 'flex', alignSelf: 'stretch', justifyContent: 'center' }} key={winner.candidate_id}>
                           <motion.div
                             initial={{ scale: 0.8, opacity: 0 }}
-                            animate={{ scale: 1.05, opacity: 1 }}
+                            animate={{ scale: 1, opacity: 1 }}
                             transition={{ type: 'spring', stiffness: 100, delay: 0.1 * (winIdx + 1) }}
-                            style={{ width: '100%', maxWidth: 320, zIndex: 10 }}
+                            style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', height: '100%', zIndex: 10 }}
                           >
                             <Card sx={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
                               position: 'relative',
                               overflow: 'visible',
                               border: '2.5px solid #fbbf24',
@@ -764,50 +780,52 @@ const PublicResults = () => {
                                 <Trophy size={16} /> CO-WINNER
                               </Box>
 
-                              <CardContent sx={{ pt: 5, pb: 4, textAlign: 'center' }}>
-                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 3.5 }}>
-                                  <Box sx={{
-                                    position: 'absolute', inset: -10, borderRadius: '50%',
-                                    background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, transparent, #fbbf24)',
-                                    animation: 'spin 4s linear infinite',
-                                    '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
-                                  }} />
-                                  <Avatar
-                                    src={winner.photo && !winner.is_nota ? `${MEDIA_URL}${winner.photo}` : undefined}
-                                    sx={{
-                                      width: 140, height: 140, mx: 'auto',
-                                      border: '4px solid #fbbf24',
-                                      position: 'relative', zIndex: 1,
-                                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                                      bgcolor: winner.is_nota ? '#334155' : 'inherit'
-                                    }}
-                                  >
-                                    {winner.is_nota && <Typography variant="h4" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
-                                  </Avatar>
-                                  {winner.symbol && !winner.is_nota && (
+                              <CardContent sx={{ pt: 5, pb: 4, textAlign: 'center', display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
+                                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                                  <Box sx={{ position: 'relative', display: 'inline-block', mb: 3.5 }}>
+                                    <Box sx={{
+                                      position: 'absolute', inset: -10, borderRadius: '50%',
+                                      background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, transparent, #fbbf24)',
+                                      animation: 'spin 4s linear infinite',
+                                      '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
+                                    }} />
                                     <Avatar
-                                      src={`${MEDIA_URL}${winner.symbol}`}
+                                      src={winner.photo && !winner.is_nota ? `${MEDIA_URL}${winner.photo}` : undefined}
                                       sx={{
-                                        width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
-                                        bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
-                                        zIndex: 2
+                                        width: 140, height: 140, mx: 'auto',
+                                        border: '4px solid #fbbf24',
+                                        position: 'relative', zIndex: 1,
+                                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                        bgcolor: winner.is_nota ? '#334155' : 'inherit'
                                       }}
-                                    />
+                                    >
+                                      {winner.is_nota && <Typography variant="h4" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                    </Avatar>
+                                    {winner.symbol && !winner.is_nota && (
+                                      <Avatar
+                                        src={`${MEDIA_URL}${winner.symbol}`}
+                                        sx={{
+                                          width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
+                                          bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
+                                          zIndex: 2
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
+
+                                  <Typography variant="h5" sx={{ fontWeight: 950, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                    {winner.candidate_name}
+                                  </Typography>
+                                  
+                                  {!winner.is_nota && (
+                                    <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
+                                      Symbol: {winner.symbol_name || 'Official'}
+                                    </Typography>
                                   )}
                                 </Box>
 
-                                <Typography variant="h5" sx={{ fontWeight: 950, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                                  {winner.candidate_name}
-                                </Typography>
-                                
-                                {!winner.is_nota && (
-                                  <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
-                                    Symbol: {winner.symbol_name || 'Official'}
-                                  </Typography>
-                                )}
-
                                 {showVotes && (
-                                  <Box sx={{ mt: 3, px: 2 }}>
+                                  <Box sx={{ mt: 'auto', pt: 3, px: 2, width: '100%' }}>
                                     <Typography variant="h3" sx={{ fontWeight: 950, color: '#fbbf24', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
                                       {winner.vote_count} <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>votes</span>
                                     </Typography>
@@ -830,18 +848,20 @@ const PublicResults = () => {
                             </Card>
                           </motion.div>
                         </Grid>
-                      ))}
-
-                      {/* 3rd Place Card */}
+                      ))}                       {/* 3rd Place Card */}
                       {thirdPlace && (
-                        <Grid item xs={12} sm={4} md={3.5} order={3} sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <Grid item xs={12} sm={4} md={3.5} order={3} sx={{ display: 'flex', alignSelf: 'stretch', justifyContent: 'center' }}>
                           <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{ delay: 0.35 }}
-                            style={{ width: '100%', maxWidth: 320 }}
+                            style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', height: '100%' }}
                           >
                             <Card sx={{
+                              width: '100%',
+                              height: '100%',
+                              display: 'flex',
+                              flexDirection: 'column',
                               position: 'relative',
                               overflow: 'visible',
                               border: '1.5px solid rgba(180, 83, 9, 0.2)',
@@ -859,42 +879,44 @@ const PublicResults = () => {
                                 3rd
                               </Box>
                               
-                              <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center' }}>
-                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
-                                  <Avatar
-                                    src={thirdPlace.photo && !thirdPlace.is_nota ? `${MEDIA_URL}${thirdPlace.photo}` : undefined}
-                                    sx={{
-                                      width: 100, height: 100, mx: 'auto',
-                                      border: '3px solid #b45309',
-                                      boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
-                                      bgcolor: thirdPlace.is_nota ? '#334155' : 'inherit'
-                                    }}
-                                  >
-                                    {thirdPlace.is_nota && <Typography variant="h6" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
-                                  </Avatar>
-                                  {thirdPlace.symbol && !thirdPlace.is_nota && (
+                              <CardContent sx={{ pt: 4, pb: 3, textAlign: 'center', display: 'flex', flexDirection: 'column', flexGrow: 1, alignItems: 'center' }}>
+                                <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                                  <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
                                     <Avatar
-                                      src={`${MEDIA_URL}${thirdPlace.symbol}`}
+                                      src={thirdPlace.photo && !thirdPlace.is_nota ? `${MEDIA_URL}${thirdPlace.photo}` : undefined}
                                       sx={{
-                                        width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
-                                        bgcolor: 'white', border: '2.5px solid #b45309', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                                        width: 100, height: 100, mx: 'auto',
+                                        border: '3px solid #b45309',
+                                        boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                                        bgcolor: thirdPlace.is_nota ? '#334155' : 'inherit'
                                       }}
-                                    />
+                                    >
+                                      {thirdPlace.is_nota && <Typography variant="h6" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                    </Avatar>
+                                    {thirdPlace.symbol && !thirdPlace.is_nota && (
+                                      <Avatar
+                                        src={`${MEDIA_URL}${thirdPlace.symbol}`}
+                                        sx={{
+                                          width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
+                                          bgcolor: 'white', border: '2.5px solid #b45309', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
+                                        }}
+                                      />
+                                    )}
+                                  </Box>
+
+                                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5, wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                    {thirdPlace.candidate_name}
+                                  </Typography>
+                                  
+                                  {!thirdPlace.is_nota && (
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
+                                      Symbol: {thirdPlace.symbol_name || 'Official'}
+                                    </Typography>
                                   )}
                                 </Box>
 
-                                <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', mb: 0.5, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                                  {thirdPlace.candidate_name}
-                                </Typography>
-                                
-                                {!thirdPlace.is_nota && (
-                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, display: 'block', mb: 2 }}>
-                                    Symbol: {thirdPlace.symbol_name || 'Official'}
-                                  </Typography>
-                                )}
-
                                 {showVotes && (
-                                  <Box sx={{ mt: 2 }}>
+                                  <Box sx={{ mt: 'auto', pt: 2, px: 2, width: '100%' }}>
                                     <Typography variant="h5" sx={{ fontWeight: 900, color: '#d97706' }}>
                                       {thirdPlace.vote_count} <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>votes</span>
                                     </Typography>
@@ -927,7 +949,7 @@ const PublicResults = () => {
                           borderRadius: 4, bgcolor: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.05)',
                           overflow: 'hidden', backdropFilter: 'blur(8px)'
                         }}>
-                          {remainingCandidates.map((c: any) => {
+                          {remainingCandidates.map((c: any, index: number) => {
                             const rank = candidates.findIndex((cand: any) => cand.candidate_id === c.candidate_id) + 1;
                             return (
                               <Box key={c.candidate_id} sx={{
