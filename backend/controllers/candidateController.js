@@ -92,6 +92,19 @@ exports.createCandidate = async (req, res) => {
       return res.status(400).json({ message: `${voter.name} is already registered as a candidate in this election` });
     }
 
+    /* 5.5️⃣ check symbol uniqueness */
+    if (symbol_name) {
+      const [existingSymbol] = await db.execute(
+        `SELECT id FROM candidates WHERE election_id=? AND LOWER(TRIM(symbol_name))=LOWER(TRIM(?))`,
+        [election_id, symbol_name]
+      );
+      if (existingSymbol.length > 0) {
+        return res.status(400).json({ 
+          message: `The symbol name "${symbol_name}" is already taken by another candidate in this election.` 
+        });
+      }
+    }
+
     /* 6️⃣ handle uploaded files (photo and symbol) */
     let photoPath = null;
     let symbolPath = null;
@@ -308,6 +321,16 @@ exports.updateCandidate = async (req, res) => {
     }
 
     if (symbol_name !== undefined) {
+      // Check if another candidate in this election is already using this symbol name
+      const [existingSymbol] = await db.execute(
+        `SELECT id FROM candidates WHERE election_id=? AND LOWER(TRIM(symbol_name))=LOWER(TRIM(?)) AND id != ?`,
+        [election_id, symbol_name, candidate_id]
+      );
+      if (existingSymbol.length > 0) {
+        return res.status(400).json({ 
+          message: `The symbol name "${symbol_name}" is already taken by another candidate in this election.` 
+        });
+      }
       updateFields.push("symbol_name=?");
       updateParams.push(symbol_name);
     }
@@ -479,6 +502,19 @@ exports.selfNominate = async (req, res) => {
 
     if (existing.length > 0) {
       return res.status(400).json({ message: "You have already submitted a nomination." });
+    }
+
+    /* check symbol uniqueness */
+    if (symbol_name) {
+      const [existingSymbol] = await db.execute(
+        `SELECT id FROM candidates WHERE election_id=? AND LOWER(TRIM(symbol_name))=LOWER(TRIM(?))`,
+        [election_id, symbol_name]
+      );
+      if (existingSymbol.length > 0) {
+        return res.status(400).json({ 
+          message: `The symbol name "${symbol_name}" is already taken by another candidate in this election.` 
+        });
+      }
     }
 
     let photoPath = null;
