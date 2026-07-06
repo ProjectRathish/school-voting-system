@@ -538,28 +538,15 @@ const Candidates = () => {
     
     ctx.scale(scale, scale);
 
-    // 1. Vibrant Background
-    const gradient = ctx.createLinearGradient(0, 0, 1000, 1414);
-    gradient.addColorStop(0, '#4f46e5');
-    gradient.addColorStop(0.5, '#6366f1');
-    gradient.addColorStop(1, '#818cf8');
-    ctx.fillStyle = gradient;
+    // 1. Solid Indigo Background
+    ctx.fillStyle = '#4f46e5';
     ctx.fillRect(0, 0, 1000, 1414);
 
-    // 2. Decorative Elements
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.beginPath();
-    ctx.arc(1000, 0, 400, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 1414, 300, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 3. Main Card
+    // 2. Main Inner Card
     ctx.fillStyle = 'white';
     if (ctx.roundRect) {
       ctx.beginPath();
-      ctx.roundRect(40, 40, 920, 1334, 30);
+      ctx.roundRect(40, 40, 920, 1334, 24);
       ctx.fill();
     } else {
       ctx.fillRect(40, 40, 920, 1334);
@@ -587,59 +574,107 @@ const Candidates = () => {
       const photoImg = await loadImage(photoUrl);
       const symbolImg = await loadImage(symbolUrl);
       
-      // 4. Header
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#4f46e5';
-      ctx.font = '900 36px Inter, sans-serif';
-      ctx.fillText('VOTE FOR', 500, 120);
-      
-      ctx.font = '900 86px Inter, sans-serif';
-      ctx.fillText(c.post_name.toUpperCase(), 500, 210);
+      const schoolName = school?.name || 'School Election';
+      const electionName = selectedElectionName || 'Election';
 
-      // 5. Candidate Photo with Stylish Border
+      // 3. Top Branding (Header)
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#64748b';
+      ctx.font = '700 24px Inter, sans-serif';
+      ctx.fillText(schoolName.toUpperCase(), 500, 110);
+      
+      ctx.fillStyle = '#111827';
+      ctx.font = '900 36px Inter, sans-serif';
+      ctx.fillText(electionName.toUpperCase(), 500, 175);
+
+      // Divider Line 1
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(80, 220);
+      ctx.lineTo(920, 220);
+      ctx.stroke();
+
+      // 4. Voter Call
+      ctx.fillStyle = '#4f46e5';
+      ctx.font = '900 48px Inter, sans-serif';
+      ctx.fillText('VOTE FOR', 500, 320);
+
+      // Candidate Name (with auto-scaling font size)
+      let nameFontSize = 78;
+      ctx.font = `900 ${nameFontSize}px Inter, sans-serif`;
+      ctx.fillStyle = '#111827';
+      while (ctx.measureText(c.candidate_name).width > 840 && nameFontSize > 36) {
+        nameFontSize -= 4;
+        ctx.font = `900 ${nameFontSize}px Inter, sans-serif`;
+      }
+      ctx.fillText(c.candidate_name, 500, 430);
+
+      // 5. Media Row (Side-by-side Layout)
+      // Left box: Photo
       ctx.save();
       ctx.beginPath();
-      ctx.arc(500, 560, 230, 0, Math.PI * 2);
+      if (ctx.roundRect) {
+        ctx.roundRect(90, 520, 380, 380, 16);
+      } else {
+        ctx.rect(90, 520, 380, 380);
+      }
       ctx.clip();
-      ctx.drawImage(photoImg, 270, 330, 460, 460);
+      ctx.drawImage(photoImg, 90, 520, 380, 380);
       ctx.restore();
-      
+
       ctx.strokeStyle = '#4f46e5';
       ctx.lineWidth = 12;
       ctx.beginPath();
-      ctx.arc(500, 560, 236, 0, Math.PI * 2);
+      if (ctx.roundRect) {
+        ctx.roundRect(90, 520, 380, 380, 16);
+      } else {
+        ctx.rect(90, 520, 380, 380);
+      }
       ctx.stroke();
 
-      // 6. Candidate Name
-      ctx.fillStyle = '#111827';
-      ctx.font = '900 84px Inter, sans-serif';
-      ctx.fillText(c.candidate_name, 500, 900);
-
-      // 7. Symbol Container
-      const symbolY = 980;
-      ctx.fillStyle = '#f3f4f6';
+      // Right box: Symbol
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
       if (ctx.roundRect) {
-        ctx.beginPath();
-        ctx.roundRect(300, symbolY, 400, 320, 24);
+        ctx.roundRect(530, 520, 380, 380, 16);
         ctx.fill();
       } else {
-        ctx.fillRect(300, symbolY, 400, 320);
+        ctx.fillRect(530, 520, 380, 380);
       }
-      
-      ctx.drawImage(symbolImg, 380, symbolY + 30, 240, 240);
-      
+
+      ctx.drawImage(symbolImg, 600, 550, 240, 240);
+
+      // Symbol Name (with auto-scaling font size)
+      let symbolFontSize = 32;
+      ctx.font = `800 ${symbolFontSize}px Inter, sans-serif`;
       ctx.fillStyle = '#4f46e5';
-      ctx.font = '800 48px Inter, sans-serif';
-      ctx.fillText(c.symbol_name || 'CANDIDATE SYMBOL', 500, symbolY + 320);
+      while (ctx.measureText(c.symbol_name || 'Symbol').width > 340 && symbolFontSize > 18) {
+        symbolFontSize -= 2;
+        ctx.font = `800 ${symbolFontSize}px Inter, sans-serif`;
+      }
+      ctx.fillText(c.symbol_name || 'Symbol', 720, 850);
 
-      // 8. Footer
-      const schoolName = school?.name || 'School Election';
-      ctx.fillStyle = '#6b7280';
-      ctx.font = '700 24px Inter, sans-serif';
-      ctx.fillText(schoolName.toUpperCase(), 500, 1330);
-      ctx.font = '600 20px Inter, sans-serif';
-      ctx.fillText(`${selectedElectionName} • Official Campaign Material`, 500, 1360);
+      // 6. Post Title (Footer)
+      // Divider Line 2
+      ctx.strokeStyle = '#f1f5f9';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(80, 1120);
+      ctx.lineTo(920, 1120);
+      ctx.stroke();
 
+      // Post Title Text (with auto-scaling font size)
+      let postFontSize = 68;
+      ctx.font = `900 ${postFontSize}px Inter, sans-serif`;
+      ctx.fillStyle = '#4f46e5';
+      while (ctx.measureText(c.post_name.toUpperCase()).width > 840 && postFontSize > 28) {
+        postFontSize -= 4;
+        ctx.font = `900 ${postFontSize}px Inter, sans-serif`;
+      }
+      ctx.fillText(c.post_name.toUpperCase(), 500, 1240);
+
+      // 7. Download
       const link = document.createElement('a');
       link.download = `Campaign_Poster_${c.candidate_name.replace(/\s+/g, '_')}.png`;
       link.href = canvas.toDataURL('image/png', 1.0);
