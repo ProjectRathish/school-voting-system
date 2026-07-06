@@ -26,25 +26,28 @@ jobs:
           script: |
             set -e   # Stop immediately if any command fails
 
-            echo "📦 Pulling latest code..."
             cd ${{ secrets.APP_DIR }}
-            
-            # Back up existing uploads to a safe directory outside the repo
-            if [ -d "backend/public/uploads" ] && [ "$(ls -A backend/public/uploads)" ]; then
-              echo "📦 Backing up uploads..."
-              mkdir -p ../temp_uploads_backup
-              cp -r backend/public/uploads/* ../temp_uploads_backup/ || true
-            fi
 
+            # ── Ensure persistent uploads directory exists outside the repo ───
+            # This directory is NEVER touched by git pull
+            PERSISTENT_UPLOADS="/var/uploads/school-voting"
+            mkdir -p "$PERSISTENT_UPLOADS"
+
+            echo "🔗 Setting up persistent uploads symlink..."
+            # Remove the current uploads dir/symlink and replace with symlink to persistent store
+            rm -rf backend/public/uploads
+            mkdir -p backend/public
+            ln -sfn "$PERSISTENT_UPLOADS" backend/public/uploads
+            echo "   ✅ Symlink: backend/public/uploads -> $PERSISTENT_UPLOADS"
+
+            echo "📦 Pulling latest code..."
             git pull origin main
 
-            # Restore uploads
-            if [ -d "../temp_uploads_backup" ]; then
-              echo "📦 Restoring uploads..."
-              mkdir -p backend/public/uploads
-              cp -r ../temp_uploads_backup/* backend/public/uploads/ || true
-              rm -rf ../temp_uploads_backup
-            fi
+            # Re-link after pull (git pull may have recreated the directory)
+            rm -rf backend/public/uploads
+            mkdir -p backend/public
+            ln -sfn "$PERSISTENT_UPLOADS" backend/public/uploads
+            echo "   ✅ Symlink restored after git pull"
 
             echo "🔄 Updating frontend dependencies & building..."
             cd frontend-react
@@ -59,4 +62,4 @@ jobs:
             pm2 restart school-voting || pm2 start server.js --name school-voting
             pm2 save
 
-            echo "✅ Full deployment complete!"
+            echo "✅ Full deployment complete! Uploads safely at $PERSISTENT_UPLOADS"
