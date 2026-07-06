@@ -28,7 +28,23 @@ jobs:
 
             echo "📦 Pulling latest code..."
             cd ${{ secrets.APP_DIR }}
+            
+            # Back up existing uploads to a safe directory outside the repo
+            if [ -d "backend/public/uploads" ] && [ "$(ls -A backend/public/uploads)" ]; then
+              echo "📦 Backing up uploads..."
+              mkdir -p ../temp_uploads_backup
+              cp -r backend/public/uploads/* ../temp_uploads_backup/ || true
+            fi
+
             git pull origin main
+
+            # Restore uploads
+            if [ -d "../temp_uploads_backup" ]; then
+              echo "📦 Restoring uploads..."
+              mkdir -p backend/public/uploads
+              cp -r ../temp_uploads_backup/* backend/public/uploads/ || true
+              rm -rf ../temp_uploads_backup
+            fi
 
             echo "🔄 Updating frontend dependencies & building..."
             cd frontend-react
