@@ -40,7 +40,7 @@ import {
   Check as CheckIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axiosInstance from '../../api/axiosInstance';
+import axiosInstance, { getMediaUrl } from '../../api/axiosInstance';
 import { useQuery } from '@tanstack/react-query';
 import ThemeToggle from '../../components/common/ThemeToggle';
 import evmIcon from '../../assets/evm_icon.png';
@@ -93,8 +93,7 @@ const TerminalSession = () => {
   const getFullUrl = (path: string) => {
     if (!path) return '';
     if (path.startsWith('http')) return path;
-    const baseUrl = axiosInstance.defaults.baseURL?.replace('/api', '') || '';
-    return `${baseUrl}${path}`;
+    return `${getMediaUrl()}${path}`;
   };
 
   const handleSelectCandidate = (postId: number, candId: number) => {
