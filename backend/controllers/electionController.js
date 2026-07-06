@@ -1318,7 +1318,7 @@ exports.duplicateElection = async (req, res) => {
 
     // 2. Fetch School Plan Limits
     const [schoolInfo] = await connection.execute(`
-      SELECT s.custom_max_elections, p.max_elections 
+      SELECT s.custom_max_elections, p.max_elections, s.custom_max_voters, p.max_voters
       FROM schools s
       LEFT JOIN subscription_plans p ON s.plan_id = p.id
       WHERE s.id = ?
@@ -1424,6 +1424,23 @@ exports.duplicateElection = async (req, res) => {
         "SELECT id, admission_no, name, class_id, sex, division, is_blocked FROM voters WHERE election_id = ? AND school_id = ?",
         [originalElectionId, school_id]
       );
+
+      // Check Voter Limit
+      const maxVoters = (schoolInfo[0]?.custom_max_voters !== null && schoolInfo[0]?.custom_max_voters !== undefined) 
+        ? schoolInfo[0].custom_max_voters 
+        : (schoolInfo[0]?.max_voters || 450);
+
+      const [currentVoterCount] = await connection.execute(
+        "SELECT COUNT(*) as count FROM voters WHERE school_id = ?",
+        [school_id]
+      );
+
+      if (currentVoterCount[0].count + voterRows.length > maxVoters) {
+        await connection.rollback();
+        return res.status(403).json({ 
+          message: `Voter limit exceeded. Your current plan allows a maximum of ${maxVoters} voters. Duplicating these voters (${voterRows.length} voters) would exceed your limit (you currently have ${currentVoterCount[0].count} voters). Please delete existing voters or upgrade your plan first.` 
+        });
+      }
 
       for (const v of voterRows) {
         // If class_id was election-specific, use new one; otherwise keep as is (global)
