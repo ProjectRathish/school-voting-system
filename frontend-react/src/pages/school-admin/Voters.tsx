@@ -387,7 +387,7 @@ const Voters = () => {
               </Button>
             </>
           )}
-          {selectedElectionStatus !== 'CLOSED' && (
+          {selectedElectionId && selectedElectionStatus !== 'CLOSED' && (
             <Button variant="contained" startIcon={<Plus size={20} />} onClick={() => setOpenAdd(true)} sx={{ borderRadius: 2, flexGrow: { xs: 1, sm: 1 }, py: 1, fontWeight: 700 }}>
               Add Voter
             </Button>
@@ -458,7 +458,14 @@ const Voters = () => {
         </Box>
       </Box>
 
-      <Paper sx={{ mb: 3, borderRadius: 1, overflow: 'hidden' }}>
+      {!selectedElectionId && (
+        <Alert severity="info" sx={{ mb: 4, borderRadius: 2 }}>
+          <strong>No Election Selected:</strong> Please select or configure an election from the navigation panel to view, add, or manage voters.
+        </Alert>
+      )}
+
+      {selectedElectionId && (
+        <Paper sx={{ mb: 3, borderRadius: 1, overflow: 'hidden' }}>
         {/* EXPORT & TOOLS */}
         <Box sx={{ 
           p: 2, 
@@ -641,6 +648,7 @@ const Voters = () => {
            )}
         </Box>
       </Paper>
+      )}
 
       {selectedElectionId && (
         <>
