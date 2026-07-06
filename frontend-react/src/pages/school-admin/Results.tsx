@@ -4,14 +4,15 @@ import {
   Box, Typography, Paper, Grid, Button, Alert, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, Card, CardContent,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress,
-  Snackbar
+  Snackbar, Avatar
 } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Download, Trophy, Users, BarChart3, Sparkles, ExternalLink, Copy, Check, Share2 } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
 import { useQuery } from '@tanstack/react-query';
-import axiosInstance from '../../api/axiosInstance';
+import axiosInstance, { getMediaUrl } from '../../api/axiosInstance';
 
+const MEDIA_URL = getMediaUrl();
 const COLORS = ['#3f51b5', '#f50057', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
 const Results = () => {
@@ -282,15 +283,16 @@ const Results = () => {
                         fontSize: 120, opacity: 0.07, userSelect: 'none', lineHeight: 1
                       }}>🏆</Box>
 
-                      {/* Badge */}
-                      <Box sx={{
-                        width: 80, height: 80, borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, boxShadow: '0 8px 24px rgba(245,158,11,0.4)'
-                      }}>
-                        <Trophy size={40} color="white" />
-                      </Box>
+                      {/* Winner Photo */}
+                      <Avatar 
+                        src={post.candidates[0]?.photo ? `${MEDIA_URL}${post.candidates[0].photo}` : undefined} 
+                        sx={{ 
+                          width: 80, 
+                          height: 80, 
+                          boxShadow: '0 8px 24px rgba(245,158,11,0.3)',
+                          border: '3px solid #f59e0b'
+                        }}
+                      />
 
                       <Box sx={{ flexGrow: 1 }}>
                         <Box sx={{
@@ -301,9 +303,18 @@ const Results = () => {
                             Uncontested Winner
                           </Typography>
                         </Box>
-                        <Typography variant="h5" sx={{ fontWeight: 900, color: '#78350f', lineHeight: 1.2 }}>
-                          {post.candidates[0]?.candidate_name}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Typography variant="h5" sx={{ fontWeight: 900, color: '#78350f', lineHeight: 1.2 }}>
+                            {post.candidates[0]?.candidate_name}
+                          </Typography>
+                          {post.candidates[0]?.symbol && (
+                            <img 
+                              src={`${MEDIA_URL}${post.candidates[0].symbol}`} 
+                              alt="symbol" 
+                              style={{ width: 28, height: 28, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', padding: '2px', border: '1px solid #fde68a' }} 
+                            />
+                          )}
+                        </Box>
                         <Typography variant="body2" sx={{ color: '#92400e', mt: 0.5, fontWeight: 500 }}>
                           Only candidate for this post — automatically declared winner. No voting was required.
                         </Typography>
@@ -333,8 +344,29 @@ const Results = () => {
                                     <TableCell>
                                       {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
                                     </TableCell>
-                                    <TableCell sx={{ fontWeight: idx === 0 ? 700 : 400 }}>
-                                      {c.candidate_name}
+                                    <TableCell>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Avatar 
+                                          src={c.photo && !c.is_nota ? `${MEDIA_URL}${c.photo}` : undefined} 
+                                          sx={{ width: 36, height: 36, bgcolor: c.is_nota ? '#334155' : 'inherit' }}
+                                        >
+                                          {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.6rem' }}>NOTA</Typography>}
+                                        </Avatar>
+                                        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                          <Typography variant="body2" sx={{ fontWeight: idx === 0 ? 700 : 500, color: 'text.primary' }}>
+                                            {c.candidate_name}
+                                          </Typography>
+                                          {c.symbol && !c.is_nota && (
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+                                              <img 
+                                                src={`${MEDIA_URL}${c.symbol}`} 
+                                                alt="symbol" 
+                                                style={{ width: 18, height: 18, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', padding: '1px', border: '1px solid #e2e8f0' }} 
+                                              />
+                                            </Box>
+                                          )}
+                                        </Box>
+                                      </Box>
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: 700 }}>{c.vote_count}</TableCell>
                                     <TableCell>
