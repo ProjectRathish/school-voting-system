@@ -4,7 +4,7 @@ const db = require("../config/db");
 exports.createPollingBooth = async (req, res) => {
   try {
     const school_id = req.user.school_id;
-    const { booth_number, location, capacity } = req.body;
+    const { booth_number, booth_name, location, capacity } = req.body;
 
     // Validate required fields
     if (!booth_number || !location) {
@@ -51,9 +51,9 @@ exports.createPollingBooth = async (req, res) => {
 
     // Create the polling booth
     const [result] = await db.execute(
-      `INSERT INTO polling_booths (school_id, booth_number, location, capacity, status)
-       VALUES (?, ?, ?, ?, 'ACTIVE')`,
-      [school_id, booth_number, location, capacity || null]
+      `INSERT INTO polling_booths (school_id, booth_number, booth_name, location, capacity, status)
+       VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
+      [school_id, booth_number, booth_name || null, location, capacity || null]
     );
 
     res.status(201).json({
@@ -136,7 +136,7 @@ exports.updatePollingBooth = async (req, res) => {
   try {
     const school_id = req.user.school_id;
     const { booth_id } = req.params;
-    const { booth_number, location, capacity, status } = req.body;
+    const { booth_number, booth_name, location, capacity, status } = req.body;
 
     // Verify polling booth exists
     const [existingBooth] = await db.execute(
@@ -158,6 +158,10 @@ exports.updatePollingBooth = async (req, res) => {
     if (booth_number !== undefined) {
       updateFields.push("booth_number=?");
       updateValues.push(booth_number);
+    }
+    if (booth_name !== undefined) {
+      updateFields.push("booth_name=?");
+      updateValues.push(booth_name || null);
     }
     if (location !== undefined) {
       updateFields.push("location=?");

@@ -126,7 +126,8 @@ exports.verifyMachine = async (req, res) => {
     // Find machine by machine_code
     const [machines] = await db.execute(
       `SELECT m.id, m.booth_id, m.status, m.machine_code, m.machine_name, m.school_id, m.current_voter_id, m.device_fingerprint,
-              pb.booth_number as booth_name
+              pb.booth_number,
+              COALESCE(pb.booth_name, pb.booth_number) as booth_name
        FROM voting_machines m
        LEFT JOIN polling_booths pb ON m.booth_id = pb.id
        WHERE m.machine_code=?`,
@@ -179,6 +180,7 @@ exports.verifyMachine = async (req, res) => {
       machine_name: machine.machine_name,
       machine_code: machine.machine_code,
       booth_id: machine.booth_id,
+      booth_number: machine.booth_number,
       booth_name: machine.booth_name,
       status: machine.status,
       current_voter_id: machine.current_voter_id,

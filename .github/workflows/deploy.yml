@@ -58,6 +58,9 @@ jobs:
             cd ../backend
             npm ci --prefer-offline
 
+            echo "🗄️  Running DB migrations..."
+            node scripts/migrate_booth_name.js || true
+
             echo "♻️ Restarting backend..."
             pm2 restart school-voting || pm2 start server.js --name school-voting
             pm2 save

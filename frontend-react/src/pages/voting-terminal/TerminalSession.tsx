@@ -353,7 +353,9 @@ const TerminalSession = () => {
             </Box>
             <Box>
                <Typography sx={{ fontWeight: 800, fontSize: { xs: '0.95rem', md: '1.25rem' } }}>Electronic Voting Terminal</Typography>
-               <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>{machine?.machine_code} • {machine?.booth_name || 'Booth Protected'}</Typography>
+               <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
+                  {machine?.machine_code}{machine?.booth_number ? ` • Booth #${machine.booth_number}${machine.booth_name && machine.booth_name !== machine.booth_number ? ` · ${machine.booth_name}` : ''}` : ''}
+               </Typography>
             </Box>
          </Box>
          

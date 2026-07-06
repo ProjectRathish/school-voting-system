@@ -30,7 +30,7 @@ const Infrastructure = () => {
   const [openDeleteAllMachines, setOpenDeleteAllMachines] = useState(false);
   const [editingBooth, setEditingBooth] = useState<any>(null);
   const [openDelete, setOpenDelete] = useState<any>(null);
-  const [boothForm, setBoothForm] = useState({ booth_number: '', location: '', capacity: '' });
+  const [boothForm, setBoothForm] = useState({ booth_number: '', booth_name: '', location: '', capacity: '' });
 
   // Officer specific states
   const [openOfficer, setOpenOfficer] = useState(false);
@@ -151,7 +151,7 @@ const Infrastructure = () => {
       setSuccess('Polling booth created!');
       setOpenBooth(false);
       setDialogError(null);
-      setBoothForm({ booth_number: '', location: '', capacity: '' });
+      setBoothForm({ booth_number: '', booth_name: '', location: '', capacity: '' });
       queryClient.invalidateQueries({ queryKey: ['booths'] });
       setTimeout(() => setSuccess(null), 3000);
     },
@@ -164,7 +164,7 @@ const Infrastructure = () => {
       setSuccess('Polling booth updated!');
       setEditingBooth(null);
       setDialogError(null);
-      setBoothForm({ booth_number: '', location: '', capacity: '' });
+      setBoothForm({ booth_number: '', booth_name: '', location: '', capacity: '' });
       queryClient.invalidateQueries({ queryKey: ['booths'] });
       setTimeout(() => setSuccess(null), 3000);
     },
@@ -383,7 +383,7 @@ const Infrastructure = () => {
                             </Box>
                             <Box>
                               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                                Booth #{b.booth_number}
+                                Booth #{b.booth_number}{b.booth_name ? ` · ${b.booth_name}` : ''}
                               </Typography>
                               <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
                                 {b.location}
@@ -394,7 +394,7 @@ const Infrastructure = () => {
                             <Tooltip title="Edit Booth">
                                 <IconButton size="small" onClick={() => {
                                     setEditingBooth(b);
-                                    setBoothForm({ booth_number: String(b.booth_number), location: b.location, capacity: b.capacity !== null && b.capacity !== undefined ? String(b.capacity) : '' });
+                                    setBoothForm({ booth_number: String(b.booth_number), booth_name: b.booth_name || '', location: b.location, capacity: b.capacity !== null && b.capacity !== undefined ? String(b.capacity) : '' });
                                 }}><Edit size={16} /></IconButton>
                             </Tooltip>
                             <Tooltip title="Delete Booth">
@@ -698,7 +698,7 @@ const Infrastructure = () => {
       )}
 
       {/* Dialogs */}
-      <Dialog open={openBooth || !!editingBooth} onClose={() => { setOpenBooth(false); setEditingBooth(null); setDialogError(null); setBoothForm({ booth_number: '', location: '', capacity: '' }); }} maxWidth="xs" fullWidth>
+      <Dialog open={openBooth || !!editingBooth} onClose={() => { setOpenBooth(false); setEditingBooth(null); setDialogError(null); setBoothForm({ booth_number: '', booth_name: '', location: '', capacity: '' }); }} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700 }}>{editingBooth ? 'Edit Polling Booth' : 'Create Polling Booth'}</DialogTitle>
         <DialogContent>
           {dialogError && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{dialogError}</Alert>}
@@ -709,6 +709,13 @@ const Infrastructure = () => {
                 placeholder="e.g. 1"
                 value={boothForm.booth_number} 
                 onChange={e => setBoothForm(p => ({ ...p, booth_number: e.target.value }))} 
+            />
+            <TextField 
+                label="Booth Name (Optional)" 
+                fullWidth 
+                placeholder="e.g. Computer Lab, Main Hall"
+                value={boothForm.booth_name} 
+                onChange={e => setBoothForm(p => ({ ...p, booth_name: e.target.value }))} 
             />
             <TextField 
                 label="Location / Room" 
@@ -727,7 +734,7 @@ const Infrastructure = () => {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-            <Button onClick={() => { setOpenBooth(false); setEditingBooth(null); setBoothForm({ booth_number: '', location: '', capacity: '' }); }}>Cancel</Button>
+            <Button onClick={() => { setOpenBooth(false); setEditingBooth(null); setBoothForm({ booth_number: '', booth_name: '', location: '', capacity: '' }); }}>Cancel</Button>
             <Button variant="contained" onClick={() => {
                 const isDuplicate = booths?.some((b: any) => String(b.booth_number) === String(boothForm.booth_number) && (!editingBooth || b.id !== editingBooth.id));
                 if (isDuplicate) {
