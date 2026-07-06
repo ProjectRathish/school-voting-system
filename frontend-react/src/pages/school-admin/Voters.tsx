@@ -256,18 +256,29 @@ const Voters = () => {
       if (!printWindow) return;
 
       const style = `
-        @page { size: A4; margin: 15mm; }
-        body { font-family: 'Inter', sans-serif; color: #1e1e28; margin: 0; padding: 20px; }
-        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 30px; }
-        h1 { margin: 0; font-size: 1.5rem; text-transform: uppercase; }
-        h2 { margin: 5px 0; font-size: 1rem; color: #666; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background-color: #f0f0f0; text-align: left; padding: 10px; border: 1px solid #ccc; text-transform: uppercase; font-size: 10px; }
-        td { padding: 8px 10px; border: 1px solid #ccc; font-size: 12px; }
-        .signature-box { height: 35px; min-width: 150px; }
-        .page-break { page-break-after: always; }
-        .footer { position: fixed; bottom: 0; width: 100%; text-align: right; font-size: 9px; color: #999; }
-        .voter-row:nth-child(even) { background-color: #f9f9f9; }
+        @page { size: A4; margin: 8mm; }
+        body { font-family: 'Inter', sans-serif; color: #1e1e28; margin: 0; padding: 0; }
+        .voter-group { page-break-after: always; break-after: page; }
+        .voter-group:last-child { page-break-after: avoid; break-after: avoid; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 10px; }
+        .school-title { font-weight: 900; font-size: 0.9rem; color: #4338ca; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+        h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; font-weight: 800; }
+        h2 { margin: 3px 0 0 0; font-size: 0.85rem; color: #4b5563; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background-color: #f3f4f6; text-align: left; padding: 5px 8px; border: 1.5px solid #000; text-transform: uppercase; font-size: 9px; font-weight: 800; }
+        td { border: 1.5px solid #000; }
+        .voter-row:nth-child(even) { background-color: #f9fafb; }
+        .signature-box { width: 220px; }
+
+        /* Density scaling classes to fit student list in a single page */
+        .density-low td { padding: 8px 10px; font-size: 11.5px; }
+        .density-low .voter-row { height: 32px; }
+
+        .density-medium td { padding: 5px 8px; font-size: 10.5px; }
+        .density-medium .voter-row { height: 25px; }
+
+        .density-high td { padding: 3px 6px; font-size: 9px; }
+        .density-high .voter-row { height: 19px; }
       `;
 
       let html = `<html><head><title>Signature Sheet - ${selectedElectionName}</title><style>${style}</style></head><body>`;
@@ -282,10 +293,20 @@ const Voters = () => {
 
       const groupKeys = Object.keys(groups).sort();
       
-      groupKeys.forEach((key, index) => {
-        html += `<div class="voter-group ${index > 0 ? 'page-break' : ''}">`;
+      groupKeys.forEach((key) => {
+        const students = groups[key];
+        const studentCount = students.length;
+        
+        let densityClass = 'density-low';
+        if (studentCount > 38) {
+          densityClass = 'density-high';
+        } else if (studentCount > 28) {
+          densityClass = 'density-medium';
+        }
+
+        html += `<div class="voter-group ${densityClass}">`;
         html += `<div class="header">
-                   <div style="font-weight: 800; font-size: 1.2rem; color: #4338ca; margin-bottom: 5px;">${user?.school_name || 'School Voting System'}</div>
+                   <div class="school-title">${user?.school_name || 'School Voting System'}</div>
                    <h1>${selectedElectionName}</h1>
                    <h2>VOTER SIGNATURE SHEET - ${key}</h2>
                  </div>`;
@@ -293,13 +314,13 @@ const Voters = () => {
                    <th style="width: 50px;">#</th>
                    <th style="width: 120px;">ADMISSION NO</th>
                    <th>FULL NAME</th>
-                   <th style="width: 200px;">SIGNATURE / THUMB</th>
+                   <th style="width: 220px;">SIGNATURE / THUMB</th>
                  </tr></thead><tbody>`;
         
-        groups[key].forEach((v, i) => {
+        students.forEach((v, i) => {
           html += `<tr class="voter-row">
-                     <td>${i + 1}</td>
-                     <td style="font-family: monospace;">${v.admission_no}</td>
+                     <td style="font-weight: 700;">${i + 1}</td>
+                     <td style="font-family: monospace; font-weight: 700;">${v.admission_no}</td>
                      <td style="font-weight: 700;">${v.name}</td>
                      <td class="signature-box"></td>
                    </tr>`;
@@ -308,7 +329,7 @@ const Voters = () => {
         html += `</tbody></table></div>`;
       });
 
-      html += `<div class="footer">Generated on ${new Date().toLocaleString()} | School Voting System</div>`;
+      html += `<div class="footer" style="position: fixed; bottom: 0; width: 100%; text-align: right; font-size: 8px; color: #999;">Generated on ${new Date().toLocaleString()} | School Voting System</div>`;
       html += `</body><script>window.onload = () => { window.print(); window.close(); };</script></html>`;
 
       printWindow.document.write(html);
