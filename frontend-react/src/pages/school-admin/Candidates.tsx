@@ -577,8 +577,12 @@ const Candidates = () => {
     });
 
     try {
-      const photoUrl = `${BASE_URL}${c.photo}`;
-      const symbolUrl = `${BASE_URL}${c.symbol}`;
+      if (!c.photo || !c.symbol) {
+        throw new Error("Both a candidate photo and an election symbol must be uploaded to download the campaign poster.");
+      }
+
+      const photoUrl = c.photo.startsWith('http') ? c.photo : `${BASE_URL}${c.photo}`;
+      const symbolUrl = c.symbol.startsWith('http') ? c.symbol : `${BASE_URL}${c.symbol}`;
       
       const photoImg = await loadImage(photoUrl);
       const symbolImg = await loadImage(symbolUrl);

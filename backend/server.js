@@ -71,14 +71,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // ─── Static Files ─────────────────────────────────────────────────────────────
-// Serve uploaded files with explicit CORS headers for Canvas processing
-app.use("/uploads", cors({ origin: allowedOrigins }), express.static(path.join(__dirname, "uploads"), {
-  setHeaders: (res) => {
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-    res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  }
-}));
+// Serve uploaded files with standard CORS configuration allowing all origins
+app.use("/uploads", cors(), express.static(path.join(__dirname, "uploads")));
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 app.use(generalLimiter);
