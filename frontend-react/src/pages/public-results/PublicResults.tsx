@@ -368,11 +368,17 @@ const PublicResults = () => {
     const currentPost = results[currentPostIndex];
     const candidates = currentPost?.candidates || [];
 
-    // Helper for Podium placements
-    const firstPlace = candidates[0];
-    const secondPlace = candidates[1];
-    const thirdPlace = candidates[2];
-    const remainingCandidates = candidates.slice(3);
+    // Group candidates by vote count to handle ties
+    const maxVotes = candidates[0]?.vote_count || 0;
+    const winners = maxVotes > 0 ? candidates.filter((c: any) => c.vote_count === maxVotes) : [];
+    const hasTieForFirst = winners.length > 1;
+
+    const firstPlace = !hasTieForFirst ? candidates[0] : null;
+    const secondPlace = !hasTieForFirst ? candidates[1] : null;
+    const thirdPlace = !hasTieForFirst ? candidates[2] : null;
+    const remainingCandidates = !hasTieForFirst 
+      ? candidates.slice(3) 
+      : candidates.filter((c: any) => c.vote_count < maxVotes);
 
     return (
       <Box sx={{
@@ -730,6 +736,102 @@ const PublicResults = () => {
                         </Grid>
                       )}
 
+                      {/* Tied Winners (rendered side by side in case of 1st place tie) */}
+                      {hasTieForFirst && winners.map((winner: any, winIdx: number) => (
+                        <Grid item xs={12} sm={winners.length > 2 ? 4 : 5} md={winners.length > 2 ? 3.5 : 4} sx={{ display: 'flex', justifyContent: 'center' }} key={winner.candidate_id}>
+                          <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1.05, opacity: 1 }}
+                            transition={{ type: 'spring', stiffness: 100, delay: 0.1 * (winIdx + 1) }}
+                            style={{ width: '100%', maxWidth: 320, zIndex: 10 }}
+                          >
+                            <Card sx={{
+                              position: 'relative',
+                              overflow: 'visible',
+                              border: '2.5px solid #fbbf24',
+                              background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.03) 100%)',
+                              boxShadow: '0 15px 45px rgba(251, 191, 36, 0.25), 0 0 30px rgba(99, 102, 241, 0.15)',
+                              borderRadius: 5
+                            }}>
+                              {/* Winner top tag */}
+                              <Box sx={{
+                                position: 'absolute', top: -30, left: '50%', transform: 'translateX(-50%)',
+                                bgcolor: '#fbbf24', color: '#0f172a', py: 0.6, px: 2.5, borderRadius: 5,
+                                display: 'flex', alignItems: 'center', gap: 0.8, fontWeight: 900,
+                                fontSize: '0.85rem', letterSpacing: 1.5, textTransform: 'uppercase',
+                                boxShadow: '0 8px 20px rgba(251, 191, 36, 0.4)', border: '3px solid #0a0f1d'
+                              }}>
+                                <Trophy size={16} /> CO-WINNER
+                              </Box>
+
+                              <CardContent sx={{ pt: 5, pb: 4, textAlign: 'center' }}>
+                                <Box sx={{ position: 'relative', display: 'inline-block', mb: 3.5 }}>
+                                  <Box sx={{
+                                    position: 'absolute', inset: -10, borderRadius: '50%',
+                                    background: 'conic-gradient(from 0deg, #fbbf24, #f59e0b, transparent, #fbbf24)',
+                                    animation: 'spin 4s linear infinite',
+                                    '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
+                                  }} />
+                                  <Avatar
+                                    src={winner.photo && !winner.is_nota ? `${MEDIA_URL}${winner.photo}` : undefined}
+                                    sx={{
+                                      width: 140, height: 140, mx: 'auto',
+                                      border: '4px solid #fbbf24',
+                                      position: 'relative', zIndex: 1,
+                                      boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                      bgcolor: winner.is_nota ? '#334155' : 'inherit'
+                                    }}
+                                  >
+                                    {winner.is_nota && <Typography variant="h4" sx={{ fontWeight: 900, color: '#94a3b8' }}>NOTA</Typography>}
+                                  </Avatar>
+                                  {winner.symbol && !winner.is_nota && (
+                                    <Avatar
+                                      src={`${MEDIA_URL}${winner.symbol}`}
+                                      sx={{
+                                        width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
+                                        bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
+                                        zIndex: 2
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+
+                                <Typography variant="h5" sx={{ fontWeight: 950, color: 'white', mb: 0.5, fontSize: '1.6rem', letterSpacing: '-0.5px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                  {winner.candidate_name}
+                                </Typography>
+                                
+                                {!winner.is_nota && (
+                                  <Typography variant="body2" sx={{ color: '#cbd5e1', fontWeight: 600, display: 'block', mb: 3, letterSpacing: 1 }}>
+                                    Symbol: {winner.symbol_name || 'Official'}
+                                  </Typography>
+                                )}
+
+                                {showVotes && (
+                                  <Box sx={{ mt: 3, px: 2 }}>
+                                    <Typography variant="h3" sx={{ fontWeight: 950, color: '#fbbf24', display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 0.5 }}>
+                                      {winner.vote_count} <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 600 }}>votes</span>
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5 }}>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={currentPost.total_votes > 0 ? (winner.vote_count / currentPost.total_votes) * 100 : 0}
+                                        sx={{
+                                          flexGrow: 1, height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.05)',
+                                          '& .MuiLinearProgress-bar': { bgcolor: '#fbbf24' }
+                                        }}
+                                      />
+                                      <Typography variant="body2" sx={{ fontWeight: 800, color: '#fbbf24' }}>
+                                        {currentPost.total_votes > 0 ? ((winner.vote_count / currentPost.total_votes) * 100).toFixed(0) : 0}%
+                                      </Typography>
+                                    </Box>
+                                  </Box>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        </Grid>
+                      ))}
+
                       {/* 3rd Place Card */}
                       {thirdPlace && (
                         <Grid item xs={12} sm={4} md={3.5} order={3} sx={{ display: 'flex', justifyContent: 'center' }}>
@@ -825,8 +927,8 @@ const PublicResults = () => {
                           borderRadius: 4, bgcolor: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255,255,255,0.05)',
                           overflow: 'hidden', backdropFilter: 'blur(8px)'
                         }}>
-                          {remainingCandidates.map((c: any, index: number) => {
-                            const rank = index + 4;
+                          {remainingCandidates.map((c: any) => {
+                            const rank = candidates.findIndex((cand: any) => cand.candidate_id === c.candidate_id) + 1;
                             return (
                               <Box key={c.candidate_id} sx={{
                                 display: 'flex', alignItems: 'center', justifycontent: 'space-between',
