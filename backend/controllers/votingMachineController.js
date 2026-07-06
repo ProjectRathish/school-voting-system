@@ -535,11 +535,12 @@ exports.fetchBallot = async (req, res) => {
     // Fetch candidates for these posts
     const placeholders = postIds.map(() => '?').join(',');
     const [candidates] = await db.execute(
-       `SELECT c.id as candidate_id, c.post_id, c.photo, c.symbol, v.name as candidate_name
+       `SELECT c.id as candidate_id, c.post_id, c.photo, c.symbol, c.symbol_name, v.name as candidate_name
         FROM candidates c
         JOIN voters v ON c.voter_id = v.id
         WHERE c.post_id IN (${placeholders}) 
         AND c.election_id=? 
+        AND c.status = 'APPROVED'
         AND v.is_blocked = 0`,
        [...postIds, voter.election_id]
     );
