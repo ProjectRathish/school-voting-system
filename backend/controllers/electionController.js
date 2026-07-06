@@ -502,6 +502,7 @@ exports.getResults = async (req, res) => {
       `SELECT 
          p.id as post_id,
          p.name as post_name,
+         p.allow_nota,
          c.id as candidate_id,
          u.name as candidate_name,
          c.photo,
@@ -512,7 +513,7 @@ exports.getResults = async (req, res) => {
        LEFT JOIN voters u ON c.voter_id = u.id
        LEFT JOIN votes v ON v.candidate_id = c.id
        WHERE p.election_id = ? AND p.school_id = ?
-       GROUP BY p.id, p.name, c.id, u.name, c.photo, c.symbol
+       GROUP BY p.id, p.name, p.allow_nota, c.id, u.name, c.photo, c.symbol
        ORDER BY p.id ASC, vote_count DESC`,
       [id, school_id]
     );
@@ -535,6 +536,7 @@ exports.getResults = async (req, res) => {
         postsMap.set(row.post_id, {
           post_id: row.post_id,
           post_name: row.post_name,
+          allow_nota: row.allow_nota,
           total_votes: 0,
           candidates: []
         });
@@ -560,15 +562,17 @@ exports.getResults = async (req, res) => {
       const notaCount = notaMap.get(post.post_id) || 0;
 
       if (!is_uncontested) {
-        post.candidates.push({
-          candidate_id: -1,
-          candidate_name: 'None of the Above (NOTA)',
-          photo: null,
-          symbol: null,
-          vote_count: notaCount,
-          is_nota: true
-        });
-        post.total_votes += notaCount;
+        if (post.allow_nota !== 0) {
+          post.candidates.push({
+            candidate_id: -1,
+            candidate_name: 'None of the Above (NOTA)',
+            photo: null,
+            symbol: null,
+            vote_count: notaCount,
+            is_nota: true
+          });
+          post.total_votes += notaCount;
+        }
         post.candidates.sort((a, b) => b.vote_count - a.vote_count);
       }
 
@@ -644,6 +648,7 @@ exports.getPublicResults = async (req, res) => {
       `SELECT 
          p.id as post_id,
          p.name as post_name,
+         p.allow_nota,
          c.id as candidate_id,
          u.name as candidate_name,
          c.photo,
@@ -655,7 +660,7 @@ exports.getPublicResults = async (req, res) => {
        LEFT JOIN voters u ON c.voter_id = u.id
        LEFT JOIN votes v ON v.candidate_id = c.id
        WHERE p.election_id = ?
-       GROUP BY p.id, p.name, c.id, u.name, c.photo, c.symbol, c.symbol_name
+       GROUP BY p.id, p.name, p.allow_nota, c.id, u.name, c.photo, c.symbol, c.symbol_name
        ORDER BY p.id ASC, vote_count DESC`,
       [numericElectionId]
     );
@@ -678,6 +683,7 @@ exports.getPublicResults = async (req, res) => {
         postsMap.set(row.post_id, {
           post_id: row.post_id,
           post_name: row.post_name,
+          allow_nota: row.allow_nota,
           total_votes: 0,
           candidates: []
         });
@@ -704,16 +710,18 @@ exports.getPublicResults = async (req, res) => {
       const notaCount = notaMap.get(post.post_id) || 0;
 
       if (!is_uncontested) {
-        post.candidates.push({
-          candidate_id: -1,
-          candidate_name: 'None of the Above (NOTA)',
-          photo: null,
-          symbol: null,
-          symbol_name: 'nota',
-          vote_count: notaCount,
-          is_nota: true
-        });
-        post.total_votes += notaCount;
+        if (post.allow_nota !== 0) {
+          post.candidates.push({
+            candidate_id: -1,
+            candidate_name: 'None of the Above (NOTA)',
+            photo: null,
+            symbol: null,
+            symbol_name: 'nota',
+            vote_count: notaCount,
+            is_nota: true
+          });
+          post.total_votes += notaCount;
+        }
         post.candidates.sort((a, b) => b.vote_count - a.vote_count);
       }
 
@@ -832,6 +840,7 @@ exports.getDetailedResults = async (req, res) => {
       `SELECT 
          p.id as post_id,
          p.name as post_name,
+         p.allow_nota,
          c.id as candidate_id,
          u.name as candidate_name,
          v.voter_sex,
@@ -845,7 +854,7 @@ exports.getDetailedResults = async (req, res) => {
        LEFT JOIN classes cl ON v.voter_class_id = cl.id
        LEFT JOIN sections s ON v.voter_section_id = s.id
        WHERE p.election_id = ? AND p.school_id = ?
-       GROUP BY p.id, p.name, c.id, u.name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name
+       GROUP BY p.id, p.name, p.allow_nota, c.id, u.name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name
        ORDER BY p.id ASC, candidate_id ASC`,
       [id, school_id]
     );
@@ -855,6 +864,7 @@ exports.getDetailedResults = async (req, res) => {
       `SELECT 
          v.post_id,
          p.name as post_name,
+         p.allow_nota,
          v.voter_sex,
          cl.name as class_name,
          s.name as section_name,
@@ -864,7 +874,7 @@ exports.getDetailedResults = async (req, res) => {
        LEFT JOIN classes cl ON v.voter_class_id = cl.id
        LEFT JOIN sections s ON v.voter_section_id = s.id
        WHERE v.election_id = ? AND v.school_id = ? AND v.candidate_id IS NULL
-       GROUP BY v.post_id, p.name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name`,
+       GROUP BY v.post_id, p.name, p.allow_nota, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name`,
       [id, school_id]
     );
 
@@ -876,6 +886,7 @@ exports.getDetailedResults = async (req, res) => {
         postsMap.set(row.post_id, {
           post_id: row.post_id,
           post_name: row.post_name,
+          allow_nota: row.allow_nota,
           candidates: new Map()
         });
       }
@@ -929,53 +940,57 @@ exports.getDetailedResults = async (req, res) => {
         postsMap.set(row.post_id, {
           post_id: row.post_id,
           post_name: row.post_name,
+          allow_nota: row.allow_nota,
           candidates: new Map()
         });
       }
 
       const postEntry = postsMap.get(row.post_id);
-      const candidate_id = -1; // Denote NOTA
 
-      if (!postEntry.candidates.has(candidate_id)) {
-        postEntry.candidates.set(candidate_id, {
-          candidate_id: candidate_id,
-          candidate_name: 'None of the Above (NOTA)',
-          total_votes: 0,
-          is_nota: true,
-          demographics: {
-            male_votes: 0,
-            female_votes: 0,
-            classes: {},
-            sections: {}
-          }
-        });
-      }
+      if (postEntry.allow_nota !== 0) {
+        const candidate_id = -1; // Denote NOTA
 
-      const candidateEntry = postEntry.candidates.get(candidate_id);
-      
-      // Update totals
-      candidateEntry.total_votes += row.vote_count;
-      
-      // Update gender breakdown
-      if (row.voter_sex === 'M') {
-         candidateEntry.demographics.male_votes += row.vote_count;
-      } else if (row.voter_sex === 'F') {
-         candidateEntry.demographics.female_votes += row.vote_count;
-      }
-      
-      // Update class breakdown
-      const className = row.class_name || 'Unknown Class';
-      if (!candidateEntry.demographics.classes[className]) {
-         candidateEntry.demographics.classes[className] = 0;
-      }
-      candidateEntry.demographics.classes[className] += row.vote_count;
+        if (!postEntry.candidates.has(candidate_id)) {
+          postEntry.candidates.set(candidate_id, {
+            candidate_id: candidate_id,
+            candidate_name: 'None of the Above (NOTA)',
+            total_votes: 0,
+            is_nota: true,
+            demographics: {
+              male_votes: 0,
+              female_votes: 0,
+              classes: {},
+              sections: {}
+            }
+          });
+        }
 
-      // Update section breakdown
-      const sectionName = row.section_name || 'Unknown Section';
-      if (!candidateEntry.demographics.sections[sectionName]) {
-         candidateEntry.demographics.sections[sectionName] = 0;
+        const candidateEntry = postEntry.candidates.get(candidate_id);
+        
+        // Update totals
+        candidateEntry.total_votes += row.vote_count;
+        
+        // Update gender breakdown
+        if (row.voter_sex === 'M') {
+           candidateEntry.demographics.male_votes += row.vote_count;
+        } else if (row.voter_sex === 'F') {
+           candidateEntry.demographics.female_votes += row.vote_count;
+        }
+        
+        // Update class breakdown
+        const className = row.class_name || 'Unknown Class';
+        if (!candidateEntry.demographics.classes[className]) {
+           candidateEntry.demographics.classes[className] = 0;
+        }
+        candidateEntry.demographics.classes[className] += row.vote_count;
+
+        // Update section breakdown
+        const sectionName = row.section_name || 'Unknown Section';
+        if (!candidateEntry.demographics.sections[sectionName]) {
+           candidateEntry.demographics.sections[sectionName] = 0;
+        }
+        candidateEntry.demographics.sections[sectionName] += row.vote_count;
       }
-      candidateEntry.demographics.sections[sectionName] += row.vote_count;
     });
 
     // Convert Maps back to cleanly parsed arrays for JSON response and sort by total_votes descending
@@ -1047,6 +1062,7 @@ exports.exportResults = async (req, res) => {
       `SELECT 
          p.id as post_id,
          p.name as post_name,
+         p.allow_nota,
          c.id as candidate_id,
          u.name as candidate_name,
          COUNT(v.id) as vote_count
@@ -1055,7 +1071,7 @@ exports.exportResults = async (req, res) => {
        LEFT JOIN voters u ON c.voter_id = u.id
        LEFT JOIN votes v ON v.candidate_id = c.id
        WHERE p.election_id = ? AND p.school_id = ?
-       GROUP BY p.id, p.name, c.id, u.name
+       GROUP BY p.id, p.name, p.allow_nota, c.id, u.name
        ORDER BY p.id ASC, vote_count DESC`,
       [id, school_id]
     );
@@ -1074,6 +1090,7 @@ exports.exportResults = async (req, res) => {
       if (!postsMap.has(row.post_id)) {
         postsMap.set(row.post_id, {
           post_name: row.post_name,
+          allow_nota: row.allow_nota,
           candidates: []
         });
       }
@@ -1090,11 +1107,13 @@ exports.exportResults = async (req, res) => {
       const candidates = post.candidates;
       const isContested = candidates.length > 1;
       if (isContested) {
-        const notaCount = notaMap.get(post_id) || 0;
-        candidates.push({
-          candidate_name: 'None of the Above (NOTA)',
-          vote_count: notaCount
-        });
+        if (post.allow_nota !== 0) {
+          const notaCount = notaMap.get(post_id) || 0;
+          candidates.push({
+            candidate_name: 'None of the Above (NOTA)',
+            vote_count: notaCount
+          });
+        }
         candidates.sort((a, b) => b.vote_count - a.vote_count);
       }
       

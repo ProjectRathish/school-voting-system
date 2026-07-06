@@ -41,7 +41,7 @@ exports.generateElectionReport = async (req, res) => {
 
     // 4. Fetch Results per Post
     const [posts] = await db.execute(
-      "SELECT id, name, priority FROM posts WHERE election_id = ? AND school_id = ? ORDER BY priority ASC, name ASC",
+      "SELECT id, name, priority, allow_nota FROM posts WHERE election_id = ? AND school_id = ? ORDER BY priority ASC, name ASC",
       [id, school_id]
     );
 
@@ -68,13 +68,15 @@ exports.generateElectionReport = async (req, res) => {
 
       const isContested = candidates.length > 1;
       if (isContested) {
-        candidates.push({
-          candidate_id: -1,
-          candidate_name: 'None of the Above (NOTA)',
-          symbol: null,
-          votes: notaCount,
-          is_nota: true
-        });
+        if (post.allow_nota !== 0) {
+          candidates.push({
+            candidate_id: -1,
+            candidate_name: 'None of the Above (NOTA)',
+            symbol: null,
+            votes: notaCount,
+            is_nota: true
+          });
+        }
         candidates.sort((a, b) => b.votes - a.votes);
       }
 
