@@ -4,7 +4,7 @@ import {
   TableHead, TableRow, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, Alert, CircularProgress, IconButton,
   FormControl, InputLabel, Select, MenuItem, Avatar, Chip, Autocomplete, TextField, Tooltip, Grid, Snackbar, alpha,
-  Stack, Divider
+  Stack, Divider, Checkbox
 } from '@mui/material';
 import { Plus, Trash2, User, Sparkles, Edit, Camera, Image as ImageIcon, Download, Upload, Search, X, FileText, Printer, Eye } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
@@ -65,6 +65,9 @@ const Candidates = () => {
   const [filterClass, setFilterClass] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  
+  // Candidate Selection for Bulk Printing
+  const [selectedCandidates, setSelectedCandidates] = useState<number[]>([]);
 
   const printRef = useRef<HTMLDivElement>(null);
   const webcamRef = useRef<Webcam>(null);
@@ -99,8 +102,8 @@ const Candidates = () => {
     }
   });
 
-  const filteredCandidatesCount = useMemo(() => {
-    if (!Array.isArray(candidates)) return 0;
+  const filteredCandidates = useMemo(() => {
+    if (!Array.isArray(candidates)) return [];
     return candidates.filter((c: any) => {
       const matchSearch = searchTerm === '' || 
         c.candidate_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -108,8 +111,41 @@ const Candidates = () => {
       const matchGender = filterGender === '' || c.sex === filterGender;
       const matchClass = filterClass === '' || c.class_name === filterClass;
       return matchSearch && matchGender && matchClass;
-    }).length;
+    });
   }, [candidates, searchTerm, filterGender, filterClass]);
+
+  const filteredCandidatesCount = useMemo(() => {
+    return filteredCandidates.length;
+  }, [filteredCandidates]);
+
+  const handleSelectAllClick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      const newSelecteds = filteredCandidates.map((c: any) => c.id);
+      setSelectedCandidates(newSelecteds);
+      return;
+    }
+    setSelectedCandidates([]);
+  };
+
+  const handleSelectCandidate = (event: React.MouseEvent, id: number) => {
+    event.stopPropagation();
+    const selectedIndex = selectedCandidates.indexOf(id);
+    let newSelected: number[] = [];
+
+    if (selectedIndex === -1) {
+      newSelected = newSelected.concat(selectedCandidates, id);
+    } else if (selectedIndex === 0) {
+      newSelected = newSelected.concat(selectedCandidates.slice(1));
+    } else if (selectedIndex === selectedCandidates.length - 1) {
+      newSelected = newSelected.concat(selectedCandidates.slice(0, -1));
+    } else if (selectedIndex > 0) {
+      newSelected = newSelected.concat(
+        selectedCandidates.slice(0, selectedIndex),
+        selectedCandidates.slice(selectedIndex + 1),
+      );
+    }
+    setSelectedCandidates(newSelected);
+  };
 
   const { data: school } = useQuery({
     queryKey: ['school-me'],
@@ -406,7 +442,734 @@ const Candidates = () => {
     printWindow.document.write(html);
     printWindow.document.close();
   };
-  
+
+  const handlePrintSymbolPoster = (c: any) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const schoolName = school?.name || 'School Election';
+    const electionName = selectedElectionName || 'Election';
+    const symbolUrl = `${BASE_URL}${c.symbol}`;
+    const symbolName = c.symbol_name || 'Symbol';
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Symbol Poster - ${symbolName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; }
+            
+            .poster-container {
+              width: 210mm;
+              height: 297mm;
+              padding: 15mm;
+              background: #4f46e5;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+            }
+            
+            .inner-card {
+              width: 100%;
+              height: 100%;
+              background: white;
+              border-radius: 6mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              padding: 20mm 15mm;
+              box-shadow: inset 0 0 0 2mm #4f46e5;
+            }
+
+            .top-branding {
+              text-align: center;
+              width: 100%;
+              border-bottom: 1mm solid #f1f5f9;
+              padding-bottom: 5mm;
+            }
+
+            .school-name { 
+              font-size: 6mm; 
+              font-weight: 700; 
+              color: #64748b; 
+              letter-spacing: 1.5mm;
+              text-transform: uppercase;
+              margin-bottom: 2mm;
+            }
+
+            .election-title { 
+              font-size: 8mm; 
+              font-weight: 900; 
+              color: #111827; 
+              text-transform: uppercase; 
+              line-height: 1.1;
+            }
+            
+            .voter-call {
+              text-align: center;
+              margin-top: 10mm;
+              margin-bottom: 10mm;
+            }
+
+            .vote-for { 
+              font-size: 16mm; 
+              font-weight: 900; 
+              color: #4f46e5; 
+              letter-spacing: 3mm; 
+              margin-bottom: 4mm;
+            }
+            
+            .symbol-title-name { 
+              font-size: 28mm; 
+              font-weight: 900; 
+              color: #111827; 
+              line-height: 1.1;
+              text-transform: uppercase;
+              letter-spacing: 1mm;
+            }
+            
+            .symbol-box {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: #f8fafc;
+              padding: 10mm;
+              border-radius: 6mm;
+              width: 130mm;
+              height: 130mm;
+              border: 2mm solid #e2e8f0;
+              margin-bottom: 10mm;
+            }
+
+            .symbol-box img { 
+              max-width: 110mm; 
+              max-height: 110mm; 
+              object-fit: contain;
+            }
+
+            .footer-branding {
+              font-size: 6mm;
+              font-weight: 900;
+              color: #4f46e5;
+              text-transform: uppercase;
+              letter-spacing: 1mm;
+              border-top: 1px solid #e2e8f0;
+              width: 100%;
+              padding-top: 5mm;
+              text-align: center;
+            }
+            
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { size: A4; margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="poster-container">
+            <div class="inner-card">
+              <div class="top-branding">
+                <div class="school-name">${schoolName.toUpperCase()}</div>
+                <div class="election-title">${electionName}</div>
+              </div>
+              
+              <div class="voter-call">
+                <div class="vote-for">VOTE FOR</div>
+                <div class="symbol-title-name">${symbolName}</div>
+              </div>
+              
+              <div class="symbol-box">
+                <img src="${symbolUrl}" />
+              </div>
+
+              <div class="footer-branding">
+                ${c.post_name.toUpperCase()}
+                <div style="font-size: 4mm; font-weight: 700; color: #64748b; margin-top: 2.5mm; text-transform: uppercase; letter-spacing: 0.5mm; text-align: center; line-height: 1.3;">
+                  <div>${schoolName}</div>
+                  <div style="font-size: 5.5mm; font-weight: 900; color: #4f46e5; margin-top: 1.5mm;">${electionName}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintSelectedSymbols = (selectedIds: number[]) => {
+    const selectedCands = candidates?.filter((c: any) => selectedIds.includes(c.id)) || [];
+    if (selectedCands.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const schoolName = school?.name || 'School Election';
+    const electionName = selectedElectionName || 'Election';
+
+    let postersHtml = '';
+    selectedCands.forEach((c: any) => {
+      const symbolUrl = `${BASE_URL}${c.symbol}`;
+      const symbolName = c.symbol_name || 'Symbol';
+      
+      postersHtml += `
+        <div class="poster-page">
+          <div class="poster-container">
+            <div class="inner-card">
+              <div class="top-branding">
+                <div class="school-name">${schoolName.toUpperCase()}</div>
+                <div class="election-title">${electionName}</div>
+              </div>
+
+              <div class="voter-call">
+                <div class="vote-for">VOTE FOR</div>
+                <div class="symbol-title-name">${symbolName}</div>
+              </div>
+              
+              <div class="symbol-box">
+                <img src="${symbolUrl}" />
+              </div>
+
+              <div class="footer-branding">
+                ${c.post_name.toUpperCase()}
+                <div style="font-size: 4mm; font-weight: 700; color: #64748b; margin-top: 2.5mm; text-transform: uppercase; letter-spacing: 0.5mm; text-align: center; line-height: 1.3;">
+                  <div>${schoolName}</div>
+                  <div style="font-size: 5.5mm; font-weight: 900; color: #4f46e5; margin-top: 1.5mm;">${electionName}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Symbol Posters - ${electionName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; }
+            
+            .poster-page {
+              page-break-after: always;
+              width: 210mm;
+              height: 297mm;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background: #fff;
+            }
+            
+            .poster-container {
+              width: 100%;
+              height: 100%;
+              padding: 15mm;
+              background: #4f46e5;
+              display: flex;
+              flex-direction: column;
+            }
+            
+            .inner-card {
+              flex: 1;
+              background: white;
+              border-radius: 6mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: space-between;
+              padding: 20mm 15mm;
+              box-shadow: inset 0 0 0 2mm #4f46e5;
+            }
+
+            .top-branding {
+              text-align: center;
+              width: 100%;
+              border-bottom: 1mm solid #f1f5f9;
+              padding-bottom: 5mm;
+            }
+
+            .school-name { 
+              font-size: 6mm; 
+              font-weight: 700; 
+              color: #64748b; 
+              letter-spacing: 1.5mm;
+              text-transform: uppercase;
+              margin-bottom: 2mm;
+            }
+
+            .election-title { 
+              font-size: 8mm; 
+              font-weight: 900; 
+              color: #111827; 
+              text-transform: uppercase; 
+              line-height: 1.1;
+            }
+            
+            .voter-call {
+              text-align: center;
+              margin-top: 10mm;
+            }
+
+            .vote-for { 
+              font-size: 16mm; 
+              font-weight: 900; 
+              color: #4f46e5; 
+              letter-spacing: 3mm; 
+              margin-bottom: 4mm;
+            }
+            
+            .symbol-title-name { 
+              font-size: 28mm; 
+              font-weight: 900; 
+              color: #111827; 
+              line-height: 1.1;
+              text-transform: uppercase;
+              letter-spacing: 1.5mm;
+            }
+            
+            .symbol-box {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              background: #f8fafc;
+              border-radius: 6mm;
+              width: 130mm;
+              height: 130mm;
+              border: 2mm solid #e2e8f0;
+            }
+
+            .symbol-box img { 
+              max-width: 110mm; 
+              max-height: 110mm; 
+              object-fit: contain;
+            }
+
+            .footer-branding {
+              font-size: 6mm;
+              font-weight: 900;
+              color: #4f46e5;
+              text-transform: uppercase;
+              letter-spacing: 1mm;
+              border-top: 1px solid #e2e8f0;
+              width: 100%;
+              padding-top: 5mm;
+              text-align: center;
+            }
+            
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { size: A4; margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${postersHtml}
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 600);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintSelectedPosters = (selectedIds: number[]) => {
+    const selectedCands = candidates?.filter((c: any) => selectedIds.includes(c.id)) || [];
+    if (selectedCands.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const schoolName = school?.name || 'School Election';
+    const electionName = selectedElectionName || 'Election';
+
+    let postersHtml = '';
+    selectedCands.forEach((c: any) => {
+      const photoUrl = `${BASE_URL}${c.photo}`;
+      const symbolUrl = `${BASE_URL}${c.symbol}`;
+      
+      postersHtml += `
+        <div class="poster-page">
+          <div class="poster-container">
+            <div class="inner-card">
+              <div class="top-branding">
+                <div class="school-name">${schoolName.toUpperCase()}</div>
+                <div class="election-title">${electionName}</div>
+              </div>
+
+              <div class="voter-call">
+                <div class="vote-for">VOTE FOR</div>
+                <div class="candidate-name">${c.candidate_name}</div>
+              </div>
+              
+              <div class="media-row">
+                <div class="photo-box">
+                  <img src="${photoUrl}" />
+                </div>
+                <div class="symbol-box">
+                  <img src="${symbolUrl}" />
+                  <div class="symbol-name">${c.symbol_name || 'Symbol'}</div>
+                </div>
+              </div>
+
+              <div class="post-title">
+                ${c.post_name}
+                <div style="font-size: 4mm; font-weight: 700; color: #64748b; margin-top: 2.5mm; text-transform: uppercase; letter-spacing: 0.5mm; text-align: center; line-height: 1.3;">
+                  <div>${schoolName}</div>
+                  <div style="font-size: 5.5mm; font-weight: 900; color: #4f46e5; margin-top: 1.5mm;">${electionName}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Campaign Posters - ${electionName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; }
+            
+            .poster-page {
+              page-break-after: always;
+              width: 210mm;
+              height: 297mm;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              background: #fff;
+            }
+            
+            .poster-container {
+              width: 100%;
+              height: 100%;
+              padding: 10mm;
+              background: #4f46e5;
+              display: flex;
+              flex-direction: column;
+            }
+            
+            .inner-card {
+              flex: 1;
+              background: white;
+              border-radius: 6mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 12mm 10mm;
+            }
+
+            .top-branding {
+              text-align: center;
+              width: 100%;
+              border-bottom: 1mm solid #f1f5f9;
+              padding-bottom: 5mm;
+              margin-bottom: 8mm;
+            }
+
+            .school-name { 
+              font-size: 6mm; 
+              font-weight: 700; 
+              color: #64748b; 
+              letter-spacing: 1mm;
+              text-transform: uppercase;
+              margin-bottom: 1mm;
+            }
+
+            .election-title { 
+              font-size: 8mm; 
+              font-weight: 900; 
+              color: #111827; 
+              text-transform: uppercase; 
+              line-height: 1.1;
+            }
+            
+            .voter-call {
+              text-align: center;
+              margin-bottom: 8mm;
+            }
+
+            .vote-for { 
+              font-size: 12mm; 
+              font-weight: 900; 
+              color: #4f46e5; 
+              letter-spacing: 2mm; 
+              margin-bottom: 2mm;
+            }
+            
+            .candidate-name { 
+              font-size: 24mm; 
+              font-weight: 900; 
+              color: #111827; 
+              line-height: 1;
+              word-break: break-word;
+            }
+            
+            .media-row {
+              display: flex;
+              gap: 8mm;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              margin-bottom: 8mm;
+            }
+
+            .photo-box img { 
+              width: 80mm; 
+              height: 80mm; 
+              border-radius: 3mm; 
+              object-fit: cover; 
+              border: 3mm solid #4f46e5;
+            }
+            
+            .symbol-box {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              background: #f8fafc;
+              padding: 4mm;
+              border-radius: 3mm;
+              width: 75mm;
+            }
+
+            .symbol-box img { 
+              width: 65mm; 
+              height: 65mm; 
+              object-fit: contain;
+            }
+
+            .symbol-name {
+              font-size: 8mm;
+              font-weight: 800;
+              color: #4f46e5;
+              margin-top: 3mm;
+              text-align: center;
+              text-transform: uppercase;
+            }
+
+            .post-title {
+              font-size: 18mm;
+              font-weight: 900;
+              color: #4f46e5;
+              text-transform: uppercase;
+              margin-top: auto;
+              text-align: center;
+              border-top: 1mm solid #f1f5f9;
+              width: 100%;
+              padding-top: 5mm;
+            }
+            
+            @media print {
+              body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              @page { size: A4; margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${postersHtml}
+          <script>
+            window.onload = () => {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 1000);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const handlePrintSymbolLibraryPosters = async () => {
+    const schoolName = school?.name || 'School Election';
+    const electionName = selectedElectionName || 'Election';
+    const symbolsToPrint = selectedSymbolsForPrint.length > 0 
+      ? ELECTION_SYMBOLS.filter(s => selectedSymbolsForPrint.includes(s.id))
+      : ELECTION_SYMBOLS;
+
+    if (symbolsToPrint.length === 0) {
+      setError("Please select at least one symbol to print.");
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    let postersHtml = '';
+    symbolsToPrint.forEach((s) => {
+      postersHtml += `
+        <div class="poster-page">
+          <div class="poster-container">
+            <div class="inner-card">
+              <div class="voter-call">
+                <div class="vote-for">VOTE FOR</div>
+                <div class="symbol-name">${s.name}</div>
+              </div>
+              
+              <div class="symbol-box">
+                <span class="material-symbols-rounded" style="background: linear-gradient(135deg, ${s.colorStart || '#000000'}, ${s.colorEnd || '#000000'}); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${s.iconName}</span>
+              </div>
+              
+              <div class="footer-ref">
+                <div style="font-size: 4mm; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5mm; text-align: center; line-height: 1.3;">
+                  <div>${schoolName}</div>
+                  <div style="font-size: 5.5mm; font-weight: 900; color: #4f46e5; margin-top: 1.5mm;">${electionName}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    const style = `
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; }
+      
+      .poster-page {
+        page-break-after: always;
+        width: 210mm;
+        height: 297mm;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #fff;
+      }
+      
+      .poster-container {
+        width: 100%;
+        height: 100%;
+        padding: 15mm;
+        background: #4f46e5;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .inner-card {
+        flex: 1;
+        background: white;
+        border-radius: 6mm;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20mm 15mm;
+        box-shadow: inset 0 0 0 2mm #4f46e5;
+      }
+
+      .voter-call {
+        text-align: center;
+        margin-top: 10mm;
+      }
+
+      .vote-for { 
+        font-size: 16mm; 
+        font-weight: 900; 
+        color: #4f46e5; 
+        letter-spacing: 3mm; 
+        margin-bottom: 4mm;
+      }
+      
+      .symbol-name { 
+        font-size: 28mm; 
+        font-weight: 900; 
+        color: #111827; 
+        line-height: 1.1;
+        text-transform: uppercase;
+        letter-spacing: 1.5mm;
+      }
+      
+      .symbol-box {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+        border-radius: 6mm;
+        width: 130mm;
+        height: 130mm;
+        border: 2mm solid #e2e8f0;
+      }
+
+      .material-symbols-rounded {
+        font-size: 105mm;
+        font-variation-settings: 'FILL' 1, 'wght' 700;
+        display: inline-block;
+        line-height: 1;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .footer-ref {
+        font-size: 5mm;
+        font-weight: 800;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 1mm;
+        border-top: 1px solid #e2e8f0;
+        width: 100%;
+        padding-top: 5mm;
+        text-align: center;
+      }
+      
+      @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { size: A4; margin: 0; }
+      }
+    `;
+
+    let html = `<html><head><title>Election Symbol Posters</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <style>${style}</style></head><body>`;
+    
+    html += postersHtml;
+    
+    html += `</body><script>
+      window.onload = () => {
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(() => {
+            setTimeout(() => {
+              window.print();
+              window.close();
+            }, 600);
+          });
+        } else {
+          setTimeout(() => {
+            window.print();
+            window.close();
+          }, 800);
+        }
+      };
+    </script></html>`;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   const handlePrintCandidateList = () => {
     if (!candidates || candidates.length === 0) return;
     
@@ -723,7 +1486,13 @@ const Candidates = () => {
                 </div>
               </div>
 
-              <div class="post-title">${c.post_name}</div>
+              <div class="post-title">
+                ${c.post_name}
+                <div style="font-size: 4mm; font-weight: 700; color: #64748b; margin-top: 2.5mm; text-transform: uppercase; letter-spacing: 0.5mm; text-align: center; line-height: 1.3;">
+                  <div>${schoolName}</div>
+                  <div style="font-size: 5.5mm; font-weight: 900; color: #4f46e5; margin-top: 1.5mm;">${electionName}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1039,7 +1808,13 @@ const Candidates = () => {
                 </div>
               </div>
 
-              <div class="post-title">${c.post_name}</div>
+              <div class="post-title">
+                ${c.post_name}
+                <div style="font-size: 4mm; font-weight: 700; color: #64748b; margin-top: 2.5mm; text-transform: uppercase; letter-spacing: 0.5mm; text-align: center; line-height: 1.3;">
+                  <div>${schoolName}</div>
+                  <div style="font-size: 5.5mm; font-weight: 900; color: #4f46e5; margin-top: 1.5mm;">${electionName}</div>
+                </div>
+              </div>
             </div>
           </div>
           <script>
@@ -1448,15 +2223,71 @@ const Candidates = () => {
         </Box>
       </Paper>
 
+      {selectedElectionId && selectedCandidates.length > 0 && (
+        <Paper sx={{ 
+          mb: 2, 
+          p: 2, 
+          bgcolor: theme => alpha(theme.palette.primary.main, 0.05), 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          border: '1px solid',
+          borderColor: 'primary.light',
+          borderRadius: 3,
+          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.1)'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Checkbox 
+              indeterminate={selectedCandidates.length > 0 && selectedCandidates.length < filteredCandidates.length}
+              checked={filteredCandidates.length > 0 && selectedCandidates.length === filteredCandidates.length}
+              onChange={handleSelectAllClick}
+              sx={{ color: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'inherit' }}
+            />
+            <Typography variant="subtitle1" sx={{ fontWeight: 900, color: 'primary.main' }}>
+              {selectedCandidates.length} Candidates Selected
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button size="small" onClick={() => setSelectedCandidates([])} sx={{ fontWeight: 700 }}>Cancel</Button>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<Printer size={18} />} 
+              onClick={() => handlePrintSelectedSymbols(selectedCandidates)}
+              sx={{ borderRadius: 2, fontWeight: 800, px: 3 }}
+            >
+              Print Selected Symbols (A4)
+            </Button>
+            <Button 
+              variant="contained" 
+              color="info" 
+              startIcon={<Printer size={18} />} 
+              onClick={() => handlePrintSelectedPosters(selectedCandidates)}
+              sx={{ borderRadius: 2, fontWeight: 800, px: 3 }}
+            >
+              Print Selected Posters (A4)
+            </Button>
+          </Box>
+        </Paper>
+      )}
+
       {selectedElectionId && (
         <TableContainer component={Paper} sx={{ borderRadius: 1, overflowX: 'auto' }}>
           <Table>
             <TableHead>
               <TableRow sx={{ backgroundColor: theme => alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.15 : 0.08) }}>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    indeterminate={selectedCandidates.length > 0 && selectedCandidates.length < filteredCandidates.length}
+                    checked={filteredCandidates.length > 0 && selectedCandidates.length === filteredCandidates.length}
+                    onChange={handleSelectAllClick}
+                    sx={{ color: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'inherit' }}
+                  />
+                </TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Candidate</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Admission No</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Class</TableCell>
-                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Post</TableCell>
+                <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Post</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Gender</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Symbol</TableCell>
                 <TableCell sx={{ color: theme => theme.palette.mode === 'dark' ? '#ffffff' : '#000000', fontWeight: 700 }}>Symbol Name</TableCell>
@@ -1465,36 +2296,29 @@ const Candidates = () => {
             </TableHead>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-              ) : (Array.isArray(candidates) ? candidates : []).filter((c: any) => {
-                  const matchSearch = searchTerm === '' || 
-                    c.candidate_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    c.admission_no?.toLowerCase().includes(searchTerm.toLowerCase());
-                  const matchGender = filterGender === '' || c.sex === filterGender;
-                  const matchClass = filterClass === '' || c.class_name === filterClass;
-                  return matchSearch && matchGender && matchClass;
-                }).length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ color: 'text.secondary', py: 8 }}>
+                <TableRow><TableCell colSpan={9} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+              ) : filteredCandidates.length === 0 ? (
+                <TableRow><TableCell colSpan={9} align="center" sx={{ color: 'text.secondary', py: 8 }}>
                   No candidates found matching the filters.
                 </TableCell></TableRow>
-              ) : (Array.isArray(candidates) ? candidates : []).filter((c: any) => {
-                  const matchSearch = searchTerm === '' || 
-                    c.candidate_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    c.admission_no?.toLowerCase().includes(searchTerm.toLowerCase());
-                  const matchGender = filterGender === '' || c.sex === filterGender;
-                  const matchClass = filterClass === '' || c.class_name === filterClass;
-                  return matchSearch && matchGender && matchClass;
-                }).map((c: any) => {
+              ) : filteredCandidates.map((c: any) => {
+                  const isSelected = selectedCandidates.indexOf(c.id) > -1;
                   return (
                     <TableRow 
                       key={c.id} 
                       onClick={() => { setSelectedCandidateDetail(c); setDetailOpen(true); }}
+                      selected={isSelected}
                       sx={{ 
                         '&:hover': { backgroundColor: 'action.hover' },
                         transition: 'background-color 0.2s',
                         cursor: 'pointer'
                       }}
                     >
+                      <TableCell padding="checkbox" onClick={(e) => handleSelectCandidate(e, c.id)}>
+                        <Checkbox
+                          checked={isSelected}
+                        />
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                           <Avatar 
@@ -1594,6 +2418,11 @@ const Candidates = () => {
                           <Tooltip title="Print Campaign Poster (A4 PDF)">
                             <IconButton onClick={() => handlePrintPoster(c)} color="info" size="small">
                               <Printer size={18} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Print Symbol Poster (A4 PDF)">
+                            <IconButton onClick={() => handlePrintSymbolPoster(c)} color="secondary" size="small">
+                              <ImageIcon size={18} />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Remove Candidate">
@@ -1980,15 +2809,19 @@ const Candidates = () => {
 
       {/* Symbol Library Dialog */}
       <Dialog open={libraryDialogOpen} onClose={() => setLibraryDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>Election Symbol Library</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ pb: 1.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>Election Symbol Library</Typography>
+            <IconButton onClick={() => setLibraryDialogOpen(false)}><X size={20} /></IconButton>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             {selectedSymbolsForPrint.length > 0 && (
               <Button 
-                variant="text" 
+                variant="outlined" 
+                color="error"
                 size="small" 
                 onClick={() => setSelectedSymbolsForPrint([])}
-                sx={{ mr: 1, fontWeight: 700 }}
+                sx={{ fontWeight: 700, height: 36, borderRadius: 2 }}
               >
                 Clear ({selectedSymbolsForPrint.length})
               </Button>
@@ -1998,11 +2831,20 @@ const Candidates = () => {
               size="small" 
               startIcon={<Download size={16} />} 
               onClick={handlePrintSymbols} 
-              sx={{ mr: 1, boxShadow: 0 }}
+              sx={{ boxShadow: 0, height: 36, borderRadius: 2 }}
             >
-              Print {selectedSymbolsForPrint.length > 0 ? `${selectedSymbolsForPrint.length} Selected` : 'Library'} (A4)
+              Print Grid {selectedSymbolsForPrint.length > 0 ? `(${selectedSymbolsForPrint.length} Selected)` : '(All)'} (A4)
             </Button>
-            <IconButton onClick={() => setLibraryDialogOpen(false)}><X size={20} /></IconButton>
+            <Button 
+              variant="contained" 
+              size="small" 
+              color="secondary"
+              startIcon={<Printer size={16} />} 
+              onClick={handlePrintSymbolLibraryPosters} 
+              sx={{ boxShadow: 0, height: 36, borderRadius: 2 }}
+            >
+              Print Posters {selectedSymbolsForPrint.length > 0 ? `(${selectedSymbolsForPrint.length})` : '(A4)'}
+            </Button>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ minHeight: '60vh' }}>
@@ -2023,6 +2865,13 @@ const Candidates = () => {
                 <Grid size={{ xs: 4, sm: 3, md: 2 }} key={symbol.id}>
                   <Paper 
                     variant="outlined" 
+                    onClick={() => {
+                      if (open || editOpen) {
+                        handleSelectFromLibrary(symbol);
+                      } else {
+                        toggleSymbolSelection(symbol.id);
+                      }
+                    }}
                     sx={{ 
                       p: 2, 
                       textAlign: 'center', 
@@ -2032,7 +2881,7 @@ const Candidates = () => {
                       borderWidth: isSelected ? 2 : 1,
                       borderColor: isSelected ? 'primary.main' : 'divider',
                       bgcolor: isSelected ? 'action.selected' : 'background.paper',
-                      transition: 'all 0.2s',
+                      transition: 'transform 0.15s',
                       '&:hover': {
                         borderColor: 'primary.main',
                         bgcolor: 'action.hover',
@@ -2041,7 +2890,6 @@ const Candidates = () => {
                     }}
                   >
                     <Box 
-                      onClick={() => handleSelectFromLibrary(symbol)}
                       sx={{ 
                         mb: 1, 
                         color: isSelected ? 'primary.main' : 'inherit',
@@ -2061,7 +2909,7 @@ const Candidates = () => {
                         mb: 1.5,
                         border: '2px solid',
                         borderColor: isSelected ? 'primary.main' : 'divider',
-                        transition: 'all 0.2s',
+                        transition: 'transform 0.15s',
                         '&:hover': {
                           transform: 'scale(1.1)',
                           bgcolor: 'primary.light',
@@ -2099,27 +2947,28 @@ const Candidates = () => {
                       </Typography>
                     </Box>
                     
-                    <Box 
-                      onClick={(e) => { e.stopPropagation(); toggleSymbolSelection(symbol.id); }}
-                      sx={{ 
-                        position: 'absolute', 
-                        top: 4, 
-                        right: 4,
-                        width: 20,
-                        height: 20,
-                        borderRadius: '50%',
-                        border: '1px solid',
-                        borderColor: isSelected ? 'primary.main' : 'divider',
-                        bgcolor: isSelected ? 'primary.main' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontSize: '12px'
-                      }}
-                    >
-                      {isSelected ? '✓' : ''}
-                    </Box>
+                    {!open && !editOpen && (
+                      <Box 
+                        sx={{ 
+                          position: 'absolute', 
+                          top: 4, 
+                          right: 4,
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          border: '1px solid',
+                          borderColor: isSelected ? 'primary.main' : 'divider',
+                          bgcolor: isSelected ? 'primary.main' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '12px'
+                        }}
+                      >
+                        {isSelected ? '✓' : ''}
+                      </Box>
+                    )}
                   </Paper>
                 </Grid>
               );

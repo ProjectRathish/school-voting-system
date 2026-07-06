@@ -100,14 +100,14 @@ const TerminalSession = () => {
   const handleSelectCandidate = (postId: number, candId: number) => {
      if (selections[postId] === candId) return; // Prevent double-trigger
      
-     playBeep(2.0, 880);
+     playBeep(0.3, 880);
      setSelections(prev => ({ ...prev, [postId]: candId }));
      resetInactivityTimer();
      
      // Automatic transition to next post after a short delay (for the beep)
      setTimeout(() => {
         setStep(s => s + 1);
-     }, 1200);
+     }, 500);
   };
 
   // 1. Verify Machine Status (Polling)

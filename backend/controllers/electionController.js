@@ -793,7 +793,7 @@ exports.getTurnout = async (req, res) => {
 
     // Class-wise turnout
     const [classTurnout] = await db.execute(
-      `SELECT c.name as class_name, COUNT(v.id) as total, SUM(CASE WHEN v.has_voted = 1 THEN 1 ELSE 0 END) as voted
+      `SELECT c.name as class_name, COUNT(v.id) as total_voters, SUM(CASE WHEN v.has_voted = 1 THEN 1 ELSE 0 END) as voted_count
        FROM voters v
        JOIN classes c ON v.class_id = c.id
        WHERE v.election_id = ? AND v.school_id = ?
