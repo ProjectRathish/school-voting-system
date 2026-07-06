@@ -337,12 +337,12 @@ exports.updateCandidate = async (req, res) => {
 
     if (req.files) {
       if (req.files.photo) {
-        const photoPath = `/uploads/candidates/${school_code}/${election_id}/photos/photo-${actual_admission_no}.jpg`;
+        const photoPath = `/uploads/candidates/${school_code}/${election_id}/photos/${req.files.photo[0].filename}`;
         updateFields.push("photo=?");
         updateParams.push(photoPath);
       }
       if (req.files.symbol) {
-        const symbolPath = `/uploads/candidates/${school_code}/${election_id}/symbols/symbol-${actual_admission_no}.png`;
+        const symbolPath = `/uploads/candidates/${school_code}/${election_id}/symbols/${req.files.symbol[0].filename}`;
         updateFields.push("symbol=?");
         updateParams.push(symbolPath);
       }
@@ -390,11 +390,11 @@ exports.deleteCandidate = async (req, res) => {
       const path = require("path");
       
       if (photo) {
-        const photoPath = path.join(__dirname, "..", photo);
+        const photoPath = path.join(__dirname, "..", "public", photo);
         if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
       }
       if (symbol) {
-        const symbolPath = path.join(__dirname, "..", symbol);
+        const symbolPath = path.join(__dirname, "..", "public", symbol);
         if (fs.existsSync(symbolPath)) fs.unlinkSync(symbolPath);
       }
     } catch (fileErr) {
@@ -577,11 +577,11 @@ exports.updateCandidateStatus = async (req, res) => {
         
         try {
           if (photo) {
-            const photoPath = path.join(__dirname, "..", photo);
+            const photoPath = path.join(__dirname, "..", "public", photo);
             if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
           }
           if (symbol) {
-            const symbolPath = path.join(__dirname, "..", symbol);
+            const symbolPath = path.join(__dirname, "..", "public", symbol);
             if (fs.existsSync(symbolPath)) fs.unlinkSync(symbolPath);
           }
         } catch (err) {

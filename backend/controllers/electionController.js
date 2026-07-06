@@ -440,7 +440,7 @@ exports.deleteElection = async (req, res) => {
     // Delete files
     if (school_code) {
       try {
-        const electDir = path.join(__dirname, "../uploads/candidates", school_code, String(id));
+        const electDir = path.join(__dirname, "../public/uploads/candidates", school_code, String(id));
         if (fs.existsSync(electDir)) {
           fs.rmSync(electDir, { recursive: true, force: true });
           console.log(`Deleted election folder: ${electDir}`);

@@ -7,7 +7,12 @@ const path = require("path");
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/school-logo/");
+    const fs = require("fs");
+    const targetDir = "public/uploads/school-logo/";
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    cb(null, targetDir);
   },
   filename: function (req, file, cb) {
     // We use the school_code from the token (req.user)

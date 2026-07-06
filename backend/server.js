@@ -72,7 +72,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // ─── Static Files ─────────────────────────────────────────────────────────────
 // Serve uploaded files with standard CORS configuration allowing all origins
-app.use("/uploads", cors(), express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", cors(), express.static(path.join(__dirname, "public/uploads")));
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 app.use(generalLimiter);
