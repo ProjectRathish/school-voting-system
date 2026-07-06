@@ -56,7 +56,26 @@ exports.createElection = async (req, res) => {
       });
     }
 
-    const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
+    // Find the next available sequential number for the election_code to prevent collisions (e.g. if previous elections were deleted)
+    const [existingCodes] = await db.execute(
+      "SELECT election_code FROM elections WHERE school_id = ? AND election_code LIKE ?",
+      [school_id, `${school_code}-EL%`]
+    );
+
+    let maxNum = 0;
+    const prefix = `${school_code}-EL`;
+    existingCodes.forEach(row => {
+      const code = row.election_code;
+      if (code && code.startsWith(prefix)) {
+        const numStr = code.slice(prefix.length);
+        const num = parseInt(numStr, 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    });
+
+    const nextNumber = String(maxNum + 1).padStart(3, '0');
     const election_code = `${school_code}-EL${nextNumber}`;
 
     const [result] = await db.execute(
@@ -1324,7 +1343,27 @@ exports.duplicateElection = async (req, res) => {
 
     const [schoolRows] = await connection.execute("SELECT code FROM schools WHERE id = ?", [school_id]);
     const school_code = schoolRows[0].code;
-    const nextNumber = String(countRows[0].count + 1).padStart(3, '0');
+
+    // Find the next available sequential number for the election_code to prevent collisions (e.g. if previous elections were deleted)
+    const [existingCodes] = await connection.execute(
+      "SELECT election_code FROM elections WHERE school_id = ? AND election_code LIKE ?",
+      [school_id, `${school_code}-EL%`]
+    );
+
+    let maxNum = 0;
+    const prefix = `${school_code}-EL`;
+    existingCodes.forEach(row => {
+      const code = row.election_code;
+      if (code && code.startsWith(prefix)) {
+        const numStr = code.slice(prefix.length);
+        const num = parseInt(numStr, 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    });
+
+    const nextNumber = String(maxNum + 1).padStart(3, '0');
     const election_code = `${school_code}-EL${nextNumber}`;
 
     // 4. Create new election (Status: DRAFT)
