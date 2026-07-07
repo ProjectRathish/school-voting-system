@@ -4,7 +4,7 @@ import {
   Box, Typography, Paper, Grid, Button, Alert, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, Card, CardContent,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress,
-  Snackbar, Avatar
+  Snackbar, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider
 } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Download, Trophy, Users, BarChart3, Sparkles, ExternalLink, Copy, Check, Share2 } from 'lucide-react';
@@ -22,6 +22,8 @@ const Results = () => {
     selectedElectionStatus
   } = useElectionStore();
   const [selectedElection, setSelectedElection] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<{ post: any, candidate: any } | null>(null);
   const location = useLocation();
   const incomingId = location.state?.electionId;
 
@@ -53,6 +55,40 @@ const Results = () => {
 
   const [copied, setCopied] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+
+  const handleOpenDetails = (post: any, candidate: any) => {
+    setSelectedCandidate({ post, candidate });
+    setDetailsOpen(true);
+  };
+
+  const getSelectedCandidateDetails = () => {
+    if (!selectedCandidate) return null;
+    const { post, candidate } = selectedCandidate;
+
+    const detailedPost = detailedResults?.post_breakdown?.find(
+      (p: any) => p.post_id === post.post_id
+    );
+    const detailedCandidate = detailedPost?.candidates?.find(
+      (c: any) => c.candidate_id === candidate.candidate_id
+    );
+
+    return {
+      candidate_name: candidate.candidate_name,
+      post_name: post.post_name,
+      photo: candidate.photo,
+      symbol: candidate.symbol,
+      total_votes: detailedCandidate ? detailedCandidate.total_votes : (candidate.vote_count || 0),
+      is_nota: candidate.is_nota,
+      demographics: detailedCandidate ? detailedCandidate.demographics : {
+        male_votes: 0,
+        female_votes: 0,
+        classes: {},
+        sections: {}
+      }
+    };
+  };
+
+  const selectedCandidateDetails = getSelectedCandidateDetails();
 
   const handleCopyLink = () => {
     const electionCode = selectedElectionData?.election_code || selectedElection;
@@ -318,6 +354,16 @@ const Results = () => {
                         <Typography variant="body2" sx={{ color: '#92400e', mt: 0.5, fontWeight: 500 }}>
                           Only candidate for this post — automatically declared winner. No voting was required.
                         </Typography>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="warning"
+                          onClick={() => handleOpenDetails(post, post.candidates[0])}
+                          startIcon={<BarChart3 size={14} />}
+                          sx={{ borderRadius: 2, mt: 1.5, borderColor: '#f59e0b', color: '#78350f', '&:hover': { borderColor: '#d97706', bgcolor: 'rgba(245,158,11,0.08)' } }}
+                        >
+                          View Stats
+                        </Button>
                       </Box>
                     </Box>
                   ) : (
@@ -332,6 +378,7 @@ const Results = () => {
                                 <TableCell>Candidate</TableCell>
                                 <TableCell>Votes</TableCell>
                                 <TableCell sx={{ minWidth: 150 }}>Progress</TableCell>
+                                <TableCell align="right">Details</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
@@ -375,6 +422,17 @@ const Results = () => {
                                           sx={{ flexGrow: 1, height: 8, borderRadius: 4 }} />
                                         <Typography variant="caption">{pct.toFixed(0)}%</Typography>
                                       </Box>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                      <Button
+                                        size="small"
+                                        variant="outlined"
+                                        onClick={() => handleOpenDetails(post, c)}
+                                        startIcon={<BarChart3 size={14} />}
+                                        sx={{ borderRadius: 2 }}
+                                      >
+                                        Stats
+                                      </Button>
                                     </TableCell>
                                   </TableRow>
                                 );
@@ -431,6 +489,188 @@ const Results = () => {
         onClose={() => setSnackbarOpen(false)}
         message="Public results link copied to clipboard!"
       />
+
+      {/* Detailed Candidate Results Dialog */}
+      <Dialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1 }
+        }}
+      >
+        {selectedCandidateDetails && (
+          <>
+            <DialogTitle sx={{ pb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Avatar
+                    src={selectedCandidateDetails.photo ? `${MEDIA_URL}${selectedCandidateDetails.photo}` : undefined}
+                    sx={{ width: 56, height: 56, bgcolor: selectedCandidateDetails.is_nota ? '#334155' : 'inherit' }}
+                  >
+                    {selectedCandidateDetails.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.6rem' }}>NOTA</Typography>}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                      {selectedCandidateDetails.candidate_name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Candidate for <b>{selectedCandidateDetails.post_name}</b>
+                    </Typography>
+                  </Box>
+                </Box>
+                {selectedCandidateDetails.symbol && !selectedCandidateDetails.is_nota && (
+                  <img
+                    src={`${MEDIA_URL}${selectedCandidateDetails.symbol}`}
+                    alt="symbol"
+                    style={{ width: 40, height: 40, objectFit: 'contain', marginLeft: 'auto', border: '1px solid #e2e8f0', borderRadius: 4, padding: 2 }}
+                  />
+                )}
+              </Box>
+            </DialogTitle>
+            <DialogContent dividers sx={{ py: 3 }}>
+              <Grid container spacing={3}>
+                {/* Total Votes Card */}
+                <Grid size={{ xs: 12 }}>
+                  <Card variant="outlined" sx={{ bgcolor: 'action.hover', borderRadius: 2 }}>
+                    <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.75rem', letterSpacing: 0.5 }}>
+                        TOTAL VOTES RECEIVED
+                      </Typography>
+                      <Typography variant="h4" sx={{ fontWeight: 800, color: 'primary.main', mt: 0.5 }}>
+                        {selectedCandidateDetails.total_votes}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+
+                {/* Gender Breakdown */}
+                <Grid size={{ xs: 12 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Gender Breakdown
+                  </Typography>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        🔵 Male: <b>{selectedCandidateDetails.demographics.male_votes}</b>
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        🔴 Female: <b>{selectedCandidateDetails.demographics.female_votes}</b>
+                      </Typography>
+                    </Box>
+                    {/* Gender Split Bar */}
+                    {selectedCandidateDetails.total_votes > 0 ? (
+                      <Box sx={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', bgcolor: 'action.disabledBackground' }}>
+                        <Box 
+                          sx={{ 
+                            width: `${(selectedCandidateDetails.demographics.male_votes / selectedCandidateDetails.total_votes) * 100}%`, 
+                            bgcolor: '#3f51b5' 
+                          }} 
+                        />
+                        <Box 
+                          sx={{ 
+                            width: `${(selectedCandidateDetails.demographics.female_votes / selectedCandidateDetails.total_votes) * 100}%`, 
+                            bgcolor: '#f50057' 
+                          }} 
+                        />
+                      </Box>
+                    ) : (
+                      <Box sx={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', bgcolor: 'action.disabledBackground', justifyContent: 'center', alignItems: 'center' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>No votes recorded</Typography>
+                      </Box>
+                    )}
+                    {selectedCandidateDetails.total_votes > 0 && (
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {((selectedCandidateDetails.demographics.male_votes / selectedCandidateDetails.total_votes) * 100).toFixed(0)}% Male
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {((selectedCandidateDetails.demographics.female_votes / selectedCandidateDetails.total_votes) * 100).toFixed(0)}% Female
+                        </Typography>
+                      </Box>
+                    )}
+                  </Paper>
+                </Grid>
+
+                {/* Class & Section breakdown */}
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Votes by Class
+                  </Typography>
+                  <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 200, borderRadius: 2 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600 }}>Class</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }} align="right">Votes</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {Object.keys(selectedCandidateDetails.demographics.classes).length > 0 ? (
+                          Object.entries(selectedCandidateDetails.demographics.classes)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([className, votes]: any) => (
+                              <TableRow key={className}>
+                                <TableCell>{className}</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>{votes}</TableCell>
+                              </TableRow>
+                            ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={2} align="center" sx={{ color: 'text.secondary', py: 2 }}>
+                              No class data
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Votes by Section
+                  </Typography>
+                  <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 200, borderRadius: 2 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 600 }}>Section</TableCell>
+                          <TableCell sx={{ fontWeight: 600 }} align="right">Votes</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {Object.keys(selectedCandidateDetails.demographics.sections).length > 0 ? (
+                          Object.entries(selectedCandidateDetails.demographics.sections)
+                            .sort((a, b) => b[1] - a[1])
+                            .map(([sectionName, votes]: any) => (
+                              <TableRow key={sectionName}>
+                                <TableCell>Section {sectionName}</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>{votes}</TableCell>
+                              </TableRow>
+                            ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={2} align="center" sx={{ color: 'text.secondary', py: 2 }}>
+                              No section data
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Grid>
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, py: 2 }}>
+              <Button onClick={() => setDetailsOpen(false)} variant="contained" color="primary" sx={{ borderRadius: 2 }}>
+                Close
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   );
 };

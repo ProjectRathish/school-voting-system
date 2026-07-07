@@ -80,13 +80,15 @@ app.use("/uploads", cors(), express.static(uploadsDir));
 // TODO: Remove this after confirming UPLOADS_DIR is working on live server
 app.get("/debug-uploads", (req, res) => {
   const fs = require("fs");
-  const candidatesDir = path.join(uploadsDir, "candidates");
   
   let writeTestSuccess = false;
   let writeTestError = null;
   const testFilePath = path.join(uploadsDir, "write_test.txt");
   
   try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
     fs.writeFileSync(testFilePath, "write test at " + new Date().toISOString());
     writeTestSuccess = true;
     fs.unlinkSync(testFilePath); // Clean up
@@ -94,22 +96,34 @@ app.get("/debug-uploads", (req, res) => {
     writeTestError = err.message;
   }
 
-  let candidatesFiles = [];
-  try {
-    if (fs.existsSync(candidatesDir)) {
-      candidatesFiles = fs.readdirSync(candidatesDir);
+  const listFilesRecursive = (dir, depth = 0) => {
+    if (depth > 4) return [];
+    let results = [];
+    try {
+      if (fs.existsSync(dir)) {
+        const list = fs.readdirSync(dir);
+        list.forEach(file => {
+          const filePath = path.join(dir, file);
+          const stat = fs.statSync(filePath);
+          if (stat && stat.isDirectory()) {
+            results.push({ name: file, type: "dir", children: listFilesRecursive(filePath, depth + 1) });
+          } else {
+            results.push({ name: file, type: "file", size: stat.size });
+          }
+        });
+      }
+    } catch (err) {
+      results.push({ error: err.message });
     }
-  } catch (err) {
-    candidatesFiles = ["Error listing candidates dir: " + err.message];
-  }
+    return results;
+  };
 
   res.json({
     UPLOADS_DIR_ENV: process.env.UPLOADS_DIR || "NOT SET (using fallback)",
     resolvedPath: uploadsDir,
     pathExists: fs.existsSync(uploadsDir),
-    candidatesDirExists: fs.existsSync(candidatesDir),
     writeTest: writeTestSuccess ? "SUCCESS" : "FAILED: " + writeTestError,
-    candidatesDirContents: candidatesFiles,
+    uploadsDirContents: listFilesRecursive(uploadsDir),
     __dirname: __dirname,
   });
 });
