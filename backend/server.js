@@ -81,11 +81,35 @@ app.use("/uploads", cors(), express.static(uploadsDir));
 app.get("/debug-uploads", (req, res) => {
   const fs = require("fs");
   const candidatesDir = path.join(uploadsDir, "candidates");
+  
+  let writeTestSuccess = false;
+  let writeTestError = null;
+  const testFilePath = path.join(uploadsDir, "write_test.txt");
+  
+  try {
+    fs.writeFileSync(testFilePath, "write test at " + new Date().toISOString());
+    writeTestSuccess = true;
+    fs.unlinkSync(testFilePath); // Clean up
+  } catch (err) {
+    writeTestError = err.message;
+  }
+
+  let candidatesFiles = [];
+  try {
+    if (fs.existsSync(candidatesDir)) {
+      candidatesFiles = fs.readdirSync(candidatesDir);
+    }
+  } catch (err) {
+    candidatesFiles = ["Error listing candidates dir: " + err.message];
+  }
+
   res.json({
     UPLOADS_DIR_ENV: process.env.UPLOADS_DIR || "NOT SET (using fallback)",
     resolvedPath: uploadsDir,
     pathExists: fs.existsSync(uploadsDir),
     candidatesDirExists: fs.existsSync(candidatesDir),
+    writeTest: writeTestSuccess ? "SUCCESS" : "FAILED: " + writeTestError,
+    candidatesDirContents: candidatesFiles,
     __dirname: __dirname,
   });
 });
