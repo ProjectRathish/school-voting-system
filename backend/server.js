@@ -76,6 +76,21 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "public/uploads");
 app.use("/uploads", cors(), express.static(uploadsDir));
 
+// ─── Temporary Debug Endpoint ─────────────────────────────────────────────────
+// TODO: Remove this after confirming UPLOADS_DIR is working on live server
+app.get("/debug-uploads", (req, res) => {
+  const fs = require("fs");
+  const candidatesDir = path.join(uploadsDir, "candidates");
+  res.json({
+    UPLOADS_DIR_ENV: process.env.UPLOADS_DIR || "NOT SET (using fallback)",
+    resolvedPath: uploadsDir,
+    pathExists: fs.existsSync(uploadsDir),
+    candidatesDirExists: fs.existsSync(candidatesDir),
+    __dirname: __dirname,
+  });
+});
+
+
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 app.use(generalLimiter);
 
