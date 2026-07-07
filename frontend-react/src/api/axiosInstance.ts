@@ -2,6 +2,11 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 export const getBaseUrl = () => {
+  // If running on the live production domain, force the live backend API URL
+  if (window.location.hostname === 'election.issschoolpmna.in') {
+    return 'https://electionserver.issschoolpmna.in/api';
+  }
+
   const envUrl = import.meta.env.VITE_API_URL;
   // If viewing on a local network IP but the .env hardcodes localhost, force dynamic IP fallback
   if (envUrl && envUrl.includes('localhost') && window.location.hostname !== 'localhost') {
