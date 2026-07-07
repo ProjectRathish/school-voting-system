@@ -279,15 +279,17 @@ exports.deleteSchool = async (req, res) => {
       // Delete files after commit
       if (school_code) {
         try {
-          // 1. Delete candidates directory (New structure)
-          const candDir = path.join(__dirname, "../public/uploads/candidates", school_code);
+          const baseUploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "../public/uploads");
+
+          // 1. Delete candidates directory
+          const candDir = path.join(baseUploadsDir, "candidates", school_code);
           if (fs.existsSync(candDir)) {
             fs.rmSync(candDir, { recursive: true, force: true });
             console.log(`Deleted folder: ${candDir}`);
           }
 
           // 2. Delete school logo (supports various extensions)
-          const logoDir = path.join(__dirname, "../public/uploads/school-logo");
+          const logoDir = path.join(baseUploadsDir, "school-logo");
           if (fs.existsSync(logoDir)) {
             const files = fs.readdirSync(logoDir);
             const school_id_str = `school_${school_id}`;

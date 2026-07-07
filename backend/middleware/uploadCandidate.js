@@ -16,9 +16,10 @@ const storage = multer.diskStorage({
       
       // For public nominations, we'll store in a simple public folder first
       // The controller will then relocate it if needed, or we just keep it there.
+      const baseUploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "../public/uploads");
       const targetDir = req.user 
-        ? path.join(__dirname, "../public/uploads/candidates", school_code, String(election_id), file.fieldname === "photo" ? "photos" : "symbols")
-        : path.join(__dirname, "../public/uploads/public", String(election_id || 'temp'), file.fieldname === "photo" ? "photos" : "symbols");
+        ? path.join(baseUploadsDir, "candidates", school_code, String(election_id), file.fieldname === "photo" ? "photos" : "symbols")
+        : path.join(baseUploadsDir, "public", String(election_id || 'temp'), file.fieldname === "photo" ? "photos" : "symbols");
       
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });

@@ -8,7 +8,8 @@ const path = require("path");
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const fs = require("fs");
-    const targetDir = "public/uploads/school-logo/";
+    const baseUploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "../public/uploads");
+    const targetDir = path.join(baseUploadsDir, "school-logo");
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }

@@ -388,13 +388,15 @@ exports.deleteCandidate = async (req, res) => {
     try {
       const fs = require("fs");
       const path = require("path");
+      const baseUploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "..", "public", "uploads");
       
       if (photo) {
-        const photoPath = path.join(__dirname, "..", "public", photo);
+        // DB path: /uploads/candidates/... → strip /uploads → join with base
+        const photoPath = path.join(baseUploadsDir, photo.replace(/^\/uploads/, ''));
         if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
       }
       if (symbol) {
-        const symbolPath = path.join(__dirname, "..", "public", symbol);
+        const symbolPath = path.join(baseUploadsDir, symbol.replace(/^\/uploads/, ''));
         if (fs.existsSync(symbolPath)) fs.unlinkSync(symbolPath);
       }
     } catch (fileErr) {
@@ -576,12 +578,13 @@ exports.updateCandidateStatus = async (req, res) => {
         const path = require("path");
         
         try {
+          const baseUploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "..", "public", "uploads");
           if (photo) {
-            const photoPath = path.join(__dirname, "..", "public", photo);
+            const photoPath = path.join(baseUploadsDir, photo.replace(/^\/uploads/, ''));
             if (fs.existsSync(photoPath)) fs.unlinkSync(photoPath);
           }
           if (symbol) {
-            const symbolPath = path.join(__dirname, "..", "public", symbol);
+            const symbolPath = path.join(baseUploadsDir, symbol.replace(/^\/uploads/, ''));
             if (fs.existsSync(symbolPath)) fs.unlinkSync(symbolPath);
           }
         } catch (err) {
