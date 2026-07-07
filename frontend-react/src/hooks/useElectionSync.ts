@@ -10,7 +10,8 @@ export const useElectionSync = () => {
     selectedElectionId, 
     selectedElectionName, 
     selectedElectionStatus, 
-    setSelectedElection 
+    setSelectedElection,
+    clearSelection
   } = useElectionStore();
 
   const { data: elections } = useQuery({
@@ -29,12 +30,17 @@ export const useElectionSync = () => {
       } else if (selectedElectionId) {
         // Sync the selected election's name and status if they changed in DB
         const synced = elections.find((e: any) => String(e.id) === selectedElectionId);
-        if (synced && (synced.status !== selectedElectionStatus || synced.name !== selectedElectionName)) {
-          setSelectedElection(String(synced.id), synced.name, synced.status);
+        if (synced) {
+          if (synced.status !== selectedElectionStatus || synced.name !== selectedElectionName) {
+            setSelectedElection(String(synced.id), synced.name, synced.status);
+          }
+        } else {
+          // Selected election was deleted or is no longer available
+          clearSelection();
         }
       }
     }
-  }, [elections, selectedElectionId, selectedElectionName, selectedElectionStatus, setSelectedElection, user?.role]);
+  }, [elections, selectedElectionId, selectedElectionName, selectedElectionStatus, setSelectedElection, clearSelection, user?.role]);
 
   return { elections };
 };

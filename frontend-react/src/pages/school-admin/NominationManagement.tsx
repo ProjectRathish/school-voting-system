@@ -161,6 +161,7 @@ const NominationManagement = () => {
             <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary', mb: 1 }}>Nomination Management</Typography>
             
             {/* Current Context Banner */}
+            {selectedElectionId && (
             <Box sx={{ 
               mb: 1, 
               display: 'flex'
@@ -222,6 +223,7 @@ const NominationManagement = () => {
                 </Box>
               </Box>
             </Box>
+            )}
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'flex-start' }}>

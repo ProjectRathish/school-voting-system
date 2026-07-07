@@ -117,6 +117,9 @@ const ClassesAndSections = () => {
         </Alert>
       )}
 
+
+
+      {selectedElectionId && (
       <Box sx={{ 
         mb: 4, 
         display: 'flex'
@@ -178,6 +181,7 @@ const ClassesAndSections = () => {
           </Box>
         </Box>
       </Box>
+      )}
 
       {selectedElectionId ? (
         <Paper>

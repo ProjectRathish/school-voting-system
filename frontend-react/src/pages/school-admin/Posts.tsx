@@ -148,6 +148,7 @@ const Posts = () => {
         </Alert>
       )}
 
+      {selectedElectionId && (
       <Box sx={{ 
         mb: 4, 
         display: 'flex'
@@ -209,6 +210,7 @@ const Posts = () => {
           </Box>
         </Box>
       </Box>
+      )}
 
       <Snackbar
         open={!!success}

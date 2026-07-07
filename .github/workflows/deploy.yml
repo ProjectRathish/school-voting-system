@@ -28,26 +28,42 @@ jobs:
 
             cd ${{ secrets.APP_DIR }}
 
-            # ── Ensure persistent uploads directory exists outside the repo ───
-            # This directory is NEVER touched by git pull
-            PERSISTENT_UPLOADS="/var/uploads/school-voting"
-            mkdir -p "$PERSISTENT_UPLOADS"
+            # ── Helper function to safely set up or restore the symlink without losing files ───
+            setup_uploads_symlink() {
+              PERSISTENT_DIR="/var/uploads/school-voting"
+              mkdir -p "$PERSISTENT_DIR"
+              
+              if [ -d "backend/public/uploads" ] && [ ! -L "backend/public/uploads" ]; then
+                echo "⚠️  backend/public/uploads is a physical directory, not a symlink."
+                if [ "$(ls -A backend/public/uploads)" ]; then
+                  echo "📦 Migrating existing uploads to persistent directory..."
+                  cp -rp backend/public/uploads/* "$PERSISTENT_DIR"/ || true
+                fi
+                rm -rf backend/public/uploads
+              elif [ -L "backend/public/uploads" ]; then
+                echo "🔗 backend/public/uploads is already a symlink, removing link safely..."
+                rm -f backend/public/uploads
+              else
+                echo "🧹 Cleaning up path backend/public/uploads..."
+                rm -rf backend/public/uploads
+              fi
+              
+              mkdir -p backend/public
+              ln -sfn "$PERSISTENT_DIR" backend/public/uploads
+              echo "✅ Symlink set up: backend/public/uploads -> $PERSISTENT_DIR"
+              
+              # Ensure correct permissions so the node app and web server can read/write successfully
+              chmod -R 755 "$PERSISTENT_DIR" || true
+            }
 
-            echo "🔗 Setting up persistent uploads symlink..."
-            # Remove the current uploads dir/symlink and replace with symlink to persistent store
-            rm -rf backend/public/uploads
-            mkdir -p backend/public
-            ln -sfn "$PERSISTENT_UPLOADS" backend/public/uploads
-            echo "   ✅ Symlink: backend/public/uploads -> $PERSISTENT_UPLOADS"
+            echo "🔗 Initial symlink and migration check..."
+            setup_uploads_symlink
 
             echo "📦 Pulling latest code..."
             git pull origin main
 
-            # Re-link after pull (git pull may have recreated the directory)
-            rm -rf backend/public/uploads
-            mkdir -p backend/public
-            ln -sfn "$PERSISTENT_UPLOADS" backend/public/uploads
-            echo "   ✅ Symlink restored after git pull"
+            echo "🔗 Restoring symlink after git pull..."
+            setup_uploads_symlink
 
             echo "🔄 Updating frontend dependencies & building..."
             cd frontend-react

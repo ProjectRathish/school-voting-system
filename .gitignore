@@ -262,6 +262,7 @@ $RECYCLE.BIN/
 bin/
 
 # Uploads/Media
-uploads/
+uploads
+backend/public/uploads
 assets/images/candidates/
 assets/images/schools/

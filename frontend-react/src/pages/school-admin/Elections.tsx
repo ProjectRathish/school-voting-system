@@ -305,7 +305,8 @@ const Elections = () => {
         </Alert>
       </Snackbar>
       
-      {/* Current Context Banner */}
+      {/* Current Context Banner — only show when elections exist */}
+      {elections && elections.length > 0 && (
       <Box sx={{ 
         mb: 4, 
         display: 'flex'
@@ -367,6 +368,7 @@ const Elections = () => {
           </Box>
         </Box>
       </Box>
+      )}
 
       <TableContainer component={Paper}>
         <Table>

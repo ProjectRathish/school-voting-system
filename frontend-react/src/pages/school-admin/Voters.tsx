@@ -417,6 +417,7 @@ const Voters = () => {
       </Box>
 
       {/* Current Context Banner */}
+      {selectedElectionId && (
       <Box sx={{ 
         mb: 4, 
         display: 'flex'
@@ -478,6 +479,7 @@ const Voters = () => {
           </Box>
         </Box>
       </Box>
+      )}
 
       {!selectedElectionId && (
         <Alert severity="info" sx={{ mb: 4, borderRadius: 2 }}>
