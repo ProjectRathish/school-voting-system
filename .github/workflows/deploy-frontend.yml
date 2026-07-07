@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'frontend-react/**'   # Only trigger when frontend files change
 
 jobs:
   build-and-deploy:
