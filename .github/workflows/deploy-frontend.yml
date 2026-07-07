@@ -33,12 +33,13 @@ jobs:
         env:
           VITE_API_URL: https://electionserver.issschoolpmna.in/api
 
-      - name: 🚀 Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: 🚀 Deploy to Hostinger via SSH/SCP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: frontend-react/dist/
-          server-dir: /public_html/election/
-          dangerous-clean-slate: false
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          source: "frontend-react/dist/*"
+          target: "/home/u515760001/domains/election.issschoolpmna.in/public_html"
+          strip_components: 2

@@ -31,13 +31,8 @@ jobs:
             echo "📦 Pulling latest code..."
             git pull origin main
 
-            echo "🔄 Updating frontend dependencies & building..."
-            cd frontend-react
-            npm ci --prefer-offline
-            npm run build
-
             echo "🔄 Updating backend dependencies..."
-            cd ../backend
+            cd backend
             npm ci --prefer-offline
 
             echo "🗄️  Running DB migrations..."
