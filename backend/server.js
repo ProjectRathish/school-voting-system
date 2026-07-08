@@ -74,7 +74,13 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 // Serve uploaded files with standard CORS configuration allowing all origins
 // Serve uploads from persistent directory (UPLOADS_DIR in production) or local public/uploads in dev
 const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, "public/uploads");
-app.use("/uploads", cors(), express.static(uploadsDir));
+app.use("/uploads", cors(), express.static(uploadsDir, {
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, path) => {
+    res.set("Cache-Control", "no-cache, must-revalidate");
+  }
+}));
 
 // ─── Temporary Debug Endpoint ─────────────────────────────────────────────────
 // TODO: Remove this after confirming UPLOADS_DIR is working on live server
