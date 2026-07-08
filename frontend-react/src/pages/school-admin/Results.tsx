@@ -17,7 +17,6 @@ const COLORS = ['#3f51b5', '#f50057', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'
 
 const Results = () => {
   const { 
-    setSelectedElection: setGlobalElection,
     selectedElectionName,
     selectedElectionStatus
   } = useElectionStore();
@@ -159,10 +158,6 @@ const Results = () => {
             onChange={e => {
               const id = e.target.value;
               setSelectedElection(id);
-              const election = elections?.find((el: any) => String(el.id) === String(id));
-              if (election) {
-                setGlobalElection(String(election.id), election.name, election.status);
-              }
             }}
           >
             {elections?.filter((el: any) => el.status === 'CLOSED').map((el: any) => (
