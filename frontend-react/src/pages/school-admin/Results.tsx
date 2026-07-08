@@ -341,73 +341,8 @@ const Results = () => {
                   </Box>
 
                   {/* UNCONTESTED POST — single candidate auto-winner */}
-                  {post.is_uncontested ? (
-                    <Box sx={{
-                      background: theme => theme.palette.mode === 'dark' 
-                        ? 'linear-gradient(135deg, rgba(251,191,36,0.07) 0%, rgba(217,119,6,0.12) 100%)'
-                        : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-                      border: '1px solid',
-                      borderColor: '#fbbf24',
-                      borderRadius: 4,
-                      p: 3,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 3,
-                      position: 'relative',
-                      overflow: 'hidden',
-                      boxShadow: '0 10px 30px rgba(245,158,11,0.05)'
-                    }}>
-                      {/* Winner Photo */}
-                      <Avatar 
-                        src={getImageUrl(post.candidates[0]?.photo)} 
-                        sx={{ 
-                          width: 80, 
-                          height: 80, 
-                          boxShadow: '0 8px 24px rgba(245,158,11,0.3)',
-                          border: '3px solid #f59e0b'
-                        }}
-                      />
-
-                      <Box sx={{ flexGrow: 1 }}>
-                        <Box sx={{
-                          display: 'inline-block', px: 1.5, py: 0.5, mb: 1,
-                          bgcolor: '#f59e0b', borderRadius: 1,
-                        }}>
-                          <Typography variant="caption" sx={{ color: 'white', fontWeight: 900, textTransform: 'uppercase', letterSpacing: 1.5, fontSize: '0.65rem' }}>
-                            Uncontested Winner
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                          <Typography variant="h5" sx={{ fontWeight: 900, color: '#78350f', lineHeight: 1.2 }}>
-                            {post.candidates[0]?.candidate_name}
-                          </Typography>
-                          {post.candidates[0]?.symbol && (
-                            <img 
-                              src={getImageUrl(post.candidates[0].symbol)} 
-                              alt="symbol" 
-                              style={{ width: 28, height: 28, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', padding: '2px', border: '1px solid #fde68a' }} 
-                            />
-                          )}
-                        </Box>
-                        <Typography variant="body2" sx={{ color: '#92400e', mt: 0.5, fontWeight: 500 }}>
-                          Only candidate for this post — automatically declared winner. No voting was required.
-                        </Typography>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="warning"
-                          onClick={() => handleOpenDetails(post, post.candidates[0])}
-                          startIcon={<BarChart3 size={14} />}
-                          sx={{ borderRadius: 2, mt: 1.5, borderColor: '#f59e0b', color: '#78350f', '&:hover': { borderColor: '#d97706', bgcolor: 'rgba(245,158,11,0.08)' } }}
-                        >
-                          View Stats
-                        </Button>
-                      </Box>
-                    </Box>
-                  ) : (
-                    /* CONTESTED POST — normal vote table + pie chart */
                     <Grid container spacing={3}>
-                      <Grid size={{ xs: 12, md: 7 }}>
+                      <Grid size={{ xs: 12, md: post.is_uncontested ? 12 : 7 }}>
                         <TableContainer>
                           <Table>
                             <TableHead>
@@ -492,8 +427,9 @@ const Results = () => {
                                         </Box>
                                       </Box>
                                     </TableCell>
-                                    <TableCell sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', fontSize: '1rem' }}>{c.vote_count}</TableCell>
-
+                                    <TableCell sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', fontSize: '1rem' }}>
+                                      {post.is_uncontested ? '0 (Uncontested)' : c.vote_count}
+                                    </TableCell>
                                     <TableCell align="right">
                                       <Button
                                         size="small"
@@ -512,67 +448,50 @@ const Results = () => {
                           </Table>
                         </TableContainer>
                       </Grid>
-                      <Grid size={{ xs: 12, md: 5 }}>
-                        <Paper variant="outlined" sx={{ 
-                          p: 2, 
-                          borderRadius: 3, 
-                          height: '100%', 
-                          display: 'flex', 
-                          flexDirection: 'column', 
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          bgcolor: 'background.default',
-                          borderColor: 'divider',
-                          minHeight: 250
-                        }}>
-                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 1, mb: 1, fontFamily: 'Outfit, sans-serif' }}>
-                            Vote Distribution
-                          </Typography>
-                          <ResponsiveContainer width="100%" height={200}>
-                            <PieChart>
-                              <Pie 
-                                data={post.candidates?.map((c: any) => ({ name: c.candidate_name, value: c.vote_count || 0 }))}
-                                cx="50%" 
-                                cy="50%" 
-                                innerRadius={50}
-                                outerRadius={70} 
-                                paddingAngle={3}
-                                dataKey="value"
-                              >
-                                {post.candidates?.map((_: any, idx: number) => (
-                                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                                ))}
-                              </Pie>
-                              <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif' }} />
-                              <Tooltip contentStyle={{ borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </Paper>
-                      </Grid>
+                      {!post.is_uncontested && (
+                        <Grid size={{ xs: 12, md: 5 }}>
+                          <Paper variant="outlined" sx={{ 
+                            p: 2, 
+                            borderRadius: 3, 
+                            height: '100%', 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            bgcolor: 'background.default',
+                            borderColor: 'divider',
+                            minHeight: 250
+                          }}>
+                            <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 1, mb: 1, fontFamily: 'Outfit, sans-serif' }}>
+                              Vote Distribution
+                            </Typography>
+                            <ResponsiveContainer width="100%" height={200}>
+                              <PieChart>
+                                <Pie 
+                                  data={post.candidates?.map((c: any) => ({ name: c.candidate_name, value: c.vote_count || 0 }))}
+                                  cx="50%" 
+                                  cy="50%" 
+                                  innerRadius={50}
+                                  outerRadius={70} 
+                                  paddingAngle={3}
+                                  dataKey="value"
+                                >
+                                  {post.candidates?.map((_: any, idx: number) => (
+                                    <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                                  ))}
+                                </Pie>
+                                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif' }} />
+                                <Tooltip contentStyle={{ borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </Paper>
+                        </Grid>
+                      )}
                     </Grid>
-                  )}
-                </Paper>
+                  </Paper>
               ))}
 
-              {/* Demographics charts */}
-              {detailedResults?.demographics && (
-                <Paper sx={{ p: 3, borderRadius: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
-                    Voter Demographics
-                  </Typography>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={detailedResults.demographics}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="class_name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="male_votes" name="Male" fill="#3f51b5" />
-                      <Bar dataKey="female_votes" name="Female" fill="#f50057" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </Paper>
-              )}
+
             </>
           )}
         </>
