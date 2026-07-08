@@ -205,33 +205,118 @@ const Results = () => {
             <>
               {/* Turnout Summary */}
               {results?.turnout && (
-                <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid container spacing={3} sx={{ mb: 4 }}>
                   <Grid size={{ xs: 12, sm: 4 }}>
-                    <Card>
-                      <CardContent sx={{ textAlign: 'center' }}>
-                        <Users size={36} color="#3f51b5" />
-                        <Typography variant="h4" sx={{ fontWeight: 700, mt: 1 }}>{results.turnout.total_voters}</Typography>
-                        <Typography color="text.secondary">Total Voters</Typography>
+                    <Card sx={{ 
+                      borderRadius: 4, 
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                      background: 'linear-gradient(135deg, background.paper 0%, action.hover 100%)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 12px 30px rgba(99,102,241,0.08)',
+                        borderColor: 'primary.light'
+                      }
+                    }}>
+                      <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2.5 }}>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          width: 56, 
+                          height: 56, 
+                          borderRadius: 3, 
+                          background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(79,70,229,0.2) 100%)',
+                          color: '#6366f1'
+                        }}>
+                          <Users size={28} />
+                        </Box>
+                        <Box>
+                          <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'text.primary', lineHeight: 1.1 }}>
+                            {results.turnout.total_voters}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, mt: 0.5 }}>
+                            Total Voters
+                          </Typography>
+                        </Box>
                       </CardContent>
                     </Card>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 4 }}>
-                    <Card>
-                      <CardContent sx={{ textAlign: 'center' }}>
-                        <BarChart3 size={36} color="#4caf50" />
-                        <Typography variant="h4" sx={{ fontWeight: 700, mt: 1 }}>{results.turnout.votes_cast}</Typography>
-                        <Typography color="text.secondary">Votes Cast</Typography>
+                    <Card sx={{ 
+                      borderRadius: 4, 
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                      background: 'linear-gradient(135deg, background.paper 0%, action.hover 100%)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 12px 30px rgba(16,185,129,0.08)',
+                        borderColor: 'success.light'
+                      }
+                    }}>
+                      <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2.5 }}>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          width: 56, 
+                          height: 56, 
+                          borderRadius: 3, 
+                          background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.2) 100%)',
+                          color: '#10b981'
+                        }}>
+                          <BarChart3 size={28} />
+                        </Box>
+                        <Box>
+                          <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'text.primary', lineHeight: 1.1 }}>
+                            {results.turnout.votes_cast}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, mt: 0.5 }}>
+                            Votes Cast
+                          </Typography>
+                        </Box>
                       </CardContent>
                     </Card>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 4 }}>
-                    <Card>
-                      <CardContent sx={{ textAlign: 'center' }}>
-                        <Trophy size={36} color="#ff9800" />
-                        <Typography variant="h4" sx={{ fontWeight: 700, mt: 1 }}>
-                          {results.turnout.turnout_percentage?.toFixed(1)}%
-                        </Typography>
-                        <Typography color="text.secondary">Turnout Rate</Typography>
+                    <Card sx={{ 
+                      borderRadius: 4, 
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                      background: 'linear-gradient(135deg, background.paper 0%, action.hover 100%)',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: '0 12px 30px rgba(245,158,11,0.08)',
+                        borderColor: 'warning.light'
+                      }
+                    }}>
+                      <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2.5 }}>
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          width: 56, 
+                          height: 56, 
+                          borderRadius: 3, 
+                          background: 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(217,119,6,0.2) 100%)',
+                          color: '#f59e0b'
+                        }}>
+                          <Trophy size={28} />
+                        </Box>
+                        <Box>
+                          <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', color: 'text.primary', lineHeight: 1.1 }}>
+                            {results.turnout.turnout_percentage?.toFixed(1)}%
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, mt: 0.5 }}>
+                            Turnout Rate
+                          </Typography>
+                        </Box>
                       </CardContent>
                     </Card>
                   </Grid>
@@ -240,23 +325,37 @@ const Results = () => {
 
               {/* Results by Post */}
               {results?.results?.map((post: any) => (
-                <Paper key={post.post_id} sx={{ p: 3, mb: 3, borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
-                    {post.post_name}
-                  </Typography>
+                <Paper key={post.post_id} sx={{ 
+                  p: 3, 
+                  mb: 4, 
+                  borderRadius: 4, 
+                  overflow: 'hidden', 
+                  border: '1px solid', 
+                  borderColor: 'divider',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.015)'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, pl: 1.5, borderLeft: '4px solid', borderColor: 'primary.main' }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      {post.post_name}
+                    </Typography>
+                  </Box>
 
                   {/* UNCONTESTED POST — single candidate auto-winner */}
                   {post.is_uncontested ? (
                     <Box sx={{
-                      background: 'linear-gradient(135deg, #fef9c3 0%, #fde68a 50%, #fef3c7 100%)',
-                      border: '2px solid #f59e0b',
-                      borderRadius: 3,
+                      background: theme => theme.palette.mode === 'dark' 
+                        ? 'linear-gradient(135deg, rgba(251,191,36,0.07) 0%, rgba(217,119,6,0.12) 100%)'
+                        : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                      border: '1px solid',
+                      borderColor: '#fbbf24',
+                      borderRadius: 4,
                       p: 3,
                       display: 'flex',
                       alignItems: 'center',
                       gap: 3,
                       position: 'relative',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      boxShadow: '0 10px 30px rgba(245,158,11,0.05)'
                     }}>
                       {/* Winner Photo */}
                       <Avatar 
@@ -312,7 +411,7 @@ const Results = () => {
                         <TableContainer>
                           <Table>
                             <TableHead>
-                              <TableRow>
+                              <TableRow sx={{ '& th': { borderBottom: '2px solid', borderColor: 'divider', pb: 2, fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 } }}>
                                 <TableCell>Position</TableCell>
                                 <TableCell>Candidate</TableCell>
                                 <TableCell>Votes</TableCell>
@@ -329,28 +428,57 @@ const Results = () => {
                                     key={c.candidate_id}
                                     sx={{ 
                                       backgroundColor: 'transparent',
-                                      '&:hover': { backgroundColor: 'action.hover' }
+                                      transition: 'all 0.2s ease-in-out',
+                                      '&:hover': { 
+                                        backgroundColor: 'action.hover',
+                                        transform: 'scale(1.005)'
+                                      }
                                     }}
                                   >
-                                    <TableCell>
-                                      <Typography variant="body2" sx={{ 
-                                        fontWeight: idx === 0 ? 800 : 600, 
-                                        color: idx === 0 ? 'primary.main' : 'text.secondary',
-                                        fontSize: '0.875rem'
+                                    <TableCell sx={{ py: 2 }}>
+                                      <Box sx={{ 
+                                        display: 'inline-flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center',
+                                        px: 1.5,
+                                        py: 0.5,
+                                        borderRadius: 2,
+                                        fontSize: '0.75rem',
+                                        fontWeight: 800,
+                                        letterSpacing: 0.5,
+                                        textTransform: 'uppercase',
+                                        ...(idx === 0 ? {
+                                          bgcolor: 'rgba(251, 191, 36, 0.12)',
+                                          color: '#b45309',
+                                          border: '1px solid rgba(251, 191, 36, 0.3)'
+                                        } : idx === 1 ? {
+                                          bgcolor: 'rgba(148, 163, 184, 0.12)',
+                                          color: '#475569',
+                                          border: '1px solid rgba(148, 163, 184, 0.3)'
+                                        } : idx === 2 ? {
+                                          bgcolor: 'rgba(249, 115, 22, 0.1)',
+                                          color: '#c2410c',
+                                          border: '1px solid rgba(249, 115, 22, 0.2)'
+                                        } : {
+                                          bgcolor: 'action.selected',
+                                          color: 'text.secondary',
+                                          border: '1px solid',
+                                          borderColor: 'divider'
+                                        })
                                       }}>
                                         {formatPosition(idx)}
-                                      </Typography>
+                                      </Box>
                                     </TableCell>
                                     <TableCell>
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                         <Avatar 
                                           src={!c.is_nota ? getImageUrl(c.photo) : undefined} 
-                                          sx={{ width: 36, height: 36, bgcolor: c.is_nota ? '#334155' : 'inherit' }}
+                                          sx={{ width: 40, height: 40, border: '1px solid', borderColor: 'divider', bgcolor: c.is_nota ? '#334155' : 'inherit' }}
                                         >
-                                          {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.6rem' }}>NOTA</Typography>}
+                                          {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.65rem' }}>NOTA</Typography>}
                                         </Avatar>
                                         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                                          <Typography variant="body2" sx={{ fontWeight: idx === 0 ? 700 : 500, color: 'text.primary' }}>
+                                          <Typography variant="body2" sx={{ fontWeight: idx === 0 ? 800 : 600, color: 'text.primary', fontFamily: 'Outfit, sans-serif' }}>
                                             {c.candidate_name}
                                           </Typography>
                                           {c.symbol && !c.is_nota && (
@@ -358,19 +486,35 @@ const Results = () => {
                                               <img 
                                                 src={getImageUrl(c.symbol)} 
                                                 alt="symbol" 
-                                                style={{ width: 18, height: 18, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', padding: '1px', border: '1px solid #e2e8f0' }} 
+                                                style={{ width: 20, height: 20, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', padding: '1px', border: '1px solid #e2e8f0' }} 
                                               />
                                             </Box>
                                           )}
                                         </Box>
                                       </Box>
                                     </TableCell>
-                                    <TableCell sx={{ fontWeight: 700 }}>{c.vote_count}</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', fontSize: '1rem' }}>{c.vote_count}</TableCell>
                                     <TableCell>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <LinearProgress variant="determinate" value={pct}
-                                          sx={{ flexGrow: 1, height: 8, borderRadius: 4 }} />
-                                        <Typography variant="caption">{pct.toFixed(0)}%</Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <LinearProgress 
+                                          variant="determinate" 
+                                          value={pct}
+                                          sx={{ 
+                                            flexGrow: 1, 
+                                            height: 8, 
+                                            borderRadius: 4,
+                                            bgcolor: 'action.selected',
+                                            '& .MuiLinearProgress-bar': {
+                                              borderRadius: 4,
+                                              background: idx === 0 
+                                                ? 'linear-gradient(90deg, #3f51b5 0%, #6366f1 100%)'
+                                                : 'linear-gradient(90deg, #94a3b8 0%, #cbd5e1 100%)'
+                                            }
+                                          }} 
+                                        />
+                                        <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 40, fontFamily: 'Outfit, sans-serif' }}>
+                                          {pct.toFixed(0)}%
+                                        </Typography>
                                       </Box>
                                     </TableCell>
                                     <TableCell align="right">
@@ -379,7 +523,7 @@ const Results = () => {
                                         variant="outlined"
                                         onClick={() => handleOpenDetails(post, c)}
                                         startIcon={<BarChart3 size={14} />}
-                                        sx={{ borderRadius: 2 }}
+                                        sx={{ borderRadius: 2, fontWeight: 700, textTransform: 'none', px: 2 }}
                                       >
                                         Stats
                                       </Button>
@@ -392,18 +536,41 @@ const Results = () => {
                         </TableContainer>
                       </Grid>
                       <Grid size={{ xs: 12, md: 5 }}>
-                        <ResponsiveContainer width="100%" height={250}>
-                          <PieChart>
-                            <Pie data={post.candidates?.map((c: any) => ({ name: c.candidate_name, value: c.vote_count || 0 }))}
-                              cx="50%" cy="50%" outerRadius={80} dataKey="value" label>
-                              {post.candidates?.map((_: any, idx: number) => (
-                                <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Legend />
-                            <Tooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        <Paper variant="outlined" sx={{ 
+                          p: 2, 
+                          borderRadius: 3, 
+                          height: '100%', 
+                          display: 'flex', 
+                          flexDirection: 'column', 
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          bgcolor: 'background.default',
+                          borderColor: 'divider',
+                          minHeight: 250
+                        }}>
+                          <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: 'text.secondary', letterSpacing: 1, mb: 1, fontFamily: 'Outfit, sans-serif' }}>
+                            Vote Distribution
+                          </Typography>
+                          <ResponsiveContainer width="100%" height={200}>
+                            <PieChart>
+                              <Pie 
+                                data={post.candidates?.map((c: any) => ({ name: c.candidate_name, value: c.vote_count || 0 }))}
+                                cx="50%" 
+                                cy="50%" 
+                                innerRadius={50}
+                                outerRadius={70} 
+                                paddingAngle={3}
+                                dataKey="value"
+                              >
+                                {post.candidates?.map((_: any, idx: number) => (
+                                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif' }} />
+                              <Tooltip contentStyle={{ borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </Paper>
                       </Grid>
                     </Grid>
                   )}
