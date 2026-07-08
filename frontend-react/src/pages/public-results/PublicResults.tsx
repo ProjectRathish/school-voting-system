@@ -13,7 +13,13 @@ import axios from 'axios';
 import { getMediaUrl, getBaseUrl } from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
 
-const MEDIA_URL = getMediaUrl();
+const getImageUrl = (path: string | null | undefined) => {
+  if (!path) return undefined;
+  if (path.startsWith('http')) return path;
+  const mediaUrl = getMediaUrl();
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${mediaUrl}${cleanPath}`;
+};
 const API_URL = getBaseUrl();
 
 // Custom Canvas Confetti Component
@@ -414,7 +420,7 @@ const PublicResults = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {election.school_logo ? (
               <Avatar
-                src={`${MEDIA_URL}${election.school_logo}`}
+                src={getImageUrl(election.school_logo)}
                 alt={election.school_name}
                 sx={{
                   width: 48,
@@ -538,7 +544,7 @@ const PublicResults = () => {
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
                         {candidates.map((c: any) => (
                           <Box key={c.candidate_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'rgba(255,255,255,0.03)', px: 2.5, py: 1.5, borderRadius: 3, border: '1px solid rgba(255,255,255,0.05)' }}>
-                            <Avatar src={c.photo && !c.is_nota ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 36, height: 36, bgcolor: c.is_nota ? '#334155' : 'inherit' }}>
+                            <Avatar src={!c.is_nota ? getImageUrl(c.photo) : undefined} sx={{ width: 36, height: 36, bgcolor: c.is_nota ? '#334155' : 'inherit' }}>
                               {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.6rem' }}>NOTA</Typography>}
                             </Avatar>
                             <Box sx={{ textAlign: 'left' }}>
@@ -591,7 +597,7 @@ const PublicResults = () => {
                                 <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                                   <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
                                     <Avatar
-                                      src={secondPlace.photo && !secondPlace.is_nota ? `${MEDIA_URL}${secondPlace.photo}` : undefined}
+                                      src={!secondPlace.is_nota ? getImageUrl(secondPlace.photo) : undefined}
                                       sx={{
                                         width: 100, height: 100, mx: 'auto',
                                         border: '3px solid #cbd5e1',
@@ -603,7 +609,7 @@ const PublicResults = () => {
                                     </Avatar>
                                     {secondPlace.symbol && !secondPlace.is_nota && (
                                       <Avatar
-                                        src={`${MEDIA_URL}${secondPlace.symbol}`}
+                                        src={getImageUrl(secondPlace.symbol)}
                                         sx={{
                                           width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
                                           bgcolor: 'white', border: '2.5px solid #cbd5e1', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
@@ -688,7 +694,7 @@ const PublicResults = () => {
                                       '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
                                     }} />
                                     <Avatar
-                                      src={firstPlace.photo && !firstPlace.is_nota ? `${MEDIA_URL}${firstPlace.photo}` : undefined}
+                                      src={!firstPlace.is_nota ? getImageUrl(firstPlace.photo) : undefined}
                                       sx={{
                                         width: 140, height: 140, mx: 'auto',
                                         border: '4px solid #fbbf24',
@@ -701,7 +707,7 @@ const PublicResults = () => {
                                     </Avatar>
                                     {firstPlace.symbol && !firstPlace.is_nota && (
                                       <Avatar
-                                        src={`${MEDIA_URL}${firstPlace.symbol}`}
+                                        src={getImageUrl(firstPlace.symbol)}
                                         sx={{
                                           width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
                                           bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
@@ -790,7 +796,7 @@ const PublicResults = () => {
                                       '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
                                     }} />
                                     <Avatar
-                                      src={winner.photo && !winner.is_nota ? `${MEDIA_URL}${winner.photo}` : undefined}
+                                      src={!winner.is_nota ? getImageUrl(winner.photo) : undefined}
                                       sx={{
                                         width: 140, height: 140, mx: 'auto',
                                         border: '4px solid #fbbf24',
@@ -803,7 +809,7 @@ const PublicResults = () => {
                                     </Avatar>
                                     {winner.symbol && !winner.is_nota && (
                                       <Avatar
-                                        src={`${MEDIA_URL}${winner.symbol}`}
+                                        src={getImageUrl(winner.symbol)}
                                         sx={{
                                           width: 42, height: 42, position: 'absolute', bottom: -2, right: 6,
                                           bgcolor: 'white', border: '3px solid #fbbf24', boxShadow: '0 6px 12px rgba(0,0,0,0.3)',
@@ -883,7 +889,7 @@ const PublicResults = () => {
                                 <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                                   <Box sx={{ position: 'relative', display: 'inline-block', mb: 2 }}>
                                     <Avatar
-                                      src={thirdPlace.photo && !thirdPlace.is_nota ? `${MEDIA_URL}${thirdPlace.photo}` : undefined}
+                                      src={!thirdPlace.is_nota ? getImageUrl(thirdPlace.photo) : undefined}
                                       sx={{
                                         width: 100, height: 100, mx: 'auto',
                                         border: '3px solid #b45309',
@@ -895,7 +901,7 @@ const PublicResults = () => {
                                     </Avatar>
                                     {thirdPlace.symbol && !thirdPlace.is_nota && (
                                       <Avatar
-                                        src={`${MEDIA_URL}${thirdPlace.symbol}`}
+                                        src={getImageUrl(thirdPlace.symbol)}
                                         sx={{
                                           width: 32, height: 32, position: 'absolute', bottom: 0, right: 4,
                                           bgcolor: 'white', border: '2.5px solid #b45309', boxShadow: '0 4px 8px rgba(0,0,0,0.3)'
@@ -961,11 +967,11 @@ const PublicResults = () => {
                                   <Typography sx={{ width: 30, textAlign: 'center', color: '#94a3b8', fontWeight: 800 }}>
                                     #{rank}
                                   </Typography>
-                                  <Avatar src={c.photo && !c.is_nota ? `${MEDIA_URL}${c.photo}` : undefined} sx={{ width: 40, height: 40, bgcolor: c.is_nota ? '#334155' : 'inherit' }}>
+                                  <Avatar src={!c.is_nota ? getImageUrl(c.photo) : undefined} sx={{ width: 40, height: 40, bgcolor: c.is_nota ? '#334155' : 'inherit' }}>
                                     {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.65rem' }}>NOTA</Typography>}
                                   </Avatar>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    {c.symbol && !c.is_nota && <Avatar src={`${MEDIA_URL}${c.symbol}`} sx={{ width: 20, height: 20, bgcolor: 'white' }} />}
+                                    {c.symbol && !c.is_nota && <Avatar src={getImageUrl(c.symbol)} sx={{ width: 20, height: 20, bgcolor: 'white' }} />}
                                     <Typography sx={{ fontWeight: 700, color: 'white' }}>{c.candidate_name}</Typography>
                                   </Box>
                                 </Box>

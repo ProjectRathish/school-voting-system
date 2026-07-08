@@ -12,7 +12,13 @@ import { useElectionStore } from '../../store/electionStore';
 import { useQuery } from '@tanstack/react-query';
 import axiosInstance, { getMediaUrl } from '../../api/axiosInstance';
 
-const MEDIA_URL = getMediaUrl();
+const getImageUrl = (path: string | null | undefined) => {
+  if (!path) return undefined;
+  if (path.startsWith('http')) return path;
+  const mediaUrl = getMediaUrl();
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  return `${mediaUrl}${cleanPath}`;
+};
 const COLORS = ['#3f51b5', '#f50057', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
 const Results = () => {
@@ -253,7 +259,7 @@ const Results = () => {
 
                       {/* Winner Photo */}
                       <Avatar 
-                        src={post.candidates[0]?.photo ? `${MEDIA_URL}${post.candidates[0].photo}` : undefined} 
+                        src={getImageUrl(post.candidates[0]?.photo)} 
                         sx={{ 
                           width: 80, 
                           height: 80, 
@@ -277,7 +283,7 @@ const Results = () => {
                           </Typography>
                           {post.candidates[0]?.symbol && (
                             <img 
-                              src={`${MEDIA_URL}${post.candidates[0].symbol}`} 
+                              src={getImageUrl(post.candidates[0].symbol)} 
                               alt="symbol" 
                               style={{ width: 28, height: 28, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', padding: '2px', border: '1px solid #fde68a' }} 
                             />
@@ -326,7 +332,7 @@ const Results = () => {
                                     <TableCell>
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                         <Avatar 
-                                          src={c.photo && !c.is_nota ? `${MEDIA_URL}${c.photo}` : undefined} 
+                                          src={!c.is_nota ? getImageUrl(c.photo) : undefined} 
                                           sx={{ width: 36, height: 36, bgcolor: c.is_nota ? '#334155' : 'inherit' }}
                                         >
                                           {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.6rem' }}>NOTA</Typography>}
@@ -338,7 +344,7 @@ const Results = () => {
                                           {c.symbol && !c.is_nota && (
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
                                               <img 
-                                                src={`${MEDIA_URL}${c.symbol}`} 
+                                                src={getImageUrl(c.symbol)} 
                                                 alt="symbol" 
                                                 style={{ width: 18, height: 18, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', padding: '1px', border: '1px solid #e2e8f0' }} 
                                               />
@@ -438,7 +444,7 @@ const Results = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Avatar
-                    src={selectedCandidateDetails.photo ? `${MEDIA_URL}${selectedCandidateDetails.photo}` : undefined}
+                    src={getImageUrl(selectedCandidateDetails.photo)}
                     sx={{ width: 56, height: 56, bgcolor: selectedCandidateDetails.is_nota ? '#334155' : 'inherit' }}
                   >
                     {selectedCandidateDetails.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.6rem' }}>NOTA</Typography>}
@@ -454,7 +460,7 @@ const Results = () => {
                 </Box>
                 {selectedCandidateDetails.symbol && !selectedCandidateDetails.is_nota && (
                   <img
-                    src={`${MEDIA_URL}${selectedCandidateDetails.symbol}`}
+                    src={getImageUrl(selectedCandidateDetails.symbol)}
                     alt="symbol"
                     style={{ width: 40, height: 40, objectFit: 'contain', marginLeft: 'auto', border: '1px solid #e2e8f0', borderRadius: 4, padding: 2 }}
                   />
