@@ -415,7 +415,6 @@ const Results = () => {
                                 <TableCell>Position</TableCell>
                                 <TableCell>Candidate</TableCell>
                                 <TableCell>Votes</TableCell>
-                                <TableCell sx={{ minWidth: 150 }}>Progress</TableCell>
                                 <TableCell align="right">Details</TableCell>
                               </TableRow>
                             </TableHead>
@@ -494,29 +493,7 @@ const Results = () => {
                                       </Box>
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: 800, fontFamily: 'Outfit, sans-serif', fontSize: '1rem' }}>{c.vote_count}</TableCell>
-                                    <TableCell>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <LinearProgress 
-                                          variant="determinate" 
-                                          value={pct}
-                                          sx={{ 
-                                            flexGrow: 1, 
-                                            height: 8, 
-                                            borderRadius: 4,
-                                            bgcolor: 'action.selected',
-                                            '& .MuiLinearProgress-bar': {
-                                              borderRadius: 4,
-                                              background: idx === 0 
-                                                ? 'linear-gradient(90deg, #3f51b5 0%, #6366f1 100%)'
-                                                : 'linear-gradient(90deg, #94a3b8 0%, #cbd5e1 100%)'
-                                            }
-                                          }} 
-                                        />
-                                        <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 40, fontFamily: 'Outfit, sans-serif' }}>
-                                          {pct.toFixed(0)}%
-                                        </Typography>
-                                      </Box>
-                                    </TableCell>
+
                                     <TableCell align="right">
                                       <Button
                                         size="small"
