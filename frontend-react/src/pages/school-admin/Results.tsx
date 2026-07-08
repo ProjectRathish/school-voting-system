@@ -19,6 +19,13 @@ const getImageUrl = (path: string | null | undefined) => {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${mediaUrl}${cleanPath}`;
 };
+const formatPosition = (index: number) => {
+  const rank = index + 1;
+  if (rank === 1) return '1st';
+  if (rank === 2) return '2nd';
+  if (rank === 3) return '3rd';
+  return `${rank}th`;
+};
 const COLORS = ['#3f51b5', '#f50057', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
 const Results = () => {
@@ -235,7 +242,7 @@ const Results = () => {
               {results?.results?.map((post: any) => (
                 <Paper key={post.post_id} sx={{ p: 3, mb: 3, borderRadius: 2, overflow: 'hidden', position: 'relative' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
-                    🏆 {post.post_name}
+                    {post.post_name}
                   </Typography>
 
                   {/* UNCONTESTED POST — single candidate auto-winner */}
@@ -251,12 +258,6 @@ const Results = () => {
                       position: 'relative',
                       overflow: 'hidden'
                     }}>
-                      {/* Decorative background sparkle */}
-                      <Box sx={{
-                        position: 'absolute', right: -20, top: -20,
-                        fontSize: 120, opacity: 0.07, userSelect: 'none', lineHeight: 1
-                      }}>🏆</Box>
-
                       {/* Winner Photo */}
                       <Avatar 
                         src={getImageUrl(post.candidates[0]?.photo)} 
@@ -312,7 +313,7 @@ const Results = () => {
                           <Table>
                             <TableHead>
                               <TableRow>
-                                <TableCell>Rank</TableCell>
+                                <TableCell>Position</TableCell>
                                 <TableCell>Candidate</TableCell>
                                 <TableCell>Votes</TableCell>
                                 <TableCell sx={{ minWidth: 150 }}>Progress</TableCell>
@@ -324,10 +325,21 @@ const Results = () => {
                                 const total = post.candidates.reduce((s: number, x: any) => s + (x.vote_count || 0), 0);
                                 const pct = total > 0 ? ((c.vote_count || 0) / total) * 100 : 0;
                                 return (
-                                  <TableRow key={c.candidate_id}
-                                    sx={{ backgroundColor: idx === 0 ? 'success.light' : 'transparent', opacity: idx === 0 ? 0.9 : 1 }}>
+                                  <TableRow 
+                                    key={c.candidate_id}
+                                    sx={{ 
+                                      backgroundColor: 'transparent',
+                                      '&:hover': { backgroundColor: 'action.hover' }
+                                    }}
+                                  >
                                     <TableCell>
-                                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                                      <Typography variant="body2" sx={{ 
+                                        fontWeight: idx === 0 ? 800 : 600, 
+                                        color: idx === 0 ? 'primary.main' : 'text.secondary',
+                                        fontSize: '0.875rem'
+                                      }}>
+                                        {formatPosition(idx)}
+                                      </Typography>
                                     </TableCell>
                                     <TableCell>
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -491,10 +503,10 @@ const Results = () => {
                   <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        🔵 Male: <b>{selectedCandidateDetails.demographics.male_votes}</b>
+                        Male: <b>{selectedCandidateDetails.demographics.male_votes}</b>
                       </Typography>
                       <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        🔴 Female: <b>{selectedCandidateDetails.demographics.female_votes}</b>
+                        Female: <b>{selectedCandidateDetails.demographics.female_votes}</b>
                       </Typography>
                     </Box>
                     {/* Gender Split Bar */}
