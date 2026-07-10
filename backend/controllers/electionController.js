@@ -1550,6 +1550,7 @@ exports.importPostStructure = async (req, res) => {
         [from_election_id, school_id]
       );
       if (sourceElection.length === 0) {
+        await connection.rollback();
         return res.status(403).json({ message: "Source election access denied" });
       }
 
@@ -1559,10 +1560,12 @@ exports.importPostStructure = async (req, res) => {
         [target_election_id, school_id]
       );
       if (targetElection.length === 0) {
+        await connection.rollback();
         return res.status(403).json({ message: "Target election access denied" });
       }
 
       if (targetElection[0].status !== 'DRAFT' && targetElection[0].status !== 'CONFIGURING') {
+        await connection.rollback();
         return res.status(400).json({ message: "Can only import structure to an election in Draft/Configuring status" });
       }
 
@@ -1573,6 +1576,7 @@ exports.importPostStructure = async (req, res) => {
       );
 
       if (posts.length === 0) {
+        await connection.rollback();
         return res.status(400).json({ message: "Source election has no posts to import" });
       }
 

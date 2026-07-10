@@ -39,7 +39,7 @@ jobs:
             node scripts/migrate_booth_name.js || true
 
             echo "♻️ Restarting backend..."
-            pm2 restart school-voting || pm2 start server.js --name school-voting
+            pm2 startOrRestart ecosystem.config.js --env production
             pm2 save
 
             echo "✅ Full deployment complete!"
