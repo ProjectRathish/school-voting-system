@@ -271,13 +271,17 @@ exports.deletePollingBooth = async (req, res) => {
 
 // Assign voter to a free voting machine in the booth
 exports.assignVoter = async (req, res) => {
+  const connection = await db.getConnection();
   try {
+    await connection.beginTransaction();
+
     const school_id = req.user.school_id;
     // Allow explicitly passing booth_id because user tokens might not always contain it if assigned post-login
     const booth_id = req.body.booth_id || req.user.booth_id || req.params.booth_id; 
     const { admission_no } = req.body;
 
     if (!admission_no || !booth_id) {
+       await connection.rollback();
        return res.status(400).json({ message: "admission_no and booth_id are required" });
     }
 
@@ -285,54 +289,61 @@ exports.assignVoter = async (req, res) => {
     const election_id = req.body.election_id || req.user.election_id;
 
     if (!election_id) {
+       await connection.rollback();
        return res.status(400).json({ message: "election_id is required for voter assignment" });
     }
 
     // Verify election is currently ACTIVE
-    const [electionRows] = await db.execute(
+    const [electionRows] = await connection.execute(
        "SELECT status FROM elections WHERE id=? AND school_id=?",
        [election_id, school_id]
     );
 
     if (electionRows.length === 0) {
+       await connection.rollback();
        return res.status(404).json({ message: "Election not found" });
     }
 
     if (electionRows[0].status === 'PAUSED') {
+       await connection.rollback();
        return res.status(403).json({ message: "Election is currently PAUSED (e.g., for lunch break). Voters cannot be assigned." });
     }
 
     if (electionRows[0].status !== 'ACTIVE') {
+       await connection.rollback();
        return res.status(403).json({ message: `Election is not active. Current status: ${electionRows[0].status}` });
     }
 
-    // Fetch the voter (include class_id and sex for eligibility check)
-    const [voterRows] = await db.execute(
-       "SELECT id, is_active, has_voted, is_blocked, class_id, sex FROM voters WHERE admission_no=? AND election_id=? AND school_id=?",
+    // Fetch the voter (include class_id and sex for eligibility check) - locked FOR UPDATE to prevent concurrent check-ins
+    const [voterRows] = await connection.execute(
+       "SELECT id, is_active, has_voted, is_blocked, class_id, sex FROM voters WHERE admission_no=? AND election_id=? AND school_id=? FOR UPDATE",
        [admission_no, election_id, school_id]
     );
 
     if (voterRows.length === 0) {
+       await connection.rollback();
        return res.status(404).json({ message: "Voter not found in this election" });
     }
 
     const voter = voterRows[0];
 
     if (voter.has_voted) {
+       await connection.rollback();
        return res.status(400).json({ message: "Voter has already cast their vote" });
     }
     
     if (voter.is_blocked) {
+       await connection.rollback();
        return res.status(403).json({ message: "This voter has been blocked by an administrator and cannot vote." });
     }
 
     if (voter.is_active) {
-       // Ideally we could return what machine they are at, but for now just prevent double activation
+       await connection.rollback();
        return res.status(400).json({ message: "Voter is already active in a session" });
     }
 
     // Check if voter is eligible for any posts in this election
-    const [posts] = await db.execute(
+    const [posts] = await connection.execute(
        "SELECT id, gender_rule, voting_classes FROM posts WHERE election_id=?",
        [election_id]
     );
@@ -353,10 +364,11 @@ exports.assignVoter = async (req, res) => {
     });
 
     if (eligiblePosts.length === 0) {
+        await connection.rollback();
         return res.status(400).json({ message: "Voter is not eligible to vote for any posts in this election." });
     }
 
-    // Check for a free machine in this booth
+    // Check for a free machine in this booth - locked FOR UPDATE
     let machineQuery = "SELECT id, machine_name FROM voting_machines WHERE booth_id=? AND school_id=? AND status='FREE'";
     let machineParams = [booth_id, school_id];
 
@@ -367,9 +379,10 @@ exports.assignVoter = async (req, res) => {
 
     machineQuery += " LIMIT 1 FOR UPDATE";
 
-    const [machineRows] = await db.execute(machineQuery, machineParams);
+    const [machineRows] = await connection.execute(machineQuery, machineParams);
 
     if (machineRows.length === 0) {
+       await connection.rollback();
        return res.status(400).json({ 
           message: req.body.machine_id 
             ? "The selected machine is not free or not found" 
@@ -379,18 +392,19 @@ exports.assignVoter = async (req, res) => {
 
     const machine = machineRows[0];
 
-    // Standard updating without complex explicit transaction since execute handles it
-    await db.execute(
+    // Update voter status
+    await connection.execute(
       "UPDATE voters SET is_active=1 WHERE id=?",
       [voter.id]
     );
 
-    await db.execute(
+    // Update machine status
+    await connection.execute(
       "UPDATE voting_machines SET status='BUSY', current_voter_id=? WHERE id=?",
       [voter.id, machine.id]
     );
 
-    // Real-time update events removed (replaced by client-side polling)
+    await connection.commit();
 
     res.json({
        message: "Voter successfully activated and assigned to machine",
@@ -400,7 +414,10 @@ exports.assignVoter = async (req, res) => {
     });
 
   } catch (err) {
+    await connection.rollback();
     console.error("Error assigning voter:", err);
     res.status(500).json({ message: "Server error assigning voter", error: err.message });
+  } finally {
+    connection.release();
   }
 };
