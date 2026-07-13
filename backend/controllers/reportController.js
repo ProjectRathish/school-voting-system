@@ -318,6 +318,11 @@ exports.generateVoterSignatureSheet = async (req, res) => {
       groups[key].push(v);
     });
 
+    // Sort voters in each class/division alphabetically by name
+    Object.keys(groups).forEach(key => {
+      groups[key].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }));
+    });
+
     // PDF Generation
     const doc = new PDFDocument({ margin: 50 });
     const filename = `${election.name.replace(/\s+/g, "_")}_Voter_Signature_Sheets.pdf`;
