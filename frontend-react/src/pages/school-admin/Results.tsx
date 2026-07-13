@@ -124,6 +124,19 @@ const Results = () => {
     } catch {}
   };
 
+  const handleExportPDF = async () => {
+    try {
+      const res = await axiosInstance.get(`/reports/election/${selectedElection}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `election_${selectedElectionData?.name || selectedElection}_report.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {}
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
@@ -154,6 +167,9 @@ const Results = () => {
               onClick={handleCopyLink}
             >
               {copied ? 'Link Copied!' : 'Copy Public Link'}
+            </Button>
+            <Button variant="outlined" startIcon={<Download size={18} />} onClick={handleExportPDF}>
+              Export PDF
             </Button>
             <Button variant="outlined" startIcon={<Download size={18} />} onClick={handleExport}>
               Export Excel
