@@ -4,7 +4,7 @@ const cors = require("cors");
 const path = require("path");
 const helmet = require("helmet");
 const db = require("./config/db");
-const { authLimiter, generalLimiter } = require("./middleware/rateLimiter");
+const { generalLimiter } = require("./middleware/rateLimiter");
 
 const authRoutes = require("./routes/authRoutes");
 const platformRoutes = require("./routes/platformRoutes");
@@ -139,7 +139,7 @@ app.get("/debug-uploads", (req, res) => {
 app.use(generalLimiter);
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
-app.use("/api/auth", authLimiter, authRoutes);  // Strict limit on auth
+app.use("/api/auth", authRoutes);  // Auth routes (rate limits applied inside)
 app.use("/api/platform", platformRoutes);
 app.use("/api/elections", electionRoutes);
 app.use("/api/sections", sectionRoutes);

@@ -9,9 +9,10 @@ router.get("/test", (req, res) => {
 
 const { requireAuth } = require("../middleware/authMiddleware");
 const { requireRole } = require("../middleware/roleMiddleware");
+const { authLimiter } = require("../middleware/rateLimiter");
 
-router.post("/login", authController.login);
-router.post("/booth-login", authController.boothLogin);
+router.post("/login", authLimiter, authController.login);
+router.post("/booth-login", authLimiter, authController.boothLogin);
 router.get("/me", requireAuth, authController.getProfile);
 
 // Add endpoint to create booth officers.
