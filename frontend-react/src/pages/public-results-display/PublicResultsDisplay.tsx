@@ -601,21 +601,28 @@ const PublicResultsDisplay = () => {
                         {candidate.candidate_name}
                       </Typography>
                       <Typography variant="caption" sx={{ color: modalSubtext, display: 'block', mt: 0.25 }}>
-                        Candidate for <b>{post.post_name}</b>
+                        Candidate for <b>{post.post_name}</b> {candidate.symbol_name ? `• Symbol: ${candidate.symbol_name}` : ''}
                       </Typography>
                     </Box>
                   </Box>
                   {candidate.symbol && !candidate.is_nota && (
-                    <Avatar
-                      src={getImageUrl(candidate.symbol)}
-                      sx={{
-                        width: 42,
-                        height: 42,
-                        bgcolor: 'white',
-                        border: isDarkMode ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(0,0,0,0.08)',
-                        p: 0.5
-                      }}
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Avatar
+                        src={getImageUrl(candidate.symbol)}
+                        sx={{
+                          width: 42,
+                          height: 42,
+                          bgcolor: 'white',
+                          border: isDarkMode ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(0,0,0,0.08)',
+                          p: 0.5
+                        }}
+                      />
+                      {candidate.symbol_name && (
+                        <Typography variant="caption" sx={{ color: modalSubtext, fontWeight: 700, display: { xs: 'none', sm: 'block' } }}>
+                          {candidate.symbol_name}
+                        </Typography>
+                      )}
+                    </Box>
                   )}
                 </Box>
               </DialogTitle>
@@ -623,7 +630,7 @@ const PublicResultsDisplay = () => {
               <DialogContent dividers sx={{ py: 3, borderColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                 <Grid container spacing={3}>
                   {/* Total Votes Card */}
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Card sx={{
                       bgcolor: modalCardBg,
                       border: `1px solid ${modalCardBorder}`,
@@ -640,8 +647,77 @@ const PublicResultsDisplay = () => {
                     </Card>
                   </Grid>
 
-                  {/* Gender Split Breakdown */}
-                  <Grid item xs={12}>
+                  {/* Class Split and Section Split (High Priority) */}
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: modalText }}>
+                      Votes by Class
+                    </Typography>
+                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: modalTableBg, border: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)' }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow sx={{ '& th': { bgcolor: modalBg, borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)', fontWeight: 700, color: modalSubtext } }}>
+                            <TableCell>Class</TableCell>
+                            <TableCell align="right">Votes</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {candidate.demographics?.classes && Object.keys(candidate.demographics.classes).length > 0 ? (
+                            Object.entries(candidate.demographics.classes)
+                              .sort((a: any, b: any) => b[1] - a[1])
+                              .map(([className, votes]: any) => (
+                                <TableRow key={className} sx={{ '& td': { borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)', color: modalText } }}>
+                                  <TableCell>{className}</TableCell>
+                                  <TableCell align="right" sx={{ fontWeight: 800 }}>{votes}</TableCell>
+                                </TableRow>
+                              ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} align="center" sx={{ color: '#64748b', py: 2 }}>
+                                No class data
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: modalText }}>
+                      Votes by Section
+                    </Typography>
+                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: modalTableBg, border: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)' }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow sx={{ '& th': { bgcolor: modalBg, borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)', fontWeight: 700, color: modalSubtext } }}>
+                            <TableCell>Section</TableCell>
+                            <TableCell align="right">Votes</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {candidate.demographics?.sections && Object.keys(candidate.demographics.sections).length > 0 ? (
+                            Object.entries(candidate.demographics.sections)
+                              .sort((a: any, b: any) => b[1] - a[1])
+                              .map(([sectionName, votes]: any) => (
+                                <TableRow key={sectionName} sx={{ '& td': { borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)', color: modalText } }}>
+                                  <TableCell>Section {sectionName}</TableCell>
+                                  <TableCell align="right" sx={{ fontWeight: 800 }}>{votes}</TableCell>
+                                </TableRow>
+                              ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={2} align="center" sx={{ color: '#64748b', py: 2 }}>
+                                No section data
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+
+                  {/* Gender Split Breakdown (Low Priority) */}
+                  <Grid size={{ xs: 12 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: modalText }}>
                       Gender Breakdown
                     </Typography>
@@ -685,75 +761,6 @@ const PublicResultsDisplay = () => {
                         </Box>
                       )}
                     </Paper>
-                  </Grid>
-
-                  {/* Class Split and Section Split */}
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: modalText }}>
-                      Votes by Class
-                    </Typography>
-                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: modalTableBg, border: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)' }}>
-                      <Table size="small" stickyHeader>
-                        <TableHead>
-                          <TableRow sx={{ '& th': { bgcolor: modalBg, borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)', fontWeight: 700, color: modalSubtext } }}>
-                            <TableCell>Class</TableCell>
-                            <TableCell align="right">Votes</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {candidate.demographics?.classes && Object.keys(candidate.demographics.classes).length > 0 ? (
-                            Object.entries(candidate.demographics.classes)
-                              .sort((a: any, b: any) => b[1] - a[1])
-                              .map(([className, votes]: any) => (
-                                <TableRow key={className} sx={{ '& td': { borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)', color: modalText } }}>
-                                  <TableCell>{className}</TableCell>
-                                  <TableCell align="right" sx={{ fontWeight: 800 }}>{votes}</TableCell>
-                                </TableRow>
-                              ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={2} align="center" sx={{ color: '#64748b', py: 2 }}>
-                                No class data
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </Grid>
-
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: modalText }}>
-                      Votes by Section
-                    </Typography>
-                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: modalTableBg, border: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)' }}>
-                      <Table size="small" stickyHeader>
-                        <TableHead>
-                          <TableRow sx={{ '& th': { bgcolor: modalBg, borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)', fontWeight: 700, color: modalSubtext } }}>
-                            <TableCell>Section</TableCell>
-                            <TableCell align="right">Votes</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {candidate.demographics?.sections && Object.keys(candidate.demographics.sections).length > 0 ? (
-                            Object.entries(candidate.demographics.sections)
-                              .sort((a: any, b: any) => b[1] - a[1])
-                              .map(([sectionName, votes]: any) => (
-                                <TableRow key={sectionName} sx={{ '& td': { borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)', color: modalText } }}>
-                                  <TableCell>Section {sectionName}</TableCell>
-                                  <TableCell align="right" sx={{ fontWeight: 800 }}>{votes}</TableCell>
-                                </TableRow>
-                              ))
-                          ) : (
-                            <TableRow>
-                              <TableCell colSpan={2} align="center" sx={{ color: '#64748b', py: 2 }}>
-                                No section data
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
                   </Grid>
                 </Grid>
               </DialogContent>
