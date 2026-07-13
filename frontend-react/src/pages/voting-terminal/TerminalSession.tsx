@@ -342,6 +342,7 @@ const TerminalSession = () => {
   // BALLOT SCREEN (BUSY)
   const posts = ballotData?.ballot || [];
   const isLastStep = step === posts.length;
+  const showTwoColumns = posts.length >= 4;
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
@@ -486,7 +487,7 @@ const TerminalSession = () => {
                   key="review"
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  style={{ maxWidth: 800, marginLeft: 'auto', marginRight: 'auto', paddingBottom: 80 }}
+                  style={{ width: '100%', paddingBottom: 80 }}
                >
                   <Typography variant="h4" sx={{ fontWeight: 900, textAlign: 'center', mb: 2, fontSize: { xs: '1.5rem', md: '2.1rem' } }}>REVIEW YOUR VOTES</Typography>
                   <Typography sx={{ textAlign: 'center', color: 'text.secondary', mb: 4, fontSize: { xs: '0.85rem', md: '1rem' } }}>
@@ -495,12 +496,30 @@ const TerminalSession = () => {
 
                   {error && <Alert severity="error" sx={{ mb: 4, borderRadius: 3, fontWeight: 700 }}>{error}</Alert>}
 
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box sx={{ 
+                     display: 'flex', 
+                     flexDirection: showTwoColumns ? 'row' : 'column', 
+                     flexWrap: showTwoColumns ? 'wrap' : 'nowrap', 
+                     justifyContent: 'center', 
+                     alignItems: showTwoColumns ? 'stretch' : 'center',
+                     gap: 2 
+                  }}>
                      {posts.map((post: any) => {
                         const sel = selections[post.post_id];
                         const cand = post.candidates.find((c: any) => c.candidate_id === sel);
                         return (
-                           <Paper key={post.post_id} sx={{ p: { xs: 2, md: 3 }, display: 'flex', alignItems: 'center', gap: { xs: 2, md: 3 }, borderRadius: 3 }}>
+                           <Paper 
+                              key={post.post_id} 
+                              sx={{ 
+                                 width: showTwoColumns ? { xs: '100%', lg: 'calc(50% - 8px)' } : '100%', 
+                                 maxWidth: showTwoColumns ? 'none' : 650, 
+                                 p: { xs: 2, md: 3 }, 
+                                 display: 'flex', 
+                                 alignItems: 'center', 
+                                 gap: { xs: 2, md: 3 }, 
+                                 borderRadius: 3 
+                              }}
+                           >
                               {cand ? (
                                  <Avatar 
                                     src={cand.candidate_id === -1 ? undefined : getFullUrl(cand.photo)} 
@@ -517,6 +536,26 @@ const TerminalSession = () => {
                                  <Typography variant="caption" sx={{ fontWeight: 800, textTransform: 'uppercase', color: 'text.secondary', fontSize: { xs: '0.65rem', md: '0.75rem' } }}>{post.post_name}</Typography>
                                  <Typography variant="h6" sx={{ fontWeight: 700, fontSize: { xs: '0.95rem', md: '1.25rem' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cand?.candidate_name || 'NOT SELECTED'}</Typography>
                               </Box>
+                              {cand && (
+                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 } }}>
+                                    {cand.symbol && (
+                                       <Box 
+                                          component="img" 
+                                          src={getFullUrl(cand.symbol)} 
+                                          alt="Symbol"
+                                          sx={{ 
+                                             width: { xs: 30, md: 50 }, 
+                                             height: { xs: 30, md: 50 }, 
+                                             objectFit: 'contain',
+                                             filter: theme.palette.mode === 'dark' ? 'brightness(0.9) contrast(1.1)' : 'none'
+                                          }} 
+                                       />
+                                    )}
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5, fontSize: { xs: '0.65rem', md: '0.8rem' } }}>
+                                       {cand.candidate_id === -1 ? 'NOTA' : (cand.symbol_name || 'Independent')}
+                                    </Typography>
+                                 </Box>
+                              )}
                               {cand ? <CheckCircle2 color="green" size={20} /> : <AlertCircle color="red" size={20} />}
                            </Paper>
                         );

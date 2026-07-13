@@ -1031,7 +1031,7 @@ const Candidates = () => {
               </div>
               
               <div class="symbol-box">
-                <span class="material-symbols-rounded" style="background: linear-gradient(135deg, ${s.colorStart || '#000000'}, ${s.colorEnd || '#000000'}); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${s.iconName}</span>
+                <span class="material-symbols-rounded" style="color: ${s.colorStart || '#000000'}; font-variation-settings: 'FILL' 1, 'wght' 700;">${s.iconName}</span>
               </div>
               
               <div class="footer-ref">
@@ -1255,15 +1255,11 @@ const Candidates = () => {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. Draw the Material Symbol as colorful gradient clipart
+    // 2. Draw the Material Symbol as solid colorful clipart
     try {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      // Create a linear gradient for the icon
-      const gradient = ctx.createLinearGradient(0, 200, 0, 800);
-      gradient.addColorStop(0, symbol.colorStart || '#000000');
-      gradient.addColorStop(1, symbol.colorEnd || '#000000');
-      ctx.fillStyle = gradient;
+      ctx.fillStyle = symbol.colorStart || '#000000';
       // Use Material Symbols font and force solid fill
       ctx.font = '700 700px "Material Symbols Rounded"'; 
       
@@ -2920,9 +2916,7 @@ const Candidates = () => {
                       }}>
                         <span className="material-symbols-rounded" style={{ 
                           fontSize: '3.5rem', 
-                          background: `linear-gradient(135deg, ${symbol.colorStart || '#000000'}, ${symbol.colorEnd || '#000000'})`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
+                          color: symbol.colorStart || '#000000',
                           fontVariationSettings: "'FILL' 1, 'wght' 700",
                           // Fix for text ligatures bleeding out during load
                           width: '100%',
