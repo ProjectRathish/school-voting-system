@@ -577,6 +577,38 @@ const Infrastructure = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
+                
+                <Box sx={{ mt: 3.5 }}>
+                  <Alert 
+                    severity="info" 
+                    icon={<Monitor size={22} />}
+                    sx={{ 
+                      borderRadius: 2, 
+                      bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(99, 102, 241, 0.05)' : 'rgba(99, 102, 241, 0.02)',
+                      border: '1px solid rgba(99, 102, 241, 0.15)'
+                    }}
+                  >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+                      ⚙️ Quick Guide: Setting up a Voting Terminal (EVM)
+                    </Typography>
+                    <Typography variant="body2" component="div" sx={{ color: 'text.secondary', pl: 0.5 }}>
+                      <ol style={{ margin: 0, paddingLeft: '1.2rem', lineHeight: 1.6 }}>
+                        <li style={{ marginBottom: '6px' }}>
+                          On the terminal device (tablet, PC, etc.), open a browser and go to the terminal setup URL: 
+                          <code style={{ marginLeft: '4px', padding: '2px 6px', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: '4px', fontWeight: 600 }}>
+                            {window.location.origin}/terminal
+                          </code>
+                        </li>
+                        <li style={{ marginBottom: '6px' }}>
+                          Enter the unique <strong>Machine Code</strong> (e.g. <code>VM-B1-xxxx</code>) generated in the table above for this machine.
+                        </li>
+                        <li>
+                          The device will lock and bind to that machine configuration. To migrate/setup a different device, click the <strong>Reset Hardware Binding (Unlink Icon)</strong> in the actions column above to unlock the code, then register it on the new device.
+                        </li>
+                      </ol>
+                    </Typography>
+                  </Alert>
+                </Box>
               </Paper>
             </Grid>
           </Grid>
