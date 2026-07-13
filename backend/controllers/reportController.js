@@ -3,6 +3,20 @@ const PDFDocument = require("pdfkit");
 const path = require("path");
 const fs = require("fs");
 
+function drawStatsCard(doc, x, y, width, height, label, value, accentColor) {
+  // Card background with rounded corners
+  doc.lineJoin('round').rect(x, y, width, height).fillAndStroke("#f8fafc", "#e2e8f0");
+  
+  // Left accent line
+  doc.rect(x, y, 4, height).fill(accentColor);
+  
+  // Label text
+  doc.font("Helvetica").fillColor("#64748b").fontSize(8).text(label, x + 15, y + 12, { width: width - 20, align: "left" });
+  
+  // Value text
+  doc.font("Helvetica-Bold").fillColor("#0f172a").fontSize(16).text(value, x + 15, y + 26, { width: width - 20, align: "left" });
+}
+
 exports.generateElectionReport = async (req, res) => {
   try {
     const { id } = req.params;
@@ -105,126 +119,160 @@ exports.generateElectionReport = async (req, res) => {
     }
 
     doc
+      .font("Helvetica")
       .fillColor("#444444")
-      .fontSize(20)
-      .text(school.name.toUpperCase(), 120, 50, { align: "left" })
-      .fontSize(10)
-      .text(school.location || "Official Election Authority", 120, 75, { align: "left" })
-      .text("OFFICIAL ELECTION CERTIFICATE", 120, 90, { align: "left", characterSpacing: 1 })
+      .fontSize(16)
+      .text(school.name.toUpperCase(), 125, 48, { align: "left" })
+      .fontSize(9)
+      .fillColor("#64748b")
+      .text(school.location || "Official Election Authority", 125, 68, { align: "left" })
+      .font("Helvetica-Bold")
+      .fillColor("#6366f1")
+      .text("OFFICIAL ELECTION CERTIFICATE", 125, 82, { align: "left", characterSpacing: 1 })
       .moveDown();
 
     doc
-      .strokeColor("#aaaaaa")
+      .strokeColor("#e2e8f0")
       .lineWidth(1)
-      .moveTo(50, 115)
-      .lineTo(550, 115)
+      .moveTo(50, 110)
+      .lineTo(550, 110)
       .stroke();
 
     // --- Election Title ---
     doc
       .moveDown(2)
-      .fillColor("#000000")
-      .fontSize(24)
-      .text(election.name, { align: "center", font: "Helvetica-Bold" })
-      .fontSize(12)
-      .text(`Status: ${election.status} | Generated: ${new Date().toLocaleString()}`, { align: "center" })
+      .font("Helvetica-Bold")
+      .fillColor("#0f172a")
+      .fontSize(22)
+      .text(election.name, { align: "center" })
+      .font("Helvetica")
+      .fontSize(10)
+      .fillColor("#64748b")
+      .text(`Status: ${election.status}  |  Generated: ${new Date().toLocaleString()}`, { align: "center" })
       .moveDown();
 
-    // --- Stats Summary Table ---
-    doc
-      .rect(50, 220, 500, 60)
-      .fill("#f9f9f9")
-      .stroke("#dddddd");
-
-    doc
-      .fillColor("#444444")
-      .fontSize(10)
-      .text("TOTAL REGISTERED", 70, 235)
-      .text("TOTAL VOTES CAST", 220, 235)
-      .text("ELECTION TURNOUT", 400, 235);
-
-    doc
-      .fillColor("#000000")
-      .fontSize(16)
-      .text(totalVoters.toString(), 70, 250, { font: "Helvetica-Bold" })
-      .text(votedCount.toString(), 220, 250)
-      .text(`${turnoutPercentage}%`, 400, 250);
-
-    doc.moveDown(4);
+    // --- Stats Summary Section (Cards) ---
+    const statsTop = doc.y + 10;
+    const cardWidth = 140;
+    const cardHeight = 55;
+    const cardGap = 15;
+    
+    drawStatsCard(doc, 50, statsTop, cardWidth, cardHeight, "REGISTERED VOTERS", totalVoters.toString(), "#6366f1");
+    drawStatsCard(doc, 50 + cardWidth + cardGap, statsTop, cardWidth, cardHeight, "TOTAL VOTES CAST", votedCount.toString(), "#10b981");
+    drawStatsCard(doc, 50 + 2 * (cardWidth + cardGap), statsTop, cardWidth, cardHeight, "ELECTION TURNOUT", `${turnoutPercentage}%`, "#fbbf24");
+    
+    doc.y = statsTop + cardHeight + 25; // Move cursor past stats section
+    doc.font("Helvetica"); // Reset default font
 
     // --- Results Breakdown ---
     for (const post of reportData) {
       doc
-        .fillColor("#0052cc")
-        .fontSize(16)
-        .text(post.post_name, { underline: true })
-        .moveDown(0.5);
+        .font("Helvetica-Bold")
+        .fillColor("#4f46e5")
+        .fontSize(14)
+        .text(post.post_name)
+        .moveDown(0.4);
 
       // Table Header
       const tableTop = doc.y;
       doc
-        .fillColor("#666666")
-        .fontSize(10)
-        .text("CANDIDATE", 50, tableTop)
-        .text("VOTES", 350, tableTop)
-        .text("PERCENTAGE", 450, tableTop);
+        .font("Helvetica-Bold")
+        .fillColor("#475569")
+        .fontSize(9)
+        .text("CANDIDATE", 80, tableTop)
+        .text("VOTES", 320, tableTop, { width: 60, align: "right" })
+        .text("PERCENTAGE", 400, tableTop, { width: 80, align: "right" })
+        .text("VOTE SHARE PROGRESS", 500, tableTop);
       
       doc
-        .moveTo(50, tableTop + 15)
-        .lineTo(550, tableTop + 15)
-        .strokeColor("#eeeeee")
+        .moveTo(50, tableTop + 14)
+        .lineTo(550, tableTop + 14)
+        .strokeColor("#cbd5e1")
+        .lineWidth(1)
         .stroke();
 
-      let currentY = tableTop + 25;
+      let currentY = tableTop + 24;
+      const postTotal = post.candidates.reduce((sum, cand) => sum + cand.votes, 0);
 
       post.candidates.forEach((c, index) => {
         const isWinner = index === 0 && c.votes > 0;
-        const pct = votedCount > 0 ? ((c.votes / votedCount) * 100).toFixed(1) : "0.0";
+        const pct = postTotal > 0 ? ((c.votes / postTotal) * 100).toFixed(1) : "0.0";
         
+        // Page break check (needs margin buffer for height 28)
+        if (currentY > 700) {
+          doc.addPage();
+          // Draw table header on new page
+          doc.font("Helvetica-Bold").fillColor("#475569").fontSize(9)
+             .text("CANDIDATE", 80, 50)
+             .text("VOTES", 320, 50, { width: 60, align: "right" })
+             .text("PERCENTAGE", 400, 50, { width: 80, align: "right" })
+             .text("VOTE SHARE PROGRESS", 500, 50);
+          doc.moveTo(50, 64).lineTo(550, 64).strokeColor("#cbd5e1").lineWidth(1).stroke();
+          currentY = 74;
+        }
+
         if (isWinner) {
-          doc.rect(50, currentY - 5, 500, 20).fill("#fff9c4").stroke("#fff176");
-           doc.fillColor("#000000");
-        } else {
-           doc.fillColor("#333333");
+          doc.lineJoin('round').rect(50, currentY - 5, 500, 24).fillAndStroke("#fef9c3", "#fef08a");
+        }
+
+        // Draw Candidate Symbol image (if available)
+        if (c.symbol) {
+          const symbolPath = path.join(__dirname, "..", c.symbol);
+          if (fs.existsSync(symbolPath)) {
+            doc.image(symbolPath, 52, currentY - 3, { width: 20, height: 20 });
+          }
         }
 
         doc
-          .fontSize(11)
-          .text(c.candidate_name, 50, currentY)
-          .text(c.votes.toString(), 350, currentY)
-          .text(`${pct}%`, 450, currentY);
+          .font(isWinner ? "Helvetica-Bold" : "Helvetica")
+          .fillColor(isWinner ? "#854d0e" : "#0f172a")
+          .fontSize(10)
+          .text(c.candidate_name, 80, currentY);
 
         if (isWinner) {
-          doc.fontSize(8).fillColor("#f57f17").text("  [ WINNER ]", 250, currentY);
+          doc
+            .font("Helvetica-Bold")
+            .fillColor("#eab308")
+            .fontSize(8)
+            .text("🏆 WINNER", 230, currentY + 1.5);
         }
 
-        currentY += 25;
+        doc
+          .font(isWinner ? "Helvetica-Bold" : "Helvetica")
+          .fillColor("#0f172a")
+          .fontSize(10)
+          .text(c.votes.toString(), 320, currentY, { width: 60, align: "right" })
+          .text(`${pct}%`, 400, currentY, { width: 80, align: "right" });
 
-        // Check if we need a new page
-        if (currentY > 700) {
-          doc.addPage();
-          currentY = 50;
+        // Draw vote share bar
+        doc.lineJoin('miter').rect(500, currentY + 3, 50, 6).fill("#e2e8f0");
+        if (c.votes > 0) {
+          const barWidth = 50 * (c.votes / postTotal);
+          doc.rect(500, currentY + 3, barWidth, 6).fill(isWinner ? "#eab308" : "#6366f1");
         }
+
+        currentY += 28;
       });
 
-      doc.moveDown(2);
+      doc.y = currentY + 10;
+      doc.moveDown(1.5);
     }
 
     // --- Footer Section ---
-    const pageCount = doc.bufferedPageCount;
     doc
+      .font("Helvetica")
       .fontSize(8)
-      .fillColor("#999999")
+      .fillColor("#94a3b8")
       .text(
         `Digital Verification Serial: SV-${school_id}-${election.id}-${Date.now().toString().substring(8)}`,
         50,
-        750,
+        745,
         { align: "center" }
       )
       .text(
         "This is a computer-generated official document. No signature is required for electronic verification.",
         50,
-        762,
+        757,
         { align: "center" }
       );
 
