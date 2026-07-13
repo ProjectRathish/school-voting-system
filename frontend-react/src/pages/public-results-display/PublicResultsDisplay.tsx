@@ -7,7 +7,7 @@ import {
   DialogActions, Tooltip, Zoom, IconButton, Chip
 } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
-import { Trophy, Users, BarChart3, Star, ArrowLeft, RefreshCw, Activity } from 'lucide-react';
+import { Trophy, Users, BarChart3, Star, ArrowLeft, RefreshCw, Activity, Sun, Moon } from 'lucide-react';
 import axios from 'axios';
 import { getMediaUrl, getBaseUrl } from '../../api/axiosInstance';
 import { useAuthStore } from '../../store/authStore';
@@ -42,6 +42,7 @@ const PublicResultsDisplay = () => {
   const [rawResultsData, setRawResultsData] = useState<any>(null); // For turnout calculations
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<{ post: any, candidate: any } | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false); // Default light mode
 
   const fetchDisplayData = async () => {
     try {
@@ -90,9 +91,9 @@ const PublicResultsDisplay = () => {
     return (
       <Box sx={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', bgcolor: '#0f172a', color: 'white', gap: 2
+        minHeight: '100vh', bgcolor: '#f8fafc', color: '#0f172a', gap: 2
       }}>
-        <CircularProgress size={50} sx={{ color: '#818cf8' }} />
+        <CircularProgress size={50} sx={{ color: '#6366f1' }} />
         <Typography variant="h6" sx={{ fontFamily: 'Outfit', fontWeight: 500 }}>
           Loading Results Dashboard...
         </Typography>
@@ -104,7 +105,7 @@ const PublicResultsDisplay = () => {
     return (
       <Box sx={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        minHeight: '100vh', bgcolor: '#0f172a', px: 3
+        minHeight: '100vh', bgcolor: '#f8fafc', px: 3
       }}>
         <Alert severity="error" variant="filled" sx={{ maxWidth: 500, borderRadius: 2, mb: 3, bgcolor: '#be123c' }}>
           {error || 'An unexpected error occurred.'}
@@ -114,8 +115,8 @@ const PublicResultsDisplay = () => {
           startIcon={<ArrowLeft />}
           onClick={handleExit}
           sx={{
-            background: 'linear-gradient(135deg, #818cf8 0%, #a78bfa 100%)',
-            boxShadow: '0 4px 15px rgba(129, 140, 248, 0.4)'
+            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+            boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)'
           }}
         >
           Go Back
@@ -127,14 +128,57 @@ const PublicResultsDisplay = () => {
   const { election, post_breakdown } = data;
   const turnout = rawResultsData?.turnout || { votes_cast: 0, total_voters: 0, turnout_percentage: 0 };
 
+  // Dynamic style variables based on isDarkMode
+  const bgGradient = isDarkMode 
+    ? 'radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 45%), radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.05) 0%, transparent 45%), #0a0f1d' 
+    : 'radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.03) 0%, transparent 45%), #f8fafc';
+  const bgColor = isDarkMode ? '#0f172a' : '#f8fafc';
+  const textColor = isDarkMode ? '#f8fafc' : '#0f172a';
+  const headerBg = isDarkMode ? 'rgba(10, 15, 30, 0.6)' : 'rgba(255, 255, 255, 0.85)';
+  const borderStyle = isDarkMode ? '1px solid rgba(255, 255, 255, 0.07)' : '1px solid rgba(0, 0, 0, 0.07)';
+  
+  const cardBg = isDarkMode ? 'rgba(15, 23, 42, 0.4)' : '#ffffff';
+  const cardBorder = isDarkMode ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)';
+  const cardText = isDarkMode ? 'white' : '#0f172a';
+  const cardSubtext = isDarkMode ? '#94a3b8' : '#64748b';
+
+  const paperBg = isDarkMode ? 'rgba(15, 23, 42, 0.5)' : '#ffffff';
+  const paperBorder = isDarkMode ? '1.5px solid rgba(255, 255, 255, 0.06)' : '1.5px solid rgba(0, 0, 0, 0.06)';
+  const paperTitle = isDarkMode ? '#f8fafc' : '#0f172a';
+
+  const thColor = isDarkMode ? '#94a3b8' : '#475569';
+  const thBorder = isDarkMode ? '2px solid rgba(255, 255, 255, 0.08)' : '2px solid rgba(0, 0, 0, 0.06)';
+  const tdBorder = isDarkMode ? '1px solid rgba(255, 255, 255, 0.05)' : '1px solid rgba(0, 0, 0, 0.04)';
+  const tdText = isDarkMode ? 'white' : '#0f172a';
+
+  const rankBgOther = isDarkMode ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.03)';
+  const rankColorOther = isDarkMode ? '#94a3b8' : '#64748b';
+
+  const chartBg = isDarkMode ? 'rgba(10, 15, 30, 0.4)' : '#ffffff';
+  const chartBorder = isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)';
+  const legendColor = isDarkMode ? '#94a3b8' : '#475569';
+
+  // Modal Dynamic style variables
+  const modalBg = isDarkMode ? '#0f172a' : '#ffffff';
+  const modalGradient = isDarkMode 
+    ? 'radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%)' 
+    : 'radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.04) 0%, transparent 60%)';
+  const modalBorder = isDarkMode ? '1.5px solid rgba(255, 255, 255, 0.08)' : '1.5px solid rgba(0, 0, 0, 0.08)';
+  const modalText = isDarkMode ? 'white' : '#0f172a';
+  const modalSubtext = isDarkMode ? '#94a3b8' : '#64748b';
+  const modalCardBg = isDarkMode ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)';
+  const modalCardBorder = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+  const modalTableBg = isDarkMode ? 'rgba(10, 15, 30, 0.3)' : 'rgba(0, 0, 0, 0.01)';
+
   return (
     <Box sx={{
       minHeight: '100vh',
-      bgcolor: '#0f172a',
-      background: 'radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 45%), radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.05) 0%, transparent 45%), #0a0f1d',
-      color: '#f8fafc',
+      bgcolor: bgColor,
+      background: bgGradient,
+      color: textColor,
       fontFamily: 'Outfit, sans-serif',
-      pb: 8
+      pb: 8,
+      transition: 'background 0.3s, color 0.3s, bgcolor 0.3s'
     }}>
       {/* Top Header */}
       <Box sx={{
@@ -143,16 +187,17 @@ const PublicResultsDisplay = () => {
         justifyContent: 'space-between',
         px: { xs: 3, md: 6 },
         py: 2.5,
-        borderBottom: '1px solid rgba(255, 255, 255, 0.07)',
+        borderBottom: borderStyle,
         backdropFilter: 'blur(12px)',
-        bgcolor: 'rgba(10, 15, 30, 0.6)',
+        bgcolor: headerBg,
         position: 'sticky',
         top: 0,
-        zIndex: 100
+        zIndex: 100,
+        transition: 'background-color 0.3s, border-bottom 0.3s'
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Tooltip title="Go Back">
-            <IconButton onClick={handleExit} sx={{ color: '#94a3b8', '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.05)' } }}>
+            <IconButton onClick={handleExit} sx={{ color: isDarkMode ? '#94a3b8' : '#475569', '&:hover': { color: textColor, bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' } }}>
               <ArrowLeft size={20} />
             </IconButton>
           </Tooltip>
@@ -163,46 +208,68 @@ const PublicResultsDisplay = () => {
               sx={{
                 width: 44,
                 height: 44,
-                border: '2px solid rgba(255, 255, 255, 0.2)',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)'
+                border: isDarkMode ? '2px solid rgba(255, 255, 255, 0.2)' : '2px solid rgba(0, 0, 0, 0.1)',
+                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.15)'
               }}
             />
           ) : (
-            <Avatar sx={{ width: 44, height: 44, bgcolor: '#818cf8', fontWeight: 800 }}>
+            <Avatar sx={{ width: 44, height: 44, bgcolor: '#6366f1', color: 'white', fontWeight: 800 }}>
               {election.school_name?.substring(0, 2).toUpperCase()}
             </Avatar>
           )}
           <Box>
-            <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
+            <Typography variant="body2" sx={{ color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: 600, letterSpacing: 0.5, textTransform: 'uppercase', fontSize: '0.7rem' }}>
               {election.school_name || 'School Election Panel'}
             </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: 'white', lineHeight: 1.2 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: textColor, lineHeight: 1.2 }}>
               {election.name}
             </Typography>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Chip
             label="OFFICIAL RESULTS"
             icon={<Star size={14} color="#10b981" />}
             sx={{
-              bgcolor: 'rgba(16, 185, 129, 0.15)',
-              color: '#34d399',
+              bgcolor: 'rgba(16, 185, 129, 0.12)',
+              color: '#10b981',
               fontWeight: 800,
               fontSize: '0.75rem',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
               px: 0.5,
               '& .MuiChip-icon': { color: 'inherit' }
             }}
           />
+
+          {/* Theme Mode Toggle Button */}
+          <Tooltip title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}>
+            <IconButton 
+              onClick={() => setIsDarkMode(!isDarkMode)} 
+              sx={{ 
+                color: isDarkMode ? '#fbbf24' : '#6366f1', 
+                bgcolor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+                border: '1px solid',
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                '&:hover': { bgcolor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                width: 38,
+                height: 38
+              }}
+            >
+              {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+            </IconButton>
+          </Tooltip>
+
           <IconButton 
             onClick={fetchDisplayData}
             sx={{ 
-              color: '#94a3b8', 
-              bgcolor: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              '&:hover': { color: 'white', bgcolor: 'rgba(255,255,255,0.08)' } 
+              color: isDarkMode ? '#94a3b8' : '#475569', 
+              bgcolor: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+              border: '1px solid',
+              borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+              '&:hover': { color: textColor, bgcolor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+              width: 38,
+              height: 38
             }}
           >
             <RefreshCw size={16} />
@@ -217,25 +284,26 @@ const PublicResultsDisplay = () => {
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{
               borderRadius: 4,
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              bgcolor: 'rgba(15, 23, 42, 0.4)',
+              border: cardBorder,
+              bgcolor: cardBg,
               backdropFilter: 'blur(10px)',
-              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.2)'
+              boxShadow: isDarkMode ? '0 4px 30px rgba(0,0,0,0.2)' : '0 4px 20px rgba(0,0,0,0.02)',
+              transition: 'background-color 0.3s, border 0.3s'
             }}>
               <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2.5 }}>
                 <Box sx={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 56, height: 56, borderRadius: 3,
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(79,70,229,0.2) 100%)',
-                  color: '#818cf8'
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(79,70,229,0.18) 100%)',
+                  color: '#6366f1'
                 }}>
                   <Users size={28} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" sx={{ fontWeight: 800, color: 'white', lineHeight: 1.1 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 800, color: cardText, lineHeight: 1.1 }}>
                     {turnout.total_voters}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500, mt: 0.5 }}>
+                  <Typography variant="body2" sx={{ color: cardSubtext, fontWeight: 500, mt: 0.5 }}>
                     Total Voters
                   </Typography>
                 </Box>
@@ -246,25 +314,26 @@ const PublicResultsDisplay = () => {
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{
               borderRadius: 4,
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              bgcolor: 'rgba(15, 23, 42, 0.4)',
+              border: cardBorder,
+              bgcolor: cardBg,
               backdropFilter: 'blur(10px)',
-              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.2)'
+              boxShadow: isDarkMode ? '0 4px 30px rgba(0,0,0,0.2)' : '0 4px 20px rgba(0,0,0,0.02)',
+              transition: 'background-color 0.3s, border 0.3s'
             }}>
               <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2.5 }}>
                 <Box sx={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 56, height: 56, borderRadius: 3,
-                  background: 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(5,150,105,0.2) 100%)',
-                  color: '#34d399'
+                  background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.18) 100%)',
+                  color: '#10b981'
                 }}>
                   <Activity size={28} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" sx={{ fontWeight: 800, color: 'white', lineHeight: 1.1 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 800, color: cardText, lineHeight: 1.1 }}>
                     {turnout.votes_cast}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500, mt: 0.5 }}>
+                  <Typography variant="body2" sx={{ color: cardSubtext, fontWeight: 500, mt: 0.5 }}>
                     Votes Cast
                   </Typography>
                 </Box>
@@ -275,25 +344,26 @@ const PublicResultsDisplay = () => {
           <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{
               borderRadius: 4,
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              bgcolor: 'rgba(15, 23, 42, 0.4)',
+              border: cardBorder,
+              bgcolor: cardBg,
               backdropFilter: 'blur(10px)',
-              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.2)'
+              boxShadow: isDarkMode ? '0 4px 30px rgba(0,0,0,0.2)' : '0 4px 20px rgba(0,0,0,0.02)',
+              transition: 'background-color 0.3s, border 0.3s'
             }}>
               <CardContent sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2.5 }}>
                 <Box sx={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 56, height: 56, borderRadius: 3,
-                  background: 'linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(217,119,6,0.2) 100%)',
-                  color: '#fbbf24'
+                  background: 'linear-gradient(135deg, rgba(251,191,36,0.12) 0%, rgba(217,119,6,0.18) 100%)',
+                  color: '#f59e0b'
                 }}>
                   <Trophy size={28} />
                 </Box>
                 <Box>
-                  <Typography variant="h4" sx={{ fontWeight: 800, color: 'white', lineHeight: 1.1 }}>
+                  <Typography variant="h4" sx={{ fontWeight: 800, color: cardText, lineHeight: 1.1 }}>
                     {turnout.turnout_percentage?.toFixed(1)}%
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500, mt: 0.5 }}>
+                  <Typography variant="body2" sx={{ color: cardSubtext, fontWeight: 500, mt: 0.5 }}>
                     Turnout Rate
                   </Typography>
                 </Box>
@@ -315,13 +385,14 @@ const PublicResultsDisplay = () => {
                 p: { xs: 3, md: 4 },
                 mb: 5,
                 borderRadius: 5,
-                bgcolor: 'rgba(15, 23, 42, 0.5)',
-                border: '1.5px solid rgba(255, 255, 255, 0.06)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
-                backdropFilter: 'blur(8px)'
+                bgcolor: paperBg,
+                border: paperBorder,
+                boxShadow: isDarkMode ? '0 8px 32px rgba(0, 0, 0, 0.25)' : '0 8px 24px rgba(0, 0, 0, 0.02)',
+                backdropFilter: 'blur(8px)',
+                transition: 'background-color 0.3s, border 0.3s'
               }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                  <Typography variant="h5" sx={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.5, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3, pb: 1, borderBottom: borderStyle }}>
+                  <Typography variant="h5" sx={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.5, color: paperTitle, display: 'flex', alignItems: 'center', gap: 1 }}>
                     🏆 {post.post_name}
                   </Typography>
                 </Box>
@@ -332,7 +403,7 @@ const PublicResultsDisplay = () => {
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow sx={{ '& th': { borderBottom: '2px solid rgba(255,255,255,0.08)', pb: 1.5, fontWeight: 700, color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 } }}>
+                          <TableRow sx={{ '& th': { borderBottom: thBorder, pb: 1.5, fontWeight: 700, color: thColor, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 0.5 } }}>
                             <TableCell sx={{ pl: 1 }}>Rank</TableCell>
                             <TableCell>Candidate</TableCell>
                             <TableCell>Votes</TableCell>
@@ -344,8 +415,8 @@ const PublicResultsDisplay = () => {
                             const isWinner = idx === 0 && c.total_votes > 0;
                             return (
                               <TableRow key={c.candidate_id} sx={{
-                                '& td': { borderBottom: '1px solid rgba(255,255,255,0.05)', py: 2 },
-                                '&:hover': { bgcolor: 'rgba(255,255,255,0.015)' },
+                                '& td': { borderBottom: tdBorder, py: 2 },
+                                '&:hover': { bgcolor: isDarkMode ? 'rgba(255,255,255,0.015)' : 'rgba(0,0,0,0.015)' },
                                 transition: 'background-color 0.2s'
                               }}>
                                 <TableCell sx={{ pl: 1 }}>
@@ -355,20 +426,20 @@ const PublicResultsDisplay = () => {
                                     textTransform: 'uppercase',
                                     ...(isWinner ? {
                                       bgcolor: 'rgba(251, 191, 36, 0.12)',
-                                      color: '#fbbf24',
+                                      color: '#b45309',
                                       border: '1px solid rgba(251, 191, 36, 0.3)'
                                     } : idx === 1 && c.total_votes > 0 ? {
                                       bgcolor: 'rgba(148, 163, 184, 0.12)',
-                                      color: '#cbd5e1',
+                                      color: isDarkMode ? '#cbd5e1' : '#475569',
                                       border: '1px solid rgba(148, 163, 184, 0.3)'
                                     } : idx === 2 && c.total_votes > 0 ? {
                                       bgcolor: 'rgba(249, 115, 22, 0.1)',
-                                      color: '#f97316',
+                                      color: '#c2410c',
                                       border: '1px solid rgba(249, 115, 22, 0.2)'
                                     } : {
-                                      bgcolor: 'rgba(255,255,255,0.04)',
-                                      color: '#94a3b8',
-                                      border: '1px solid rgba(255,255,255,0.05)'
+                                      bgcolor: rankBgOther,
+                                      color: rankColorOther,
+                                      border: isDarkMode ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.05)'
                                     })
                                   }}>
                                     {formatPosition(idx)}
@@ -380,30 +451,35 @@ const PublicResultsDisplay = () => {
                                     <Avatar
                                       src={!c.is_nota ? getImageUrl(c.photo) : undefined}
                                       sx={{
-                                        width: 44, height: 44, border: '1.5px solid rgba(255,255,255,0.1)',
+                                        width: 44, height: 44, border: isDarkMode ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(0,0,0,0.1)',
                                         bgcolor: c.is_nota ? '#334155' : 'inherit'
                                       }}
                                     >
                                       {c.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.65rem' }}>NOTA</Typography>}
                                     </Avatar>
-                                    <Box>
-                                      <Typography variant="body2" sx={{ fontWeight: isWinner ? 800 : 600, color: 'white', fontSize: '0.95rem' }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                                      <Typography variant="body2" sx={{ fontWeight: isWinner ? 800 : 600, color: tdText, fontSize: '0.95rem' }}>
                                         {c.candidate_name}
                                       </Typography>
                                       {c.symbol && !c.is_nota && (
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75, width: '100%' }}>
                                           <img
                                             src={getImageUrl(c.symbol)}
-                                            alt="symbol"
-                                            style={{ width: 18, height: 18, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }}
+                                            alt={c.symbol_name || "symbol"}
+                                            style={{ width: 20, height: 20, objectFit: 'contain', backgroundColor: 'white', borderRadius: '4px', border: '1px solid rgba(0,0,0,0.1)', padding: '1px' }}
                                           />
+                                          {c.symbol_name && (
+                                            <Typography variant="caption" sx={{ color: isDarkMode ? '#94a3b8' : '#475569', fontWeight: 600, fontSize: '0.75rem' }}>
+                                              {c.symbol_name}
+                                            </Typography>
+                                          )}
                                         </Box>
                                       )}
                                     </Box>
                                   </Box>
                                 </TableCell>
                                 
-                                <TableCell sx={{ fontWeight: 800, fontSize: '1.05rem', color: isWinner ? '#fbbf24' : 'white' }}>
+                                <TableCell sx={{ fontWeight: 800, fontSize: '1.05rem', color: isWinner ? '#f59e0b' : tdText }}>
                                   {c.total_votes}
                                 </TableCell>
                                 
@@ -417,11 +493,11 @@ const PublicResultsDisplay = () => {
                                       borderRadius: 2.5,
                                       fontWeight: 700,
                                       textTransform: 'none',
-                                      borderColor: 'rgba(129, 140, 248, 0.4)',
-                                      color: '#93c5fd',
+                                      borderColor: isDarkMode ? 'rgba(129, 140, 248, 0.4)' : 'rgba(99, 102, 241, 0.4)',
+                                      color: isDarkMode ? '#93c5fd' : '#4f46e5',
                                       '&:hover': {
-                                        borderColor: '#60a5fa',
-                                        bgcolor: 'rgba(96, 165, 250, 0.05)'
+                                        borderColor: isDarkMode ? '#60a5fa' : '#3f51b5',
+                                        bgcolor: isDarkMode ? 'rgba(96, 165, 250, 0.05)' : 'rgba(99, 102, 241, 0.05)'
                                       }
                                     }}
                                   >
@@ -447,11 +523,12 @@ const PublicResultsDisplay = () => {
                         flexDirection: 'column', 
                         justifyContent: 'center',
                         alignItems: 'center',
-                        bgcolor: 'rgba(10, 15, 30, 0.4)',
-                        borderColor: 'rgba(255, 255, 255, 0.06)',
-                        minHeight: 250
+                        bgcolor: chartBg,
+                        borderColor: chartBorder,
+                        minHeight: 250,
+                        transition: 'background-color 0.3s, border 0.3s'
                       }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 1, mb: 1, fontFamily: 'Outfit, sans-serif' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: legendColor, letterSpacing: 1, mb: 1, fontFamily: 'Outfit, sans-serif' }}>
                           Vote Distribution
                         </Typography>
                         <ResponsiveContainer width="100%" height={200}>
@@ -469,8 +546,8 @@ const PublicResultsDisplay = () => {
                                 <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                               ))}
                             </Pie>
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', color: '#94a3b8', paddingTop: '10px' }} />
-                            <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, color: 'white' }} />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', color: legendColor, paddingTop: '10px' }} />
+                            <RechartsTooltip contentStyle={{ backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)', borderRadius: 8, color: textColor }} />
                           </PieChart>
                         </ResponsiveContainer>
                       </Paper>
@@ -493,10 +570,11 @@ const PublicResultsDisplay = () => {
           sx: {
             borderRadius: 4,
             p: 1.5,
-            bgcolor: '#0f172a',
-            backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%)',
-            border: '1.5px solid rgba(255, 255, 255, 0.08)',
-            color: 'white'
+            bgcolor: modalBg,
+            backgroundImage: modalGradient,
+            border: modalBorder,
+            color: modalText,
+            transition: 'background-color 0.3s, color 0.3s, border 0.3s'
           }
         }}
       >
@@ -512,17 +590,17 @@ const PublicResultsDisplay = () => {
                       sx={{
                         width: 56,
                         height: 56,
-                        border: '2px solid rgba(255,255,255,0.1)',
+                        border: isDarkMode ? '2px solid rgba(255,255,255,0.1)' : '2px solid rgba(0,0,0,0.08)',
                         bgcolor: candidate.is_nota ? '#334155' : 'inherit'
                       }}
                     >
                       {candidate.is_nota && <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', fontSize: '0.65rem' }}>NOTA</Typography>}
                     </Avatar>
                     <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 900, color: 'white', letterSpacing: '-0.5px' }}>
+                      <Typography variant="h6" sx={{ fontWeight: 900, color: modalText, letterSpacing: '-0.5px' }}>
                         {candidate.candidate_name}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.25 }}>
+                      <Typography variant="caption" sx={{ color: modalSubtext, display: 'block', mt: 0.25 }}>
                         Candidate for <b>{post.post_name}</b>
                       </Typography>
                     </Box>
@@ -534,7 +612,7 @@ const PublicResultsDisplay = () => {
                         width: 42,
                         height: 42,
                         bgcolor: 'white',
-                        border: '1.5px solid rgba(255,255,255,0.1)',
+                        border: isDarkMode ? '1.5px solid rgba(255,255,255,0.1)' : '1.5px solid rgba(0,0,0,0.08)',
                         p: 0.5
                       }}
                     />
@@ -542,17 +620,17 @@ const PublicResultsDisplay = () => {
                 </Box>
               </DialogTitle>
               
-              <DialogContent dividers sx={{ py: 3, borderColor: 'rgba(255,255,255,0.06)' }}>
+              <DialogContent dividers sx={{ py: 3, borderColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
                 <Grid container spacing={3}>
                   {/* Total Votes Card */}
                   <Grid item xs={12}>
                     <Card sx={{
-                      bgcolor: 'rgba(255, 255, 255, 0.03)',
-                      border: '1px solid rgba(255,255,255,0.05)',
+                      bgcolor: modalCardBg,
+                      border: `1px solid ${modalCardBorder}`,
                       borderRadius: 3
                     }}>
                       <CardContent sx={{ py: 2.5, '&:last-child': { pb: 2.5 } }}>
-                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: 1, textTransform: 'uppercase' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: modalSubtext, letterSpacing: 1, textTransform: 'uppercase' }}>
                           Total Votes Received
                         </Typography>
                         <Typography variant="h3" sx={{ fontWeight: 900, color: '#fbbf24', mt: 0.5 }}>
@@ -564,20 +642,20 @@ const PublicResultsDisplay = () => {
 
                   {/* Gender Split Breakdown */}
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: '#cbd5e1' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: modalText }}>
                       Gender Breakdown
                     </Typography>
-                    <Paper sx={{ p: 2.5, borderRadius: 3, bgcolor: 'rgba(10, 15, 30, 0.3)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <Paper sx={{ p: 2.5, borderRadius: 3, bgcolor: modalTableBg, border: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
-                        <Typography variant="body2" sx={{ color: '#93c5fd', fontWeight: 700 }}>
+                        <Typography variant="body2" sx={{ color: '#3b82f6', fontWeight: 700 }}>
                           Male: {candidate.demographics?.male_votes || 0}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#f472b6', fontWeight: 700 }}>
+                        <Typography variant="body2" sx={{ color: '#ec4899', fontWeight: 700 }}>
                           Female: {candidate.demographics?.female_votes || 0}
                         </Typography>
                       </Box>
                       {candidate.total_votes > 0 ? (
-                        <Box sx={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.05)' }}>
+                        <Box sx={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
                           <Box
                             sx={{
                               width: `${((candidate.demographics?.male_votes || 0) / candidate.total_votes) * 100}%`,
@@ -592,16 +670,16 @@ const PublicResultsDisplay = () => {
                           />
                         </Box>
                       ) : (
-                        <Box sx={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', height: 10, borderRadius: 5, overflow: 'hidden', bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', justifyContent: 'center', alignItems: 'center' }}>
                           <Typography variant="caption" sx={{ fontSize: '0.65rem', color: '#64748b' }}>No votes recorded</Typography>
                         </Box>
                       )}
                       {candidate.total_votes > 0 && (
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700 }}>
+                          <Typography variant="caption" sx={{ color: modalSubtext, fontWeight: 700 }}>
                             {(((candidate.demographics?.male_votes || 0) / candidate.total_votes) * 100).toFixed(0)}% Male
                           </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 700 }}>
+                          <Typography variant="caption" sx={{ color: modalSubtext, fontWeight: 700 }}>
                             {(((candidate.demographics?.female_votes || 0) / candidate.total_votes) * 100).toFixed(0)}% Female
                           </Typography>
                         </Box>
@@ -611,13 +689,13 @@ const PublicResultsDisplay = () => {
 
                   {/* Class Split and Section Split */}
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: '#cbd5e1' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: modalText }}>
                       Votes by Class
                     </Typography>
-                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: 'rgba(10, 15, 30, 0.3)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: modalTableBg, border: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)' }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
-                          <TableRow sx={{ '& th': { bgcolor: '#0f172a', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, color: '#94a3b8' } }}>
+                          <TableRow sx={{ '& th': { bgcolor: modalBg, borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)', fontWeight: 700, color: modalSubtext } }}>
                             <TableCell>Class</TableCell>
                             <TableCell align="right">Votes</TableCell>
                           </TableRow>
@@ -627,7 +705,7 @@ const PublicResultsDisplay = () => {
                             Object.entries(candidate.demographics.classes)
                               .sort((a: any, b: any) => b[1] - a[1])
                               .map(([className, votes]: any) => (
-                                <TableRow key={className} sx={{ '& td': { borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#cbd5e1' } }}>
+                                <TableRow key={className} sx={{ '& td': { borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)', color: modalText } }}>
                                   <TableCell>{className}</TableCell>
                                   <TableCell align="right" sx={{ fontWeight: 800 }}>{votes}</TableCell>
                                 </TableRow>
@@ -645,13 +723,13 @@ const PublicResultsDisplay = () => {
                   </Grid>
 
                   <Grid item xs={12} sm={6}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: '#cbd5e1' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1, color: modalText }}>
                       Votes by Section
                     </Typography>
-                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: 'rgba(10, 15, 30, 0.3)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <TableContainer component={Paper} sx={{ maxHeight: 200, borderRadius: 3, bgcolor: modalTableBg, border: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)' }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
-                          <TableRow sx={{ '& th': { bgcolor: '#0f172a', borderBottom: '1px solid rgba(255,255,255,0.06)', fontWeight: 700, color: '#94a3b8' } }}>
+                          <TableRow sx={{ '& th': { bgcolor: modalBg, borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.06)', fontWeight: 700, color: modalSubtext } }}>
                             <TableCell>Section</TableCell>
                             <TableCell align="right">Votes</TableCell>
                           </TableRow>
@@ -661,7 +739,7 @@ const PublicResultsDisplay = () => {
                             Object.entries(candidate.demographics.sections)
                               .sort((a: any, b: any) => b[1] - a[1])
                               .map(([sectionName, votes]: any) => (
-                                <TableRow key={sectionName} sx={{ '& td': { borderBottom: '1px solid rgba(255,255,255,0.04)', color: '#cbd5e1' } }}>
+                                <TableRow key={sectionName} sx={{ '& td': { borderBottom: isDarkMode ? '1px solid rgba(255,255,255,0.04)' : '1px solid rgba(0,0,0,0.04)', color: modalText } }}>
                                   <TableCell>Section {sectionName}</TableCell>
                                   <TableCell align="right" sx={{ fontWeight: 800 }}>{votes}</TableCell>
                                 </TableRow>
