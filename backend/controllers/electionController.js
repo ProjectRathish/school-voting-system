@@ -1050,6 +1050,234 @@ exports.getDetailedResults = async (req, res) => {
   }
 };
 
+exports.getPublicDetailedResults = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if the id parameter is numeric (database ID) or an election code
+    const isNumeric = /^\d+$/.test(id);
+    const queryField = isNumeric ? 'e.id' : 'e.election_code';
+
+    // Verify election exists and fetch school info
+    const [electionResults] = await db.execute(
+      `SELECT e.id, e.name, e.status, s.name as school_name, s.logo as school_logo
+       FROM elections e
+       JOIN schools s ON e.school_id = s.id
+       WHERE ${queryField} = ?`,
+      [id]
+    );
+
+    if (electionResults.length === 0) {
+      return res.status(404).json({ message: "Election not found" });
+    }
+
+    const election = electionResults[0];
+    const numericElectionId = election.id;
+
+    if (election.status !== 'CLOSED') {
+      return res.status(403).json({ message: "Detailed results are only available for CLOSED elections." });
+    }
+
+    // Get voting breakdowns per candidate
+    const [rawResults] = await db.execute(
+      `SELECT 
+         p.id as post_id,
+         p.name as post_name,
+         p.allow_nota,
+         c.id as candidate_id,
+         u.name as candidate_name,
+         v.voter_sex,
+         cl.name as class_name,
+         s.name as section_name,
+         COUNT(v.id) as vote_count
+       FROM posts p
+       JOIN candidates c ON c.post_id = p.id
+       JOIN voters u ON c.voter_id = u.id
+       JOIN votes v ON v.candidate_id = c.id
+       LEFT JOIN classes cl ON v.voter_class_id = cl.id
+       LEFT JOIN sections s ON v.voter_section_id = s.id
+       WHERE p.election_id = ?
+       GROUP BY p.id, p.name, p.allow_nota, c.id, u.name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name
+       ORDER BY p.id ASC, candidate_id ASC`,
+      [numericElectionId]
+    );
+
+    // Get voting breakdowns for NOTA (where candidate_id IS NULL)
+    const [notaResults] = await db.execute(
+      `SELECT 
+         v.post_id,
+         p.name as post_name,
+         p.allow_nota,
+         v.voter_sex,
+         cl.name as class_name,
+         s.name as section_name,
+         COUNT(v.id) as vote_count
+       FROM votes v
+       JOIN posts p ON v.post_id = p.id
+       LEFT JOIN classes cl ON v.voter_class_id = cl.id
+       LEFT JOIN sections s ON v.voter_section_id = s.id
+       WHERE v.election_id = ? AND v.candidate_id IS NULL
+       GROUP BY v.post_id, p.name, p.allow_nota, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name`,
+      [numericElectionId]
+    );
+
+    // Structure the data for easy charting
+    const postsMap = new Map();
+
+    rawResults.forEach(row => {
+      if (!postsMap.has(row.post_id)) {
+        postsMap.set(row.post_id, {
+          post_id: row.post_id,
+          post_name: row.post_name,
+          allow_nota: row.allow_nota,
+          candidates: new Map()
+        });
+      }
+
+      const postEntry = postsMap.get(row.post_id);
+      
+      if (!postEntry.candidates.has(row.candidate_id)) {
+        postEntry.candidates.set(row.candidate_id, {
+          candidate_id: row.candidate_id,
+          candidate_name: row.candidate_name,
+          total_votes: 0,
+          demographics: {
+            male_votes: 0,
+            female_votes: 0,
+            classes: {},
+            sections: {}
+          }
+        });
+      }
+
+      const candidateEntry = postEntry.candidates.get(row.candidate_id);
+      
+      // Update totals
+      candidateEntry.total_votes += row.vote_count;
+      
+      // Update gender breakdown
+      if (row.voter_sex === 'M') {
+         candidateEntry.demographics.male_votes += row.vote_count;
+      } else if (row.voter_sex === 'F') {
+         candidateEntry.demographics.female_votes += row.vote_count;
+      }
+      
+      // Update class breakdown
+      const className = row.class_name || 'Unknown Class';
+      if (!candidateEntry.demographics.classes[className]) {
+         candidateEntry.demographics.classes[className] = 0;
+      }
+      candidateEntry.demographics.classes[className] += row.vote_count;
+
+      // Update section breakdown
+      const sectionName = row.section_name || 'Unknown Section';
+      if (!candidateEntry.demographics.sections[sectionName]) {
+         candidateEntry.demographics.sections[sectionName] = 0;
+      }
+      candidateEntry.demographics.sections[sectionName] += row.vote_count;
+    });
+
+    // Add NOTA demographics
+    notaResults.forEach(row => {
+      if (!postsMap.has(row.post_id)) {
+        postsMap.set(row.post_id, {
+          post_id: row.post_id,
+          post_name: row.post_name,
+          allow_nota: row.allow_nota,
+          candidates: new Map()
+        });
+      }
+
+      const postEntry = postsMap.get(row.post_id);
+
+      if (postEntry.allow_nota !== 0) {
+        const candidate_id = -1; // Denote NOTA
+
+        if (!postEntry.candidates.has(candidate_id)) {
+          postEntry.candidates.set(candidate_id, {
+            candidate_id: candidate_id,
+            candidate_name: 'None of the Above (NOTA)',
+            total_votes: 0,
+            is_nota: true,
+            demographics: {
+              male_votes: 0,
+              female_votes: 0,
+              classes: {},
+              sections: {}
+            }
+          });
+        }
+
+        const candidateEntry = postEntry.candidates.get(candidate_id);
+        
+        // Update totals
+        candidateEntry.total_votes += row.vote_count;
+        
+        // Update gender breakdown
+        if (row.voter_sex === 'M') {
+           candidateEntry.demographics.male_votes += row.vote_count;
+        } else if (row.voter_sex === 'F') {
+           candidateEntry.demographics.female_votes += row.vote_count;
+        }
+        
+        // Update class breakdown
+        const className = row.class_name || 'Unknown Class';
+        if (!candidateEntry.demographics.classes[className]) {
+           candidateEntry.demographics.classes[className] = 0;
+        }
+        candidateEntry.demographics.classes[className] += row.vote_count;
+
+        // Update section breakdown
+        const sectionName = row.section_name || 'Unknown Section';
+        if (!candidateEntry.demographics.sections[sectionName]) {
+           candidateEntry.demographics.sections[sectionName] = 0;
+        }
+        candidateEntry.demographics.sections[sectionName] += row.vote_count;
+      }
+    });
+
+    // Convert Maps back to cleanly parsed arrays for JSON response and sort by total_votes descending
+    const formattedResults = Array.from(postsMap.values()).map(post => {
+       const candidatesList = Array.from(post.candidates.values());
+       candidatesList.sort((a, b) => b.total_votes - a.total_votes);
+       return {
+          post_id: post.post_id,
+          post_name: post.post_name,
+          candidates: candidatesList
+       };
+     });
+
+    // Get school-wide demographic breakdown for the charts
+    const [overallStats] = await db.execute(
+      `SELECT cl.name as class_name, 
+              SUM(CASE WHEN v.sex = 'M' THEN 1 ELSE 0 END) as male_votes,
+              SUM(CASE WHEN v.sex = 'F' THEN 1 ELSE 0 END) as female_votes
+       FROM voters v
+       JOIN classes cl ON v.class_id = cl.id
+       WHERE v.election_id = ? AND v.has_voted = 1
+       GROUP BY cl.id, cl.name
+       ORDER BY cl.id ASC`,
+      [numericElectionId]
+    );
+
+    res.json({
+      message: "Detailed election analytics retrieved successfully",
+      election: { 
+        id: election.id, 
+        name: election.name,
+        school_name: election.school_name,
+        school_logo: election.school_logo
+      },
+      demographics: overallStats,
+      post_breakdown: formattedResults
+    });
+
+  } catch (error) {
+    console.error("Error fetching public detailed results:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 /*
 --------------------------------
 EXPORT ELECTION RESULTS TO EXCEL

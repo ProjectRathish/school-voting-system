@@ -66,6 +66,7 @@ const Results = () => {
   const canViewResults = selectedElectionData?.status === 'CLOSED';
 
   const [copied, setCopied] = useState(false);
+  const [copiedDisplay, setCopiedDisplay] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   const handleOpenDetails = (post: any, candidate: any) => {
@@ -111,6 +112,15 @@ const Results = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyDisplayLink = () => {
+    const electionCode = selectedElectionData?.election_code || selectedElection;
+    const link = `${window.location.protocol}//${window.location.host}/public-results-display/${electionCode}`;
+    navigator.clipboard.writeText(link);
+    setCopiedDisplay(true);
+    setSnackbarOpen(true);
+    setTimeout(() => setCopiedDisplay(false), 2000);
+  };
+
   const handleExport = async () => {
     try {
       const res = await axiosInstance.get(`/elections/${selectedElection}/export`, { responseType: 'blob' });
@@ -142,7 +152,7 @@ const Results = () => {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-1px', color: 'text.primary' }}>Results & Analytics</Typography>
         {canViewResults && (
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
             <Button 
               variant="contained" 
               color="primary"
@@ -166,7 +176,36 @@ const Results = () => {
               startIcon={copied ? <Check size={18} /> : <Copy size={18} />} 
               onClick={handleCopyLink}
             >
-              {copied ? 'Link Copied!' : 'Copy Public Link'}
+              {copied ? 'Link Copied!' : 'Copy Presentation Link'}
+            </Button>
+            <Button 
+              variant="contained" 
+              onClick={() => {
+                const electionCode = selectedElectionData?.election_code || selectedElection;
+                window.open(`/public-results-display/${electionCode}`, '_blank');
+              }}
+              sx={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+              }}
+              startIcon={<ExternalLink size={18} />}
+            >
+              Launch Interactive Display
+            </Button>
+            <Button 
+              variant="outlined" 
+              onClick={handleCopyDisplayLink}
+              startIcon={copiedDisplay ? <Check size={18} /> : <Copy size={18} />}
+              sx={{
+                borderColor: 'rgba(16, 185, 129, 0.5)',
+                color: 'success.main',
+                '&:hover': {
+                  borderColor: 'success.main',
+                  bgcolor: 'rgba(16, 185, 129, 0.05)'
+                }
+              }}
+            >
+              {copiedDisplay ? 'Link Copied!' : 'Copy Display Link'}
             </Button>
             <Button variant="outlined" startIcon={<Download size={18} />} onClick={handleExportPDF}>
               Export PDF

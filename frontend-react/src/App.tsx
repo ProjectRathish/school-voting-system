@@ -38,6 +38,7 @@ import BoothOfficerDashboard from './pages/booth-officer/Dashboard';
 // Voting Terminal (EVM)
 import TerminalSession from './pages/voting-terminal/TerminalSession';
 import PublicResults from './pages/public-results/PublicResults';
+import PublicResultsDisplay from './pages/public-results-display/PublicResultsDisplay';
 import LandingPage from './pages/public/LandingPage';
 import NominationPortal from './pages/nomination/NominationPortal';
 import RegisterPage from './pages/public/RegisterPage';
@@ -54,6 +55,7 @@ function App() {
   const isFullscreenRoute = 
     location.pathname === '/terminal' || 
     location.pathname.startsWith('/public-results/') ||
+    location.pathname.startsWith('/public-results-display/') ||
     location.pathname.startsWith('/nominate/');
 
   if (!isAuthenticated) {
@@ -67,6 +69,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/terminal" element={<TerminalSession />} />
           <Route path="/public-results/:electionId" element={<PublicResults />} />
+          <Route path="/public-results-display/:electionId" element={<PublicResultsDisplay />} />
           <Route path="/nominate/:code" element={<NominationPortal />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="*" element={<NotFound />} />
@@ -100,6 +103,7 @@ function App() {
         <Routes>
           <Route path="/terminal" element={<TerminalSession />} />
           <Route path="/public-results/:electionId" element={<PublicResults />} />
+          <Route path="/public-results-display/:electionId" element={<PublicResultsDisplay />} />
           <Route path="/nominate/:code" element={<NominationPortal />} />
         </Routes>
       ) : (

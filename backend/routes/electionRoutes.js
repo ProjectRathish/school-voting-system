@@ -77,6 +77,12 @@ router.get(
   electionController.getPublicResults
 );
 
+// Get Public Detailed Election Results (No Auth)
+router.get(
+  "/public/:id/detailed-results",
+  electionController.getPublicDetailedResults
+);
+
 // Get Detailed Analytics
 router.get(
   "/:id/detailed-results",
