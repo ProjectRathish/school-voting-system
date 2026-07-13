@@ -4,7 +4,7 @@ import {
   Box, Typography, Paper, Grid, Button, Alert, CircularProgress,
   Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, LinearProgress, Avatar, Dialog, DialogTitle, DialogContent,
-  DialogActions, Tooltip, Zoom, IconButton
+  DialogActions, Tooltip, Zoom, IconButton, Chip
 } from '@mui/material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip as RechartsTooltip } from 'recharts';
 import { Trophy, Users, BarChart3, Star, ArrowLeft, RefreshCw, Activity } from 'lucide-react';
