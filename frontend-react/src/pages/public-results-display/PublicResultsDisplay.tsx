@@ -214,7 +214,7 @@ const PublicResultsDisplay = () => {
       <Box sx={{ maxWidth: 1300, mx: 'auto', px: { xs: 2, md: 6 }, mt: 5 }}>
         {/* Turnout Summary Cards */}
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{
               borderRadius: 4,
               border: '1px solid rgba(255, 255, 255, 0.06)',
@@ -243,7 +243,7 @@ const PublicResultsDisplay = () => {
             </Card>
           </Grid>
           
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{
               borderRadius: 4,
               border: '1px solid rgba(255, 255, 255, 0.06)',
@@ -272,7 +272,7 @@ const PublicResultsDisplay = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Card sx={{
               borderRadius: 4,
               border: '1px solid rgba(255, 255, 255, 0.06)',
@@ -328,7 +328,7 @@ const PublicResultsDisplay = () => {
 
                 <Grid container spacing={4}>
                   {/* Candidates List Table */}
-                  <Grid item xs={12} md={hasVotes ? 7 : 12}>
+                  <Grid size={{ xs: 12, md: hasVotes ? 7 : 12 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
@@ -438,30 +438,30 @@ const PublicResultsDisplay = () => {
 
                   {/* Vote Distribution Pie Chart */}
                   {hasVotes && (
-                    <Grid item xs={12} md={5} sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                      <Box sx={{
-                        p: 2.5,
-                        borderRadius: 4,
-                        width: '100%',
-                        bgcolor: 'rgba(10, 15, 30, 0.4)',
-                        border: '1px solid rgba(255, 255, 255, 0.04)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
+                    <Grid size={{ xs: 12, md: 5 }}>
+                      <Paper variant="outlined" sx={{ 
+                        p: 2, 
+                        borderRadius: 3, 
+                        height: '100%', 
+                        display: 'flex', 
+                        flexDirection: 'column', 
                         justifyContent: 'center',
-                        minHeight: 280
+                        alignItems: 'center',
+                        bgcolor: 'rgba(10, 15, 30, 0.4)',
+                        borderColor: 'rgba(255, 255, 255, 0.06)',
+                        minHeight: 250
                       }}>
-                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 1, mb: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#94a3b8', letterSpacing: 1, mb: 1, fontFamily: 'Outfit, sans-serif' }}>
                           Vote Distribution
                         </Typography>
-                        <ResponsiveContainer width="100%" height={220}>
+                        <ResponsiveContainer width="100%" height={200}>
                           <PieChart>
                             <Pie
                               data={post.candidates?.map((c: any) => ({ name: c.candidate_name, value: c.total_votes || 0 }))}
                               cx="50%"
                               cy="50%"
                               innerRadius={50}
-                              outerRadius={75}
+                              outerRadius={70}
                               paddingAngle={3}
                               dataKey="value"
                             >
@@ -469,11 +469,11 @@ const PublicResultsDisplay = () => {
                                 <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
                               ))}
                             </Pie>
-                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.75rem', color: '#94a3b8', paddingTop: '10px' }} />
+                            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '0.75rem', fontFamily: 'Outfit, sans-serif', color: '#94a3b8', paddingTop: '10px' }} />
                             <RechartsTooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: 'rgba(255,255,255,0.1)', borderRadius: 8, color: 'white' }} />
                           </PieChart>
                         </ResponsiveContainer>
-                      </Box>
+                      </Paper>
                     </Grid>
                   )}
                 </Grid>

@@ -1086,6 +1086,9 @@ exports.getPublicDetailedResults = async (req, res) => {
          p.allow_nota,
          c.id as candidate_id,
          u.name as candidate_name,
+         c.photo,
+         c.symbol,
+         c.symbol_name,
          v.voter_sex,
          cl.name as class_name,
          s.name as section_name,
@@ -1097,7 +1100,7 @@ exports.getPublicDetailedResults = async (req, res) => {
        LEFT JOIN classes cl ON v.voter_class_id = cl.id
        LEFT JOIN sections s ON v.voter_section_id = s.id
        WHERE p.election_id = ?
-       GROUP BY p.id, p.name, p.allow_nota, c.id, u.name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name
+       GROUP BY p.id, p.name, p.allow_nota, c.id, u.name, c.photo, c.symbol, c.symbol_name, v.voter_sex, v.voter_class_id, cl.name, v.voter_section_id, s.name
        ORDER BY p.id ASC, candidate_id ASC`,
       [numericElectionId]
     );
@@ -1140,6 +1143,9 @@ exports.getPublicDetailedResults = async (req, res) => {
         postEntry.candidates.set(row.candidate_id, {
           candidate_id: row.candidate_id,
           candidate_name: row.candidate_name,
+          photo: row.photo,
+          symbol: row.symbol,
+          symbol_name: row.symbol_name,
           total_votes: 0,
           demographics: {
             male_votes: 0,
