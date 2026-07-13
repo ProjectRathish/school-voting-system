@@ -111,36 +111,42 @@ exports.generateElectionReport = async (req, res) => {
     doc.pipe(res);
 
     // --- Header Section ---
+    // Top banner colored accent bar
+    doc.rect(50, 40, 500, 3).fill("#6366f1");
+
+    const logoWidth = 60;
+    const headerTextX = school.logo && fs.existsSync(path.join(__dirname, "..", school.logo)) ? 125 : 50;
+
     if (school.logo) {
       const logoPath = path.join(__dirname, "..", school.logo);
       if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, 50, 45, { width: 60 });
+        doc.image(logoPath, 50, 48, { width: logoWidth });
       }
     }
 
     doc
       .font("Helvetica")
-      .fillColor("#444444")
+      .fillColor("#1e293b")
       .fontSize(16)
-      .text(school.name.toUpperCase(), 125, 48, { align: "left" })
+      .text(school.name.toUpperCase(), headerTextX, 50, { align: "left" })
       .fontSize(9)
       .fillColor("#64748b")
-      .text(school.location || "Official Election Authority", 125, 68, { align: "left" })
+      .text(school.location || "Official Election Authority", headerTextX, 70, { align: "left" })
       .font("Helvetica-Bold")
       .fillColor("#6366f1")
-      .text("OFFICIAL ELECTION CERTIFICATE", 125, 82, { align: "left", characterSpacing: 1 })
+      .text("OFFICIAL ELECTION CERTIFICATE", headerTextX, 84, { align: "left", characterSpacing: 1 })
       .moveDown();
 
     doc
       .strokeColor("#e2e8f0")
       .lineWidth(1)
-      .moveTo(50, 110)
-      .lineTo(550, 110)
+      .moveTo(50, 112)
+      .lineTo(550, 112)
       .stroke();
 
     // --- Election Title ---
     doc
-      .moveDown(2)
+      .moveDown(1.5)
       .font("Helvetica-Bold")
       .fillColor("#0f172a")
       .fontSize(22)
@@ -152,10 +158,10 @@ exports.generateElectionReport = async (req, res) => {
       .moveDown();
 
     // --- Stats Summary Section (Cards) ---
-    const statsTop = doc.y + 10;
-    const cardWidth = 140;
+    const statsTop = doc.y + 5;
+    const cardWidth = 153;
     const cardHeight = 55;
-    const cardGap = 15;
+    const cardGap = 20;
     
     drawStatsCard(doc, 50, statsTop, cardWidth, cardHeight, "REGISTERED VOTERS", totalVoters.toString(), "#6366f1");
     drawStatsCard(doc, 50 + cardWidth + cardGap, statsTop, cardWidth, cardHeight, "TOTAL VOTES CAST", votedCount.toString(), "#10b981");
@@ -166,6 +172,11 @@ exports.generateElectionReport = async (req, res) => {
 
     // --- Results Breakdown ---
     for (const post of reportData) {
+      // Orphan post header prevention
+      if (doc.y > 620) {
+        doc.addPage();
+      }
+
       doc
         .font("Helvetica-Bold")
         .fillColor("#4f46e5")
@@ -182,7 +193,7 @@ exports.generateElectionReport = async (req, res) => {
         .text("CANDIDATE", 80, tableTop)
         .text("VOTES", 320, tableTop, { width: 60, align: "right" })
         .text("PERCENTAGE", 400, tableTop, { width: 80, align: "right" })
-        .text("VOTE SHARE PROGRESS", 500, tableTop);
+        .text("VOTE SHARE PROGRESS", 490, tableTop);
       
       doc
         .moveTo(50, tableTop + 14)
@@ -206,13 +217,13 @@ exports.generateElectionReport = async (req, res) => {
              .text("CANDIDATE", 80, 50)
              .text("VOTES", 320, 50, { width: 60, align: "right" })
              .text("PERCENTAGE", 400, 50, { width: 80, align: "right" })
-             .text("VOTE SHARE PROGRESS", 500, 50);
+             .text("VOTE SHARE PROGRESS", 490, 50);
           doc.moveTo(50, 64).lineTo(550, 64).strokeColor("#cbd5e1").lineWidth(1).stroke();
           currentY = 74;
         }
 
         if (isWinner) {
-          doc.lineJoin('round').rect(50, currentY - 5, 500, 24).fillAndStroke("#fef9c3", "#fef08a");
+          doc.lineJoin('round').rect(50, currentY - 5, 500, 24).fillAndStroke("#fefcbf", "#fef08a");
         }
 
         // Draw Candidate Symbol image (if available)
@@ -227,14 +238,14 @@ exports.generateElectionReport = async (req, res) => {
           .font(isWinner ? "Helvetica-Bold" : "Helvetica")
           .fillColor(isWinner ? "#854d0e" : "#0f172a")
           .fontSize(10)
-          .text(c.candidate_name, 80, currentY);
+          .text(c.candidate_name, 80, currentY, { width: 140, height: 12, ellipsis: true });
 
         if (isWinner) {
           doc
             .font("Helvetica-Bold")
             .fillColor("#eab308")
             .fontSize(8)
-            .text("🏆 WINNER", 230, currentY + 1.5);
+            .text("🏆 WINNER", 225, currentY + 1.5);
         }
 
         doc
@@ -244,11 +255,11 @@ exports.generateElectionReport = async (req, res) => {
           .text(c.votes.toString(), 320, currentY, { width: 60, align: "right" })
           .text(`${pct}%`, 400, currentY, { width: 80, align: "right" });
 
-        // Draw vote share bar
-        doc.lineJoin('miter').rect(500, currentY + 3, 50, 6).fill("#e2e8f0");
+        // Draw vote share bar (aligned to end at 550)
+        doc.lineJoin('miter').rect(490, currentY + 3, 60, 6).fill("#e2e8f0");
         if (c.votes > 0) {
-          const barWidth = 50 * (c.votes / postTotal);
-          doc.rect(500, currentY + 3, barWidth, 6).fill(isWinner ? "#eab308" : "#6366f1");
+          const barWidth = 60 * (c.votes / postTotal);
+          doc.rect(490, currentY + 3, barWidth, 6).fill(isWinner ? "#eab308" : "#6366f1");
         }
 
         currentY += 28;
