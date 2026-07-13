@@ -1458,7 +1458,7 @@ exports.duplicateElection = async (req, res) => {
     // 8. Duplicate Posts
     if (includePosts) {
       const [postRows] = await connection.execute(
-        "SELECT id, name, candidate_classes, voting_classes, gender_rule, priority FROM posts WHERE election_id = ? AND school_id = ?",
+        "SELECT id, name, candidate_classes, voting_classes, gender_rule, priority, allow_nota FROM posts WHERE election_id = ? AND school_id = ?",
         [originalElectionId, school_id]
       );
 
@@ -1482,9 +1482,9 @@ exports.duplicateElection = async (req, res) => {
         }
 
         const [postResult] = await connection.execute(
-          `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule, priority) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [school_id, newElectionId, p.name, JSON.stringify(candClasses), JSON.stringify(votClasses), p.gender_rule, p.priority || 0]
+          `INSERT INTO posts (school_id, election_id, name, candidate_classes, voting_classes, gender_rule, priority, allow_nota) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [school_id, newElectionId, p.name, JSON.stringify(candClasses), JSON.stringify(votClasses), p.gender_rule, p.priority || 0, p.allow_nota !== undefined ? p.allow_nota : 0]
         );
         postMap.set(p.id, postResult.insertId);
       }
