@@ -221,9 +221,13 @@ exports.getMachinesInBooth = async (req, res) => {
     // Get all machines in booth
     const [machines] = await db.execute(
       `SELECT m.id, m.machine_name, m.machine_code, m.status, m.created_at, m.last_ping, pb.booth_number,
+              m.current_voter_id, v.admission_no as voter_admission_no, v.name as voter_name,
+              c.name as voter_class, v.division as voter_division,
               TIMESTAMPDIFF(SECOND, m.last_ping, CURRENT_TIMESTAMP) as machine_ping_diff
        FROM voting_machines m
        JOIN polling_booths pb ON m.booth_id = pb.id
+       LEFT JOIN voters v ON m.current_voter_id = v.id
+       LEFT JOIN classes c ON v.class_id = c.id
        WHERE m.booth_id=? AND m.school_id=?
        ORDER BY m.created_at ASC`,
       [booth_id, school_id]
@@ -238,7 +242,13 @@ exports.getMachinesInBooth = async (req, res) => {
       machine_code: m.machine_code,
       status: m.status,
       created_at: m.created_at,
-      is_online: m.machine_ping_diff !== null && m.machine_ping_diff < 60
+      is_online: m.machine_ping_diff !== null && m.machine_ping_diff < 60,
+      voter_details: m.current_voter_id ? {
+        admission_no: m.voter_admission_no,
+        name: m.voter_name,
+        class_name: m.voter_class,
+        division: m.voter_division
+      } : null
     }));
 
     res.json({

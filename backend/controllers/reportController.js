@@ -53,9 +53,9 @@ exports.generateElectionReport = async (req, res) => {
     const votedCount = votedCountRow[0].count;
     const turnoutPercentage = totalVoters > 0 ? ((votedCount / totalVoters) * 100).toFixed(1) : "0.0";
 
-    // 4. Fetch Results per Post
+    // 4. Fetch Results per Post (Sorted by Display Order Descending)
     const [posts] = await db.execute(
-      "SELECT id, name, priority, allow_nota FROM posts WHERE election_id = ? AND school_id = ? ORDER BY priority ASC, name ASC",
+      "SELECT id, name, priority, allow_nota FROM posts WHERE election_id = ? AND school_id = ? ORDER BY priority DESC, name ASC",
       [id, school_id]
     );
 
@@ -66,9 +66,14 @@ exports.generateElectionReport = async (req, res) => {
           c.id as candidate_id, 
           v.name as candidate_name, 
           c.symbol,
+          c.symbol_name,
+          cl.name as class_name,
+          s.name as section_name,
           (SELECT COUNT(*) FROM votes WHERE candidate_id = c.id) as votes
         FROM candidates c
         JOIN voters v ON c.voter_id = v.id
+        LEFT JOIN classes cl ON v.class_id = cl.id
+        LEFT JOIN sections s ON cl.section_id = s.id
         WHERE c.post_id = ?
         ORDER BY votes DESC`,
         [post.id]
@@ -87,6 +92,9 @@ exports.generateElectionReport = async (req, res) => {
             candidate_id: -1,
             candidate_name: 'None of the Above (NOTA)',
             symbol: null,
+            symbol_name: '-',
+            class_name: '-',
+            section_name: '',
             votes: notaCount,
             is_nota: true
           });
@@ -146,16 +154,26 @@ exports.generateElectionReport = async (req, res) => {
 
     // --- Election Title ---
     doc
-      .moveDown(1.5)
+      .moveDown(1.2)
       .font("Helvetica-Bold")
-      .fillColor("#0f172a")
-      .fontSize(22)
+      .fillColor("#1e1b4b")
+      .fontSize(20)
       .text(election.name, { align: "center" })
       .font("Helvetica")
-      .fontSize(10)
+      .fontSize(9)
       .fillColor("#64748b")
-      .text(`Status: ${election.status}  |  Generated: ${new Date().toLocaleString()}`, { align: "center" })
-      .moveDown();
+      .text(`STATUS: ${election.status.toUpperCase()}  |  GENERATED: ${new Date().toLocaleString().toUpperCase()}`, { align: "center" })
+      .moveDown(0.5);
+
+    // Subtle accent line under election header
+    doc
+      .moveTo(220, doc.y)
+      .lineTo(380, doc.y)
+      .strokeColor("#6366f1")
+      .lineWidth(1.5)
+      .stroke();
+
+    doc.moveDown(1.5);
 
     // --- Stats Summary Section (Cards) ---
     const statsTop = doc.y + 5;
@@ -177,27 +195,35 @@ exports.generateElectionReport = async (req, res) => {
         doc.addPage();
       }
 
+      const postY = doc.y;
+      // Draw left accent bar for post name
+      doc.rect(50, postY - 1, 4, 15).fill("#4f46e5");
+
       doc
         .font("Helvetica-Bold")
-        .fillColor("#4f46e5")
-        .fontSize(14)
-        .text(post.post_name)
-        .moveDown(0.4);
+        .fillColor("#1e293b")
+        .fontSize(12)
+        .text(post.post_name.toUpperCase(), 62, postY)
+        .moveDown(0.6);
 
       // Table Header
       const tableTop = doc.y;
+      doc.rect(50, tableTop - 5, 500, 20).fill("#f1f5f9");
       doc
         .font("Helvetica-Bold")
-        .fillColor("#475569")
-        .fontSize(9)
-        .text("CANDIDATE", 80, tableTop)
-        .text("VOTES", 320, tableTop, { width: 60, align: "right" })
-        .text("PERCENTAGE", 400, tableTop, { width: 80, align: "right" })
-        .text("VOTE SHARE PROGRESS", 490, tableTop);
+        .fillColor("#334155")
+        .fontSize(8)
+        .text("CANDIDATE", 55, tableTop + 1)
+        .text("CLASS", 170, tableTop + 1)
+        .text("SYMBOL", 230, tableTop + 1, { width: 30, align: "center" })
+        .text("SYMBOL NAME", 270, tableTop + 1)
+        .text("VOTES", 360, tableTop + 1, { width: 60, align: "right" })
+        .text("PERCENT", 420, tableTop + 1, { width: 70, align: "right" })
+        .text("PROGRESS", 500, tableTop + 1);
       
       doc
-        .moveTo(50, tableTop + 14)
-        .lineTo(550, tableTop + 14)
+        .moveTo(50, tableTop + 15)
+        .lineTo(550, tableTop + 15)
         .strokeColor("#cbd5e1")
         .lineWidth(1)
         .stroke();
@@ -213,53 +239,81 @@ exports.generateElectionReport = async (req, res) => {
         if (currentY > 700) {
           doc.addPage();
           // Draw table header on new page
-          doc.font("Helvetica-Bold").fillColor("#475569").fontSize(9)
-             .text("CANDIDATE", 80, 50)
-             .text("VOTES", 320, 50, { width: 60, align: "right" })
-             .text("PERCENTAGE", 400, 50, { width: 80, align: "right" })
-             .text("VOTE SHARE PROGRESS", 490, 50);
-          doc.moveTo(50, 64).lineTo(550, 64).strokeColor("#cbd5e1").lineWidth(1).stroke();
-          currentY = 74;
+          doc.rect(50, 50, 500, 20).fill("#f1f5f9");
+          doc.font("Helvetica-Bold").fillColor("#334155").fontSize(8)
+             .text("CANDIDATE", 55, 56)
+             .text("CLASS", 170, 56)
+             .text("SYMBOL", 230, 56, { width: 30, align: "center" })
+             .text("SYMBOL NAME", 270, 56)
+             .text("VOTES", 360, 56, { width: 60, align: "right" })
+             .text("PERCENT", 420, 56, { width: 70, align: "right" })
+             .text("PROGRESS", 500, 56);
+          doc.moveTo(50, 70).lineTo(550, 70).strokeColor("#cbd5e1").lineWidth(1).stroke();
+          currentY = 80;
         }
 
         if (isWinner) {
-          doc.lineJoin('round').rect(50, currentY - 5, 500, 24).fillAndStroke("#fefcbf", "#fef08a");
+          doc.lineJoin('round').rect(50, currentY - 3, 500, 24).fillAndStroke("#fefcbf", "#fef08a");
         }
+
+        const className = c.class_name ? (c.section_name ? `${c.class_name} - ${c.section_name}` : c.class_name) : '-';
+
+        doc
+          .font(isWinner ? "Helvetica-Bold" : "Helvetica")
+          .fillColor(isWinner ? "#854d0e" : "#0f172a")
+          .fontSize(9)
+          .text(c.candidate_name, 55, isWinner ? currentY - 2 : currentY + 3, { width: 110, height: 12, ellipsis: true });
+
+        if (isWinner) {
+          doc
+            .font("Helvetica-Bold")
+            .fillColor("#b45309")
+            .fontSize(7)
+            .text("🏆 WINNER", 55, currentY + 9);
+        }
+
+        doc
+          .font(isWinner ? "Helvetica-Bold" : "Helvetica")
+          .fillColor(isWinner ? "#854d0e" : "#334155")
+          .fontSize(9)
+          .text(className, 170, currentY + 3, { width: 55, height: 12, ellipsis: true });
 
         // Draw Candidate Symbol image (if available)
         if (c.symbol) {
           const symbolPath = path.join(__dirname, "..", c.symbol);
           if (fs.existsSync(symbolPath)) {
-            doc.image(symbolPath, 52, currentY - 3, { width: 20, height: 20 });
+            doc.image(symbolPath, 235, currentY - 1, { width: 20, height: 20 });
           }
         }
 
         doc
           .font(isWinner ? "Helvetica-Bold" : "Helvetica")
-          .fillColor(isWinner ? "#854d0e" : "#0f172a")
-          .fontSize(10)
-          .text(c.candidate_name, 80, currentY, { width: 140, height: 12, ellipsis: true });
-
-        if (isWinner) {
-          doc
-            .font("Helvetica-Bold")
-            .fillColor("#eab308")
-            .fontSize(8)
-            .text("🏆 WINNER", 225, currentY + 1.5);
-        }
+          .fillColor(isWinner ? "#854d0e" : "#334155")
+          .fontSize(9)
+          .text(c.symbol_name || '-', 270, currentY + 3, { width: 85, height: 12, ellipsis: true });
 
         doc
           .font(isWinner ? "Helvetica-Bold" : "Helvetica")
-          .fillColor("#0f172a")
-          .fontSize(10)
-          .text(c.votes.toString(), 320, currentY, { width: 60, align: "right" })
-          .text(`${pct}%`, 400, currentY, { width: 80, align: "right" });
+          .fillColor(isWinner ? "#854d0e" : "#0f172a")
+          .fontSize(9)
+          .text(c.votes.toString(), 360, currentY + 3, { width: 60, align: "right" })
+          .text(`${pct}%`, 420, currentY + 3, { width: 70, align: "right" });
 
         // Draw vote share bar (aligned to end at 550)
-        doc.lineJoin('miter').rect(490, currentY + 3, 60, 6).fill("#e2e8f0");
+        doc.lineJoin('miter').rect(500, currentY + 6, 50, 6).fill("#e2e8f0");
         if (c.votes > 0) {
-          const barWidth = 60 * (c.votes / postTotal);
-          doc.rect(490, currentY + 3, barWidth, 6).fill(isWinner ? "#eab308" : "#6366f1");
+          const barWidth = 50 * (c.votes / postTotal);
+          doc.rect(500, currentY + 6, barWidth, 6).fill(isWinner ? "#d97706" : "#6366f1");
+        }
+
+        // Draw row separator
+        if (!isWinner) {
+          doc
+            .moveTo(50, currentY + 24)
+            .lineTo(550, currentY + 24)
+            .strokeColor("#f1f5f9")
+            .lineWidth(0.5)
+            .stroke();
         }
 
         currentY += 28;
