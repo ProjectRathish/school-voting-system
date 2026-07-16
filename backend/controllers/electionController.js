@@ -391,6 +391,37 @@ exports.updateElectionStatus = async (req, res) => {
 
 };
 
+exports.togglePublicResults = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { show_results } = req.body;
+    const school_id = req.user.school_id;
+
+    if (show_results === undefined) {
+      return res.status(400).json({ message: "show_results parameter is required" });
+    }
+
+    const [result] = await db.execute(
+      `UPDATE elections 
+       SET show_results = ? 
+       WHERE id = ? AND school_id = ?`,
+      [show_results ? 1 : 0, id, school_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Election not found" });
+    }
+
+    res.json({ 
+      message: "Public results visibility updated successfully", 
+      show_results: !!show_results 
+    });
+  } catch (error) {
+    console.error("Error toggling public results visibility:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 /*
 --------------------------------
 DELETE ELECTION
@@ -633,7 +664,7 @@ exports.getPublicResults = async (req, res) => {
 
     // Verify election exists and fetch school info
     const [electionResults] = await db.execute(
-      `SELECT e.id, e.name, e.status, s.name as school_name, s.logo as school_logo
+      `SELECT e.id, e.name, e.status, e.show_results, s.name as school_name, s.logo as school_logo
        FROM elections e
        JOIN schools s ON e.school_id = s.id
        WHERE ${queryField} = ?`,
@@ -649,6 +680,17 @@ exports.getPublicResults = async (req, res) => {
 
     if (election.status !== 'CLOSED') {
       return res.status(403).json({ message: "Results are only available for CLOSED elections." });
+    }
+
+    if (!election.show_results) {
+      return res.json({
+        election_id: numericElectionId,
+        election_name: election.name,
+        school_name: election.school_name,
+        school_logo: election.school_logo,
+        show_results: false,
+        message: "Election results waiting to be announced."
+      });
     }
 
     // Get Voter Turnout Stats
@@ -1060,7 +1102,7 @@ exports.getPublicDetailedResults = async (req, res) => {
 
     // Verify election exists and fetch school info
     const [electionResults] = await db.execute(
-      `SELECT e.id, e.name, e.status, s.name as school_name, s.logo as school_logo
+      `SELECT e.id, e.name, e.status, e.show_results, s.name as school_name, s.logo as school_logo
        FROM elections e
        JOIN schools s ON e.school_id = s.id
        WHERE ${queryField} = ?`,
@@ -1076,6 +1118,17 @@ exports.getPublicDetailedResults = async (req, res) => {
 
     if (election.status !== 'CLOSED') {
       return res.status(403).json({ message: "Detailed results are only available for CLOSED elections." });
+    }
+
+    if (!election.show_results) {
+      return res.json({
+        election_id: numericElectionId,
+        election_name: election.name,
+        school_name: election.school_name,
+        school_logo: election.school_logo,
+        show_results: false,
+        message: "Detailed election results waiting to be announced."
+      });
     }
 
     // Get voting breakdowns per candidate

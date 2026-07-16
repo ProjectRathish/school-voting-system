@@ -317,15 +317,60 @@ const BoothOfficerDashboard = () => {
                         </Button>
                       </Box>
                     ) : (
-                      <Box sx={{ textAlign: 'center', py: 1 }}>
-                        <CircularProgress color="warning" size={36} thickness={4} sx={{ mb: 1.5 }} />
-                        <Typography variant="h6" color="warning.main" sx={{ fontWeight: 800 }}>
-                          Voting Happening...
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, px: 2 }}>
-                          A voter is currently using this machine. Please wait until they cast their ballot.
-                        </Typography>
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%', mt: 1.5 }}>
+                      <Box sx={{ textAlign: 'center', py: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5, mb: 1.5 }}>
+                          <CircularProgress color="warning" size={24} thickness={4} />
+                          <Typography variant="h6" color="warning.main" sx={{ fontWeight: 800 }}>
+                            Voting Happening...
+                          </Typography>
+                        </Box>
+
+                        {machine.voter_details ? (
+                          <Box 
+                            sx={{ 
+                              p: 2, 
+                              mb: 1.5, 
+                              bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)', 
+                              border: '1px solid',
+                              borderColor: 'divider',
+                              borderRadius: 2.5,
+                              textAlign: 'left'
+                            }}
+                          >
+                            <Box sx={{ mb: 1 }}>
+                              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, fontSize: '0.7rem' }}>
+                                Voter Name
+                              </Typography>
+                              <Typography variant="body1" sx={{ fontWeight: 800, color: 'text.primary', mt: -0.2 }}>
+                                {machine.voter_details.name}
+                              </Typography>
+                            </Box>
+                            <Grid container spacing={2}>
+                              <Grid size={{ xs: 6 }}>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, fontSize: '0.7rem' }}>
+                                  Admission No
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace', color: 'primary.main', mt: -0.2 }}>
+                                  {machine.voter_details.admission_no}
+                                </Typography>
+                              </Grid>
+                              <Grid size={{ xs: 6 }}>
+                                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, fontSize: '0.7rem' }}>
+                                  Class
+                                </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', mt: -0.2 }}>
+                                  {machine.voter_details.class_name}{machine.voter_details.division ? ` - ${machine.voter_details.division}` : ''}
+                                </Typography>
+                              </Grid>
+                            </Grid>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, px: 2, mb: 1.5 }}>
+                            A voter is currently using this machine. Please wait until they cast their ballot.
+                          </Typography>
+                        )}
+
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                           <Button
                             variant="outlined"
                             color="error"

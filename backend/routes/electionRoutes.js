@@ -49,6 +49,13 @@ router.put(
   electionController.updateElectionStatus
 );
 
+router.put(
+  "/:id/toggle-results",
+  requireAuth,
+  requireRole("SCHOOL_ADMIN"),
+  electionController.togglePublicResults
+);
+
 router.delete(
   "/:id",
   requireAuth,

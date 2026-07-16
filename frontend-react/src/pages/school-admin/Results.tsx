@@ -4,12 +4,13 @@ import {
   Box, Typography, Paper, Grid, Button, Alert, CircularProgress,
   FormControl, InputLabel, Select, MenuItem, Card, CardContent,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, LinearProgress,
-  Snackbar, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider
+  Snackbar, Avatar, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Divider,
+  Switch, FormControlLabel
 } from '@mui/material';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Download, Trophy, Users, BarChart3, Sparkles, ExternalLink, Copy, Check, Share2 } from 'lucide-react';
 import { useElectionStore } from '../../store/electionStore';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axiosInstance, { getMediaUrl } from '../../api/axiosInstance';
 
 const getImageUrl = (path: string | null | undefined) => {
@@ -29,6 +30,7 @@ const formatPosition = (index: number) => {
 const COLORS = ['#3f51b5', '#f50057', '#4caf50', '#ff9800', '#9c27b0', '#00bcd4'];
 
 const Results = () => {
+  const queryClient = useQueryClient();
   const { 
     selectedElectionName,
     selectedElectionStatus
@@ -64,6 +66,28 @@ const Results = () => {
 
   const selectedElectionData = elections?.find((e: any) => e.id == selectedElection);
   const canViewResults = selectedElectionData?.status === 'CLOSED';
+
+  const [isPublicResultsVisible, setIsPublicResultsVisible] = useState(false);
+
+  useEffect(() => {
+    if (selectedElectionData) {
+      setIsPublicResultsVisible(!!selectedElectionData.show_results);
+    }
+  }, [selectedElectionData]);
+
+  const handleTogglePublicResults = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.checked;
+    setIsPublicResultsVisible(newValue);
+    try {
+      await axiosInstance.put(`/elections/${selectedElection}/toggle-results`, {
+        show_results: newValue
+      });
+      queryClient.invalidateQueries({ queryKey: ['elections'] });
+    } catch (err) {
+      setIsPublicResultsVisible(!newValue);
+      console.error("Failed to toggle public results visibility:", err);
+    }
+  };
 
   const [copied, setCopied] = useState(false);
   const [copiedDisplay, setCopiedDisplay] = useState(false);
@@ -218,7 +242,7 @@ const Results = () => {
       </Box>
 
       <Paper sx={{ p: 3, mb: 1.5, borderRadius: 2 }}>
-        <FormControl fullWidth>
+        <FormControl fullWidth sx={{ mb: selectedElection && canViewResults ? 2 : 0 }}>
           <InputLabel>Select Election</InputLabel>
           <Select 
             value={selectedElection} 
@@ -240,6 +264,31 @@ const Results = () => {
             )}
           </Select>
         </FormControl>
+        {selectedElection && canViewResults && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Show Results on Public Screen</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  When enabled, the public results screen and presentation dashboard will show vote counts and winners. When disabled, they will show a "Results Waiting" screen.
+                </Typography>
+              </Box>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isPublicResultsVisible}
+                    onChange={handleTogglePublicResults}
+                    color="primary"
+                  />
+                }
+                label={isPublicResultsVisible ? "Visible" : "Hidden"}
+                labelPlacement="start"
+                sx={{ ml: 2, mr: 0 }}
+              />
+            </Box>
+          </>
+        )}
       </Paper>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2, ml: 1, fontWeight: 500 }}>
         Note: Final results can only be viewed for <b>Closed</b> elections.
